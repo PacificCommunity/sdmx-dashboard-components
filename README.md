@@ -1,6 +1,15 @@
-# Getting Started with Create React App
+# SMDX dashboard frontend components
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Todo
+
+[ ] If not URL provided, load list of dashboards from server
+[ ] If provided, pass on URL to Dashboard component
+[ ] Dashboard component
+  [ ] Load config file
+  [ ] Handle JSON files instead of YAML
+  [ ] Parse for layout
+[ ] Add map component
+[ ] Check for integration with standalone page
 
 ## Available Scripts
 

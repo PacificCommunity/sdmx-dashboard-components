@@ -2,14 +2,14 @@
 
 ## Todo
 
-[ ] If not URL provided, load list of dashboards from server
-[ ] If provided, pass on URL to Dashboard component
-[ ] Dashboard component
-  [ ] Load config file
-  [ ] Handle JSON files instead of YAML
-  [ ] Parse for layout
-[ ] Add map component
-[ ] Check for integration with standalone page
+- [ ] If not URL provided, load list of dashboards from server
+- [ ] If provided, pass on URL to Dashboard component
+- [ ] Dashboard component
+  - [ ] Load config file
+  - [ ] Handle JSON files instead of YAML
+  - [ ] Parse for layout
+- [ ] Add map component
+- [ ] Check for integration with standalone page
 
 ## Available Scripts
 

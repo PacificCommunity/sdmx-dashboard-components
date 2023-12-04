@@ -1,5 +1,10 @@
 # SMDX dashboard frontend components
 
+Embeddable React app try-out based on following articles:
+- [Create a react app with webpack](https://www.educative.io/answers/how-to-create-a-react-application-with-webpack)
+- [setup react application using typescript and webpack](https://dev.to/shivampawar/setup-react-application-using-typescript-and-webpack-2kn6)
+- [Progressively Decoupled App With React on Drupal](https://www.tothenew.com/blog/progressively-decoupled-app-with-react-on-drupal/)
+
 ## Todo
 
 - [ ] If not URL provided, load list of dashboards from server (?)

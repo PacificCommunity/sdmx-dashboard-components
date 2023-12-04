@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState } from 'react';
 import Title from '../title';
 import Value from '../value';
@@ -15,7 +13,7 @@ import { ErrorBoundary } from 'react-error-boundary';
  * @param config Dashboard element configuration
  * @returns 
  */
-const Cell = ({ config }: {config: any}) => {
+const Cell = ({ config }: { config: any }) => {
 
     const [ready, setReady] = useState(false)
 
@@ -52,7 +50,7 @@ const Cell = ({ config }: {config: any}) => {
 
     }
 
-    const fallbackRender = ({ error, resetErrorBoundary }: {error: any, resetErrorBoundary: any}) => {
+    const fallbackRender = ({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: any }) => {
         return (
             <div className="text-danger">
                 <p>Something went wrong:</p>
@@ -65,7 +63,7 @@ const Cell = ({ config }: {config: any}) => {
     return (
         <ErrorBoundary
             fallbackRender={fallbackRender}
-            onReset={() => {}}
+            onReset={() => { }}
         >
             <div className={`${config.className} bg-light`}>
                 {conditionalBoardComponent()}

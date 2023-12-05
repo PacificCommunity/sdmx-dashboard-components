@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const DotEnv = require('dotenv-webpack');
 
 const config = {
     entry: './src/index.tsx',
@@ -13,6 +14,7 @@ const config = {
         new HtmlWebpackPlugin({
             template: "src/index.html", // to import index.html file inside index.js
         }),
+        new DotEnv()
     ],
     devServer: {
         port: 3030, // you can change the port

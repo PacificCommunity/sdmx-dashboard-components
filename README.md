@@ -17,6 +17,11 @@ Embeddable React app try-out based on following articles:
 - [ ] Try adding 2 dashboards in one single page
 - [ ] Check licencing (currently going for CC-BY-4.0)
 
+## Usage
+
+Create a `.env` file containing the variable `SERVER_URL` to store the URL of the API server for dashboard configuration.
+
+
 ## Available Scripts
 
 In the project directory, you can run:

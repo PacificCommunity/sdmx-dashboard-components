@@ -1,19 +1,22 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
+
+import Dashboard from './components/dashboard';
 // import reportWebVitals from './reportWebVitals';
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const elems = document.getElementsByClassName('sdmx-dashboard-react')
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-// reportWebVitals();
+// loop through collections of elements and create a root for each
+Array.from(elems).forEach((elem) => {
+  // get URL from element data attribute and pass to App
+  const url = elem.getAttribute('data-url')
+  ReactDOM.createRoot(elem as HTMLElement).render(
+    url?.length > 0 &&
+    <React.StrictMode>
+      <Dashboard dashUrl={url} />
+    </React.StrictMode>
+    || <div>Dashboard URL not provided</div>
+  );
+});
+

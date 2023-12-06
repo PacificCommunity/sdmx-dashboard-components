@@ -7,7 +7,6 @@ Embeddable React app try-out based on following articles:
 
 ## Todo
 
-- [ ] If not URL provided, load list of dashboards from server (?)
 - [ ] If provided, pass on URL to Dashboard component
 - [ ] Dashboard component
   - [ ] Load config file from server
@@ -16,6 +15,22 @@ Embeddable React app try-out based on following articles:
 - [ ] Add (fix) map component
 - [ ] Try adding 2 dashboards in one single page
 - [ ] Check licencing (currently going for CC-BY-4.0)
+
+## How does this work
+
+The `sdmx-dashboard.bundle.js` (found in `dist/` folder) defines the **Dashboard** react component:
+
+`<Dashboard dashurl="https://server.domain/path-to-config.json" />`  
+
+The HTML page should include the javascript bundle and may include as many dashboards as needed by adding `sdmx-dashboard-react` CSS class name to DIV along with the URL to the config file:  
+```
+<div
+  class="sdmx-dashboard-react"
+  data-url="https://server.domain/path-to-config.json"
+></div>
+```
+
+See src/index.html for an example.
 
 ## Available Scripts
 

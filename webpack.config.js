@@ -14,6 +14,7 @@ const config = {
             template: "src/index.html", // to import index.html file inside index.js
         }),
     ],
+    devtool: 'source-map',
     devServer: {
         port: 3030, // you can change the port
     },

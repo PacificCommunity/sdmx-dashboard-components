@@ -7,14 +7,9 @@ import './App.css';
 import { set } from 'ol/transform';
 import Title from './components/title';
 import { AnyMxRecord } from 'dns';
-import CellJSON from './components/cellJSON';
 
 // declare pageData type
 type pageDataType = {
-  dashId: string,
-  dashConfig: Array<any>
-}
-type pageDataTypeJSON = {
   id: string,
   header: any,
   rows: Array<{columns: Array<any>}>,
@@ -47,39 +42,6 @@ const parseColSize = (chartExpr: string) => {
   return 'col-12 col-md-4'
 }
 
-const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => {
-
-  const dataJson = await fetch(sampleUrl);
-  const data = await dataJson.json();
-
-  let layout = new Array()
-  let row = -1
-  // store Footer row separately to append to final list
-  const footerElement = data?.footer;
-  data.Rows.forEach((element: {
-    Row: number;
-    chartType: string;
-    className?: string;
-    colorScheme?: string;
-  }) => {
-    if (element.Row !== row) {
-      row = element.Row
-      layout[row] = new Array()
-    }
-    element.className = parseColSize(element.chartType)
-    element.colorScheme = element.chartType.split(',')[2]?.trim()
-    element.chartType = element.chartType.split(',')[0]
-    layout[row].push(element)
-  })
-
-  layout[layout.length] = footerElement;
-  // return pageDataType object
-  return {
-    dashId: data.dashID,
-    dashConfig: layout
-  }
-
-}
 
 const App = ({dashboardConfig}: {dashboardConfig: string}) => {
 
@@ -88,8 +50,7 @@ const App = ({dashboardConfig}: {dashboardConfig: string}) => {
     { value: 'fr', label: 'Francais' }
   ]
 
-  const [pageData, setPageData] = useState<pageDataType>({ dashId: '', dashConfig: [] });
-  const [pageDataJSON, setPageDataJSON] = useState<pageDataTypeJSON>();
+  const [pageData, setPageData] = useState<pageDataType>();
   const [language, setLanguage] = useState<string>(languageOptions[0].value);
 
 
@@ -102,8 +63,8 @@ const App = ({dashboardConfig}: {dashboardConfig: string}) => {
     //   setPageData(data)
     // })
     if(dashboardConfig.endsWith('.json')) {
-      fetch(`${process.env.SERVER_URL}/api/config/${dashboardConfig}`).then(response => response.json()).then((data: pageDataTypeJSON) => {
-        setPageDataJSON(data)
+      fetch(`${process.env.SERVER_URL}/api/config/${dashboardConfig}`).then(response => response.json()).then((data: pageDataType) => {
+        setPageData(data)
       }).catch((e) => {
         console.log(e)
       })
@@ -126,34 +87,34 @@ const App = ({dashboardConfig}: {dashboardConfig: string}) => {
           ))
         }
       </div> */}
-      { pageDataJSON ? (
-          <div key={`container-${pageDataJSON.id}`} className="container-fluid mt-2">
+      { pageData ? (
+          <div key={`container-${pageData.id}`} className="container-fluid mt-2">
             <select value={language} onChange={handleChange}>
               {languageOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
             {
-              pageDataJSON.header ?
+              pageData.header ?
                 <div className="row mb-3 display-flex">
-                  <Title config={pageDataJSON.header} />
+                  <Title config={pageData.header} />
                 </div> : null
             }
             {
-              pageDataJSON.rows.map((row, index_row) => (
+              pageData.rows.map((row, index_row) => (
                 <div key={`row-${index_row}`} className="row mb-3 display-flex">
                   {
                     row.columns.map((cell, index_col) => (
-                      <CellJSON key={`col-${cell.id}`} className={`col-md-${cell.bootstrapCol}`} language={language} config={cell} />
+                      <Cell key={`col-${cell.id}`} className={`col-md-${cell.bootstrapCol}`} language={language} config={cell} />
                     ))
                   }
                 </div>
               ))
             }
             {
-              pageDataJSON.footer ?
+              pageData.footer ?
                 <div className="row mb-3 display-flex">
-                  <Title config={pageDataJSON.footer} />
+                  <Title config={pageData.footer} />
                 </div> : null
             }
           </div>

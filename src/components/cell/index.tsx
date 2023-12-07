@@ -13,21 +13,21 @@ import { ErrorBoundary } from 'react-error-boundary';
  * @param config Dashboard element configuration
  * @returns 
  */
-const Cell = ({ config }: { config: any }) => {
+const Cell = ({ config, language, className }: { config: any, language: string, className: string }) => {
 
     const [ready, setReady] = useState(false)
 
     const conditionalBoardComponent = () => {
 
-        switch (config.chartType) {
-            case 'BARS':
-            case 'VBARS':
-            case 'HBARS':
-            case 'LINES':
-            case 'DRILLDOWN':
-            case 'PIE':
+        switch (config.type) {
+            case 'bar':
+            case 'column':
+            case 'line':
+            case 'drilldown':
+            case 'pie':
                 return <Chart
                     config={config}
+                    language={language}
                 />
             /* 
             case 'MAP':
@@ -35,14 +35,10 @@ const Cell = ({ config }: { config: any }) => {
                     config={config}
                 />
             */
-            case 'TITLE':
-            case 'FOOTER':
-                return <Title
-                    config={config}
-                />
-            case 'VALUE':
+            case 'value':
                 return <Value
                     config={config}
+                    language={language}
                 />
             default:
                 return <p className="text-danger">[{config.chartType}]<br />{config.Title}</p>
@@ -65,7 +61,7 @@ const Cell = ({ config }: { config: any }) => {
             fallbackRender={fallbackRender}
             onReset={() => { }}
         >
-            <div className={`${config.className} bg-light`}>
+            <div className={`${className} bg-light`}>
                 {conditionalBoardComponent()}
             </div>
 

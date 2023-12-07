@@ -1,19 +1,24 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-// import reportWebVitals from './reportWebVitals';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import './index.css'
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
-root.render(
-  <React.StrictMode>
-    <App dashboardConfig={"PacificPopulationJSONFILTER.json"}/>
-  </React.StrictMode>
-);
+import Dashboard from './components/dashboard'
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-// reportWebVitals();
+// Get all nodes with CSS classname sdmx-dashboard-react
+const elems = document.getElementsByClassName('sdmx-dashboard-react')
+
+// loop through collections of elements and render Dashboards
+Array.from(elems).forEach((elem) => {
+  // get URL from element data attribute and pass to App
+  const url = elem.getAttribute('data-url')
+  // create root and render
+  // if URL to config file is not provided, display a message
+  ReactDOM.createRoot(elem as HTMLElement).render(
+    url?.length > 0 &&
+    <React.StrictMode>
+      <Dashboard dashUrl={url} />
+    </React.StrictMode>
+    || <div>Dashboard URL not provided</div>
+  );
+});
+

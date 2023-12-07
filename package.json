@@ -7,7 +7,7 @@
   "license": "CC-BY-4.0",
   "scripts": {
     "start": "webpack-dev-server --mode development --open",
-    "serve": "webpack serve --mode development",
+    "serve": "webpack serve --mode development --open",
     "build": "NODE_ENV=production webpack",
     "watch": "webpack --watch --progress"
   },

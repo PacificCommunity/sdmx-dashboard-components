@@ -16,6 +16,7 @@ const config = {
         }),
         new DotEnv()
     ],
+    devtool: 'source-map',
     devServer: {
         port: 3030, // you can change the port
     },

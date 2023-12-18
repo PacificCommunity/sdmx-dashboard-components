@@ -15,10 +15,10 @@ Array.from(elems).forEach((elem) => {
   // if URL to config file is not provided, display a message
   ReactDOM.createRoot(elem as HTMLElement).render(
     url?.length > 0 &&
-    <React.StrictMode>
+    (<React.StrictMode>
       <Dashboard dashUrl={url} />
     </React.StrictMode>
-    || <div>Dashboard URL not provided</div>
+    || <div>Dashboard URL not provided</div>)
   );
 });
 

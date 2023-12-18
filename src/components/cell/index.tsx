@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Title from '../title';
+import Text from '../text';
 import Value from '../value';
 import Chart from '../chart';
 // import MapComponent from '../map';
@@ -14,8 +14,6 @@ import { ErrorBoundary } from 'react-error-boundary';
  * @returns 
  */
 const Cell = ({ config, language, className }: { config: any, language: string, className: string }) => {
-
-    const [ready, setReady] = useState(false)
 
     const conditionalBoardComponent = () => {
 
@@ -37,6 +35,11 @@ const Cell = ({ config, language, className }: { config: any, language: string, 
             */
             case 'value':
                 return <Value
+                    config={config}
+                    language={language}
+                />
+            case 'note':
+                return <Text
                     config={config}
                     language={language}
                 />

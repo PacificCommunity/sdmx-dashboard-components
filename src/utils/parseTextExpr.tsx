@@ -14,37 +14,12 @@ import { text } from "stream/consumers";
  * @param {Object} dimensions
  * @returns {Object}
  */
-export const parseTextExpr = (titleExpr: string, dimensions: any[]) => {
-
-  // define return object
-  let result : {
-    text: string,           // cleaned up and parsed text
-    bootstrapcss: string[], // bootstrap classname used in title component
-    inlinecss: {            // inline css used in title component (font-size)
-      fontSize?: string
-    },
-    align: string,          // alignment for highcharts
-    hcStyle: {              // highcharts style
-      fontWeight?: string,
-      fontSize?: string,
-      fontStyle?: string
-    }
-  } = {
-    text: '',
-    align: 'center',
-    bootstrapcss: [],
-    hcStyle: {},
-    inlinecss: {}
-  }
-
-  if (!titleExpr || !titleExpr.trim()) {
-    return result;
-  }
+export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => {
 
   // clean up title
-  const text = titleExpr.replace(/,[\s]?\[(.*?)\]$/, '').trim()
+  const text = textExpr.replace(/,[\s]?\[(.*?)\]$/, '').trim()
   //const textWithValues = text.replace(/\{\$(.*?)\}/g, (match, p1) => {
-  const textWithValues = text.replace(/\{(.*?)\}/g, (match, p1) => {
+  const textWithValues : string = text.replace(/\{(.*?)\}/g, (match, p1) => {
     let valueAttribute = 'name'
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {
@@ -95,61 +70,7 @@ export const parseTextExpr = (titleExpr: string, dimensions: any[]) => {
     }
   });
 
-
-  result.text = textWithValues;
-
-  // Get style options
-  // Match coma separated values in square brackets from a string
-  const match = titleExpr.match(/,[\s]?\[(.*?)\]$/);
-  const style = match ? match[0].replace(/\[|\]/g, '').split(',') : [];
-
-  // fill in result object
-  style.forEach((item: any) => {
-    switch (item.trim().toLowerCase()) {
-      case 'bold':
-        result.bootstrapcss.push('fw-bold');
-        result.hcStyle.fontWeight = 'bold';
-        break;
-      case 'italics':
-        result.bootstrapcss.push('fst-italic');
-        result.hcStyle.fontStyle = 'italic';
-        break;
-      case 'left':
-        result.align = 'left';
-        break;
-      case 'center':
-        result.align = 'center';
-        break;
-      case 'right':
-        result.align = 'right';
-        break;
-      default:
-        // if number, then it is font size
-        if (parseInt(item)) {
-          result.inlinecss.fontSize = `${parseInt(item)}px`;
-          result.hcStyle.fontSize = `${parseInt(item)}px`;
-        } else {
-          // ignore other params
-        }
-        break;
-    }
-  });
-
-  // add CSS text alignment classes to bootstrapcss
-  switch (result.align) {
-    case 'left':
-      result.bootstrapcss.push('text-start');
-      break;
-    case 'right':
-      result.bootstrapcss.push('text-end');
-      break;
-    default:
-      // default is centered text
-      result.bootstrapcss.push('text-center');
-      break;
-  }
-
-  return result;
+  return textWithValues
 
 }
 

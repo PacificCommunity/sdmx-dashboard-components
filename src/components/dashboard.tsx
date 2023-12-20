@@ -1,35 +1,50 @@
 import React, { useState, useEffect } from 'react';
 
 import Cell from './cell';
-import Title from './title';
+import Text from './text';
 
 import 'bootstrap/dist/css/bootstrap.css';
 import '../global.css';
 
 const Dashboard = ({ dashUrl }: { dashUrl: string }) => {
 
-    const [pageData, setPageData] = useState({ id: '', languages: [], header: {}, rows: [], footer: [] });
-    const [language, setLanguage] = useState<string>();
+    const [pageData, setPageData] = useState({ id: '', colCount: 3, languages: [], header: {}, rows: [], footer: [] });
+    const [language, setLanguage] = useState<string>('en');
 
     useEffect(() => {
         fetch(dashUrl).then(response => response.json()).then((data) => {
             setPageData(data)
+            // set default values
+            if (!data.colCount) {
+                data.colCount = 3;
+            }
+            data.rows.forEach((row: any) => {
+              row.columns.forEach((cell: any) => {
+                if (!cell.colSize) {
+                  cell.colSize = 1;
+                }
+              })
+            })
+
         }).catch((e) => {
             console.log(e)
         })
-    }, [])
+    }, [dashUrl])
 
     return (
         <div key={`container-${pageData.id}`} className="container-fluid mt-2">
-            <select value={language} onChange={(evt)=>setLanguage(evt.target.value)}>
-              {pageData.languages.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            { Object.keys(pageData.languages).length > 0 ?
+
+              <select className="form-select w-50" aria-label="select language" value={language} onChange={(evt)=>setLanguage(evt.target.value)}>
+                {Object.keys(pageData.languages).map((key: string) => (
+                  <option key={key} value={key}>{pageData.languages[key as keyof typeof pageData.languages]}</option>
+                ))}
+              </select> : null
+            }
             {
               pageData.header ?
                 <div className="row mb-3 display-flex">
-                  <Title config={pageData.header} />
+                  <Text config={pageData.header} language={language} />
                 </div> : null
             }
             {
@@ -37,7 +52,7 @@ const Dashboard = ({ dashUrl }: { dashUrl: string }) => {
                 <div key={`row-${index_row}`} className="row mb-3 display-flex">
                   {
                     row.columns.map((cell: any, index_col: number) => (
-                      <Cell key={`col-${cell.id}`} className={`col-md-${cell.bootstrapCol}`} language={language} config={cell} />
+                      <Cell key={`col-${cell.id}`} className={`col-md-${Math.ceil((12/pageData.colCount)*cell.colSize)}`} language={language} config={cell} />
                     ))
                   }
                 </div>
@@ -46,7 +61,7 @@ const Dashboard = ({ dashUrl }: { dashUrl: string }) => {
             {
               pageData.footer ?
                 <div className="row mb-3 display-flex">
-                  <Title config={pageData.footer} />
+                  <Text config={pageData.footer} language={language}/>
                 </div> : null
             }
         </div>

@@ -3,12 +3,14 @@ import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseDataExpr } from "../../utils/parseDataExpr";
+import { InfoCircle } from "react-bootstrap-icons";
+import { Button } from "react-bootstrap";
 
 const Value = ({ config, language }: { config: any, language: string }) => {
 
-    const [titleObject, setTitleObject] = useState<any>({ text: "Loading..." })
-    const [subTitleObject, setSubTitleObject] = useState<any>({ text: "Loading..." })
     const [valueStr, setValueStr] = useState("Loading...")
+    const [titleText, setTitleText] = useState<string>('Loading...')
+    const [subtitleText, setSubtitleText] = useState<string>('Loading...')
 
     const sdmxParser = new SDMXParser();
 
@@ -18,9 +20,9 @@ const Value = ({ config, language }: { config: any, language: string }) => {
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
         if (config['Unit']) {
-            if (config['unitLoc'] == 'SUFFIX') {
+            if (config['unitLoc'] === 'SUFFIX') {
                 valueStr += config['Unit'];
-            } else if (config['unitLoc'] == 'PREFIX') {
+            } else if (config['unitLoc'] === 'PREFIX') {
                 valueStr = config['Unit'] + valueStr;
             }
         }
@@ -33,7 +35,7 @@ const Value = ({ config, language }: { config: any, language: string }) => {
             throw new Error('Multiple data expressions are not supported for Value component');
         }
         const dataObj = dataObjs[0];
-
+ 
         const dataFlowUrl = dataObj.dataFlowUrl;
         sdmxParser.getDatasets(dataFlowUrl, {
             headers: new Headers({
@@ -45,8 +47,16 @@ const Value = ({ config, language }: { config: any, language: string }) => {
             const dimensions = sdmxParser.getDimensions();
             const attributes = sdmxParser.getAttributes();
 
-            setTitleObject(config.title)
-            setSubTitleObject(config.subtitle)
+            if(typeof config.title == 'string') {
+                setTitleText(parseTextExpr(config.title, dimensions))
+            } else {
+                setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
+            }
+            if(typeof config.subtitle == 'string') {
+                setSubtitleText(parseTextExpr(config.subtitle, dimensions))
+            } else {
+                setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
+            }
 
             let valueStr = data[0].value;
             // apply operation to data
@@ -77,14 +87,20 @@ const Value = ({ config, language }: { config: any, language: string }) => {
         });
     }, [language]);
 
-    return (
-        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.frameYN && config.frameYN.toLowerCase() == 'yes' ? "border" : ""}`}>
-            <h2 className={`${titleObject.bootstrapcss && titleObject.bootstrapcss.join(' ')}`} style={titleObject.inlinecss}>{titleObject.text[language]}</h2>
-            {subTitleObject['text'] && (<h4 className={`${subTitleObject.bootstrapcss && subTitleObject.bootstrapcss.join(' ')}`} style={subTitleObject.inlinecss}>{subTitleObject.text[language]}</h4>)}
+    const valueNode: React.ReactNode =
+        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.frame ? "border" : ""}`}>
+            {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.italic?'fst-italic':''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
+            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.italic?'fst-italic':''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
             <div className="display-2 flex-grow-1 d-flex align-items-center justify-content-center">
                 <p>{valueStr}</p>
             </div>
-        </div>
+        </div> 
+
+    return (
+        <>
+        { config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
+            valueNode}
+        </>
 
     )
 }

@@ -7,7 +7,8 @@ const config = {
     mode: (process.env.NODE_ENV === 'production') ? 'production' : 'development',
     output: {
         path: path.resolve(__dirname, 'dist'),
-        filename: 'sdmx-dashboard.bundle.js'
+        filename: 'sdmx-dashboard.bundle.js',
+        clean: true
     },
     plugins: [
         new HtmlWebpackPlugin({

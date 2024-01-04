@@ -1,5 +1,3 @@
-import { text } from "stream/consumers";
-
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -76,7 +74,7 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
 
 export const parseOperandTextExpr = (operandExpr: string, data : any, attributes: any[]) => {
 
-  const textWithValues = String(operandExpr).replace(/\{(.*?)\}/g, (match, p1) => {
+  const textWithValues = String(operandExpr).replace(/\{(.*?)\}/g, (_match, p1) => {
     let valueAttribute = 'name';
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {

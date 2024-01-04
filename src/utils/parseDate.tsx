@@ -25,4 +25,6 @@ export const parseDate = (dateStr: string) => {
     if (dateStr.match(/^\d{4}-[Qq]\d$/)) {
         return Date.UTC(parseInt(dateStr.split('-')[0]), (parseInt(dateStr.split('-')[1].replace(/[Qq]/, '')) - 1) * 3, 1)
     }
+
+    return null
 }

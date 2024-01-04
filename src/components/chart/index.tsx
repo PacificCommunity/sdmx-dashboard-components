@@ -69,7 +69,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 const attributes = parser.getAttributes();
                 // if alternate label specified in the DATA field, the label is appended to the data with key xAxisConcept
                 if (dataObj.alternateLabel) {
-                    data.forEach((dataItem: any, index: number, data: [any]) => {
+                    data.forEach((_dataItem: any, index: number, data: [any]) => {
                         data[index][config.xAxisConcept] = dataObj.alternateLabel;
                     });
                 }
@@ -78,7 +78,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     if (dataObj.operand.startsWith('{')) {
                         // operand is an attribute
                         const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                        data.forEach((dataItem: any, index: number, data: [any]) => {
+                        data.forEach((_dataItem: any, index: number, data: [any]) => {
                             data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                         });
                         return [data, parser.getDimensions()];
@@ -92,7 +92,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                         }).then(() => {
                             const dataOperand = parserOperand.getData();
                             const operandValue = dataOperand[0].value;
-                            data.forEach((dataItem: any, index: number, data: [any]) => {
+                            data.forEach((_dataItem: any, index: number, data: [any]) => {
                                 data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                             });
                             return [data, parser.getDimensions()];
@@ -341,7 +341,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
 
     return (
         <>
-        { config.dataLink ? <a href={config.dataLink} target="_blank">{chart}</a>
+        { config.dataLink ? <a href={config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
             : chart}
         </>
     )

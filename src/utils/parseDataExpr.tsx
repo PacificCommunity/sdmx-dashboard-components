@@ -1,5 +1,3 @@
-import { type } from "os";
-
 /**
  * Process the "DATA" expression provided in yaml.
  * Example: 'https://www.ilo.org/sdmx/rest/data/ILO,DF_EES_TEES_SEX_MJH_NB,1.0/CHL.A..SEX_T.MJH_AGGREGATE_MULTI?endPeriod=2022&lastNObservations=1 * {UNIT_MULT}',
@@ -28,8 +26,8 @@ export const parseDataExpr = (dataExprs: [string]) => {
     };
 
     const tokens1 = dataExpr.split(', ');
-    if (tokens1.length == 2) {
-      const alternateLabel = tokens1[1].trim().replace(/[\{\}']+/g, '');
+    if (tokens1.length === 2) {
+      const alternateLabel = tokens1[1].trim().replace(/[{}']+/g, '');
       // TODO handle the case when alternateLabel is a concept
       dataExpr = tokens1[0].trim();
       parsedExpr['alternateLabel'] = alternateLabel;
@@ -37,7 +35,7 @@ export const parseDataExpr = (dataExprs: [string]) => {
 
     // when we have an operation
     const tokens = dataExpr.split(/ [/*+-] /g);
-    if (tokens.length == 1) {
+    if (tokens.length === 1) {
       parsedExpr['dataFlowUrl'] = tokens[0].trim();
     } else {
       parsedExpr['dataFlowUrl'].push(tokens[0].trim());
@@ -48,12 +46,12 @@ export const parseDataExpr = (dataExprs: [string]) => {
     // when we have a map with joined urls
     const tokensMap = dataExpr.split(' | ')
     // syntax for map DATA is like "SDMX_URL, {JOIN_KEY_SDMX} | GEOJSON_URL, {JOIN_KEY_GEOJSON}"
-    if (tokensMap.length == 2) {
+    if (tokensMap.length === 2) {
       parsedExpr['dataFlowUrl'] = tokensMap[0].split(', ')[0]
-      parsedExpr['dataFlowKey'] = tokensMap[0].split(', ')[1].trim().replace(/[\{\}]+/g, '')
+      parsedExpr['dataFlowKey'] = tokensMap[0].split(', ')[1].trim().replace(/[{}]+/g, '')
       parsedExpr['geojsonUrl'] = tokensMap[1].split(', ')[0]
       parsedExpr['geojsonProjection'] = tokensMap[1].split(', ')[1]
-      parsedExpr['geojsonKey'] = tokensMap[1].split(', ')[2].trim().replace(/[\{\}]+/g, '')
+      parsedExpr['geojsonKey'] = tokensMap[1].split(', ')[2].trim().replace(/[{}]+/g, '')
     }
     
     results.push(parsedExpr);

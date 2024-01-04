@@ -9,8 +9,8 @@ import { Button } from "react-bootstrap";
 const Value = ({ config, language }: { config: any, language: string }) => {
 
     const [valueStr, setValueStr] = useState("Loading...")
-    const [titleText, setTitleText] = useState<string>('Loading...')
-    const [subtitleText, setSubtitleText] = useState<string>('Loading...')
+    const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
+    const [subtitleText, setSubtitleText] = useState<string>(config.subtitle?'Loading...':'')
 
     const sdmxParser = new SDMXParser();
 
@@ -47,15 +47,19 @@ const Value = ({ config, language }: { config: any, language: string }) => {
             const dimensions = sdmxParser.getDimensions();
             const attributes = sdmxParser.getAttributes();
 
-            if(typeof config.title == 'string') {
-                setTitleText(parseTextExpr(config.title, dimensions))
-            } else {
-                setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
+            if(config.title) {
+                if(typeof config.title == 'string') {
+                    setTitleText(parseTextExpr(config.title, dimensions))
+                } else {
+                    setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
+                }
             }
-            if(typeof config.subtitle == 'string') {
-                setSubtitleText(parseTextExpr(config.subtitle, dimensions))
-            } else {
-                setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
+            if(config.subtitle) {
+                if(typeof config.subtitle == 'string') {
+                    setSubtitleText(parseTextExpr(config.subtitle, dimensions))
+                } else {
+                    setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
+                }
             }
 
             let valueStr = data[0].value;

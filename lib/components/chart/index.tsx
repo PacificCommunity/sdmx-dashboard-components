@@ -110,15 +110,19 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 const data = sdmxObj[0];
                 const dimensions = sdmxObj[1];
 
-                if(typeof config.title == 'string') {
-                    titleText = parseTextExpr(config.title, dimensions)
-                } else {
-                    titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
+                if(config.title) {
+                    if(typeof config.title == 'string') {
+                        titleText = parseTextExpr(config.title, dimensions)
+                    } else {
+                        titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
+                    }
                 }
-                if(typeof config.subtitle == 'string') {
-                    subtitleText = parseTextExpr(config.subtitle, dimensions)
-                } else {
-                    subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
+                if(config.subtitle) {
+                    if(typeof config.subtitle == 'string') {
+                        subtitleText = parseTextExpr(config.subtitle, dimensions)
+                    } else {
+                        subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
+                    }
                 }
 
                 // check if xAxisConcept exists in data
@@ -129,15 +133,15 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
                 }
                 // check if legendConcept exists in dataFlow
-                if (config.legend.concept && config.legend.concept !== 'MULTI') {
-                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config.legendConcept);
+                if (config.legend && config.legend.concept && config.legend.concept !== 'MULTI') {
+                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config.legend.concept);
                     if (!legendDimension) {
                         throw new Error(`legendConcept ${config.legend.concept} not found in dataflow`);
                     }
                 }
 
                 let xAxisConcept = config.xAxisConcept;
-                let legendConcept = config.legend.concept;
+                let legendConcept = config?.legend?.concept;
 
                 if (chartType === 'line') {
                     // in case xAxisConcept is empty, we use TIME_PERIOD
@@ -283,7 +287,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
 
                     // force legend for Pie charts
-                    if (config.legend.location !== 'none' && chartType === 'pie') {
+                    if (config.legend && config.legend.location !== 'none' && chartType === 'pie') {
                         hcExtraOptions["plotOptions"][chartType]["showInLegend"] = true;
                     }
 
@@ -323,8 +327,8 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     align: config.subtitle?.align
                 },
                 legend: {
-                    enabled: config.legend.location === 'none' ? false : true,
-                    align: config.legend.location && (config.legend.location.toLowerCase() || 'right')
+                    enabled: config?.legend?.location === 'none' ? false : true,
+                    align: ((config.legend && config.legend.location && config.legend.location.toLowerCase()) || 'right')
                 },
                 series: seriesData,
                 ...hcExtraOptions,

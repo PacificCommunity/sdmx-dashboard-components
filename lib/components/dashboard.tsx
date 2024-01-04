@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import Cell from './cell';
 import Text from './text';
 
 import 'bootstrap/dist/css/bootstrap.css';
-import '../global.css';
+import '../global.module.css';
 
 const Dashboard = ({ dashUrl }: { dashUrl: string }) => {
 

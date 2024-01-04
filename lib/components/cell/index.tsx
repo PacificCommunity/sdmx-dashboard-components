@@ -1,8 +1,6 @@
-import React from 'react';
 import Text from '../text';
 import Value from '../value';
 import Chart from '../chart';
-// import MapComponent from '../map';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
 

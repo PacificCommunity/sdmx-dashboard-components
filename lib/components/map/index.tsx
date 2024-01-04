@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 
@@ -44,7 +44,7 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
     const displayFeatureInfo = (evt: MapBrowserEvent<UIEvent>, dimensions: any[]) => {
       const map = evt.map;
       const pixel = map.getEventPixel(evt.originalEvent);
-      let features: FeatureLike[] = [];
+      const features: FeatureLike[] = [];
       map.forEachFeatureAtPixel(pixel, (feature: FeatureLike) => {
         features.push(feature);
       });

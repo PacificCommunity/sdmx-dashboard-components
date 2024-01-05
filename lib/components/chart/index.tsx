@@ -110,19 +110,15 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 const data = sdmxObj[0];
                 const dimensions = sdmxObj[1];
 
-                if(config.title) {
-                    if(typeof config.title == 'string') {
-                        titleText = parseTextExpr(config.title, dimensions)
-                    } else {
-                        titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
-                    }
+                if(typeof config.title == 'string') {
+                    titleText = parseTextExpr(config.title, dimensions)
+                } else if (typeof config.title === 'object') {
+                    titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
                 }
-                if(config.subtitle) {
-                    if(typeof config.subtitle == 'string') {
-                        subtitleText = parseTextExpr(config.subtitle, dimensions)
-                    } else {
-                        subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
-                    }
+                if(typeof config.subtitle == 'string') {
+                    subtitleText = parseTextExpr(config.subtitle, dimensions)
+                } else if (typeof config.subtitle === 'object') {
+                    subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
                 }
 
                 // check if xAxisConcept exists in data
@@ -294,7 +290,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     // append data to the serie
                     if (seriesData.length === 0) {
                         seriesData = [{
-                            name: config.title.text,
+                            name: titleText,
                             data: yAxisValue,
                         },];
                     } else {
@@ -309,20 +305,20 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 },
                 title: {
                     useHTML: true,
-                    text: `<h2>${titleText}${config.metadataLink?<Button variant="link" onClick={() => window.open(config.metadataLink, "_blank")}><InfoCircle></InfoCircle></Button>:""}</h2>`,
+                    text: `<h2 style="font-weight:inherit;font-size:inherit;font-style:inherit;">${titleText}${config.metadataLink?<Button variant="link" onClick={() => window.open(config.metadataLink, "_blank")}><InfoCircle></InfoCircle></Button>:""}</h2>`,
                     style: {
-                        fontweight: config.title?.weight? config.title.weight : "",
-                        fontstyle: config.title?.italic?"italic":"",
-                        fontsize: config.title?.size
+                        fontWeight: config.title?.weight? config.title.weight : "",
+                        fontStyle: config.title?.style,
+                        fontSize: config.title?.size
                     },
                     align: config.title?.align
                 },
                 subtitle: {
                     text: `<h4>${subtitleText}</h4>`,
                     style: {
-                        fontweight: config.subtitle?.weight ? config.subtitle.weight : "",
-                        fontstyle: config.subtitle?.italic?"italic":"",
-                        fontsize: config.subtitle?.size
+                        fontWeight: config.subtitle?.weight ? config.subtitle.weight : "",
+                        fontStyle: config.subtitle?.italic?"italic":"",
+                        fontSize: config.subtitle?.size
                     },
                     align: config.subtitle?.align
                 },

@@ -11,7 +11,7 @@ import XYZ from 'ol/source/XYZ'
 import GeoJSON from 'ol/format/GeoJSON'
 import Feature, { FeatureLike } from 'ol/Feature';
 import proj4 from 'proj4';
-import {get} from 'ol/proj';
+import {Projection, get} from 'ol/proj';
 import {register} from 'ol/proj/proj4';
 import { MapBrowserEvent, Overlay } from 'ol';
 import Style from 'ol/style/Style';
@@ -20,11 +20,14 @@ import Fill from 'ol/style/Fill';
 import Stroke from 'ol/style/Stroke';
 import 'ol/ol.css';
 
+import styles from './styles.module.css';
+
 
 import {interpolateBlues, interpolateGreens, interpolateGreys, interpolateOranges, interpolatePurples, interpolateReds, interpolateBrBG, interpolatePRGn, interpolatePiYG, interpolatePuOr, interpolateRdGy, interpolateRdYlBu, interpolateRdYlGn, interpolateSpectral, interpolateTurbo, interpolateViridis } from 'd3-scale-chromatic';
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { Polygon } from 'ol/geom';
+import { parseTextExpr } from '../../utils/parseTextExpr';
 
 const MapComponent = ({config, language} : {config: any, language : string}) => {
   // set intial state - used to track references to OpenLayers 
@@ -33,42 +36,19 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
   const [ obsValueMin, setObsValueMin ] = useState<number>(1e9)
   const [ obsValueMax, setObsValueMax ] = useState<number>(0)
 
+  const [ dimensions, setDimensions ] = useState<any[]>([])
+
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<Map|null>(null)
   const tooltipElement = useRef<HTMLDivElement>(null)
   const legendElement = useRef<HTMLDivElement>(null)
     
 
   useEffect(() => {
-    const sdmxParser = new SDMXParser();
-    const displayFeatureInfo = (evt: MapBrowserEvent<UIEvent>, dimensions: any[]) => {
-      const map = evt.map;
-      const pixel = map.getEventPixel(evt.originalEvent);
-      const features: FeatureLike[] = [];
-      map.forEachFeatureAtPixel(pixel, (feature: FeatureLike) => {
-        features.push(feature);
-      });
-      if (features.length > 0) {
-        const info: any[] = [];
-        features.forEach((feature: FeatureLike) => {
-          const others = dimensions.map((dimension: any) => {
-            return `${dimension.name} : ${feature.get(dimension.id)}`
-          })
-          info.push(`<p>${feature.get('value')}</p><small>(${others})</small>`);
+    let titleText = config.title?'Loading...':'';
 
-        })
-        const overlay = map.getOverlayById('tooltip-overlay')
-        overlay.setPosition(evt.coordinate);
-        tooltipElement.current!.style!.display = 'block';
-        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config.legend.concept)
-        tooltipElement.current!.children[1]!.innerHTML = info.join('\n')
-    
-        mapElement.current!.style.cursor = 'pointer';
-      } else {
-        tooltipElement.current!.style.display = 'none';
-        mapElement.current!.style.cursor = '';
-      }
-    };
+    const sdmxParser = new SDMXParser();
     const dataObjs = parseDataExpr(config.data);
     if(dataObjs.length > 1) {
       throw new Error('Multiple data expressions are not supported for Value component');
@@ -76,57 +56,61 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
     const dataObj = dataObjs[0];
 
     let geojsonProj = get(dataObj.geojsonProjection);
-    let mapProj = get('EPSG:3857')
-    if (!geojsonProj) {
-      // special case for map centered in the Pacific with EPSG:3832
-      if (dataObj.geojsonProjection === 'EPSG:3832') {
-        proj4.defs( "EPSG:3832", "+proj=merc +lon_0=150 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" ); 
-        register(proj4);
-        geojsonProj = get("EPSG:3832");
-        if (geojsonProj) {
-          const epsg3857 = get('EPSG:3857')
-          if (epsg3857) {
-            geojsonProj?.setExtent(epsg3857?.getExtent());
-          }
-          geojsonProj?.setGlobal(true);
-        }
-        mapProj = geojsonProj
-      }
-    }
     
     // create map
-    const initialMap = new Map({
-        target: mapElement.current || '',
-        layers: [
-            new TileLayer({
-                source: new XYZ({
-                  attributions:
-                    'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +
-                    'rest/services/World_Imagery/MapServer">ArcGIS</a>',
-                  url:
-                    'https://server.arcgisonline.com/ArcGIS/rest/services/' +
-                    'World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                }),
-            }),
-        ],
-        view: new View({
-            center: [0, 0],
-            zoom: 2,
-            projection: mapProj || 'EPSG:3857'
-        })
-    })
+    let mapProj: Projection|null = null 
+    if (mapElement.current && !mapRef.current) {
+      if (!geojsonProj) {
+        // special case for map centered in the Pacific with EPSG:3832
+        if (dataObj.geojsonProjection === 'EPSG:3832') {
+          proj4.defs( "EPSG:3832", "+proj=merc +lon_0=150 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs" ); 
+          register(proj4);
+          geojsonProj = get("EPSG:3832");
+          if (geojsonProj) {
+            const epsg3857 = get('EPSG:3857')
+            if (epsg3857) {
+              geojsonProj?.setExtent(epsg3857?.getExtent());
+            }
+            geojsonProj?.setGlobal(true);
+          }
+          mapProj = geojsonProj
+        }
+      }
+      mapRef.current = new Map({
+          target: mapElement.current || '',
+          layers: [
+              new TileLayer({
+                  source: new XYZ({
+                    attributions:
+                      'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +
+                      'rest/services/World_Imagery/MapServer">ArcGIS</a>',
+                    url:
+                      'https://server.arcgisonline.com/ArcGIS/rest/services/' +
+                      'World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  }),
+              }),
+          ],
+          view: new View({
+              center: [0, 0],
+              zoom: 2,
+              projection: mapProj || 'EPSG:3857'
+          })
+      })
+      mapRef.current.addControl(new Control({
+        element: legendElement.current || undefined
+      }));
 
-    initialMap.addControl(new Control({
-      element: legendElement.current || undefined
-    }));
+      const overlay = new Overlay({
+        element: tooltipElement.current || undefined,
+        offset: [10, 0],
+        positioning: 'bottom-left',
+        id: 'tooltip-overlay'
+      });
+      mapRef.current.addOverlay(overlay);
+    } else {
+      mapProj = mapRef.current?.getView().getProjection() || null
+    }
 
-    const overlay = new Overlay({
-      element: tooltipElement.current || undefined,
-      offset: [10, 0],
-      positioning: 'bottom-left',
-      id: 'tooltip-overlay'
-    });
-    initialMap.addOverlay(overlay);
 
     const dataFlowUrl = dataObj.dataFlowUrl;
     sdmxParser.getDatasets(dataFlowUrl, {
@@ -136,19 +120,14 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
         })
     }).then(() => {
       const data = sdmxParser.getData();
-      const dimensions = sdmxParser.getDimensions();
-      initialMap.on('pointermove', (evt: MapBrowserEvent<UIEvent>) => {
-        if (evt.dragging) {
-          return;
-        }
-        displayFeatureInfo(evt, dimensions);
-      });
-      
-      initialMap.on('click',  (evt: MapBrowserEvent<UIEvent>) => {
-        displayFeatureInfo(evt, dimensions);
-      });
+      const _dim = sdmxParser.getDimensions();
+      setDimensions(_dim)
 
-      const geoDimension = dimensions.find((dimension: any) => dimension.id === dataObj.dataFlowKey)
+      if(typeof config.title == 'string') {
+        titleText = parseTextExpr(config.title, dimensions)
+      } else if (typeof config.title === 'object') {
+          titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
+      }
 
       // create and add vector source layer
       const vectorSource = new VectorSource({
@@ -163,10 +142,19 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
               })
               let min = obsValueMin
               let max = obsValueMax 
+              const geoDimension = _dim.find((dimension: any) => dimension.id === dataObj.dataFlowKey)
               geoDimension.values.forEach((geoValue: any) => {
                 const featureLike = features?.find((feat: FeatureLike) => feat.getProperties()[dataObj.geojsonKey] === geoValue['id'])
+                // we continue if features does not contain the geoValue
+                if (!featureLike) {
+                  return
+                }
                 const feature = featureLike as Feature<Polygon>
                 const sdmxData = data.find((valData : any) => valData[dataObj.dataFlowKey] === geoValue.name)
+                // we continue if data does not contain the geoValue
+                if (!sdmxData) {
+                  return
+                }
                 sdmxData['name'] = sdmxData[dataObj.dataFlowKey]
                 feature?.setProperties({...sdmxData, ...feature.getProperties()})
                 if (feature) {
@@ -196,9 +184,13 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
       })
 
       setFeaturesLayer(initalFeaturesLayer)
-      initialMap.addLayer(initalFeaturesLayer)
+      mapRef.current?.addLayer(initalFeaturesLayer)
+
+      legendElement.current!.children[0]!.innerHTML = titleText
+
+
     });
-  }, [config, language, obsValueMax, obsValueMin])
+  }, [config, language])
 
   useEffect(() => {
     const getColorSchemePreview = () => {
@@ -270,27 +262,67 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
     }
     featuresLayer?.setStyle(styleFunction);
     if (obsValueMax !== 0) {
-      legendElement.current!.children[0]!.innerHTML = config.Title
       legendElement.current!.children[1]!.innerHTML = `${Math.floor(obsValueMin).toLocaleString()} <img src="${getColorSchemePreview()}"/> ${Math.ceil(obsValueMax).toLocaleString()}`
     }
 
-  }, [config.Title, config.colorScheme, featuresLayer, obsValueMax, obsValueMin])
-  
-  return (
-    <div className={`${config.frame ? "border" : "" }`}>
-      <div id={`map-${config.id || 'asdaqweqd'}`} ref={mapElement} className="map min-cell-height"></div>
-      <div ref={tooltipElement} className="mapTooltip">
-        <div className="mapTooltipHeader" id="map-tooltip-header"></div>
-        <div id="map-tooltip-content"></div>
-      </div>
-      <div ref={legendElement} className="mapLegend ol-control-panel ol-unselectable ol-control">
-        <div className="legendTitle"></div>
-        <div className="legendItem"></div>
+  }, [config.colorScheme, featuresLayer, obsValueMax, obsValueMin])
+
+  useEffect(() => {
+    const displayFeatureInfo = (evt: MapBrowserEvent<UIEvent>) => {
+      if (evt.dragging) {
+        return;
+      }
+      const map = evt.map;
+      const pixel = map.getEventPixel(evt.originalEvent);
+      const features: FeatureLike[] = [];
+      map.forEachFeatureAtPixel(pixel, (feature: FeatureLike) => {
+        features.push(feature);
+      });
+      if (features.length > 0) {
+        const info: any[] = [];
+        features.forEach((feature: FeatureLike) => {
+          const others = dimensions.map((dimension: any) => {
+            return `${dimension.name} : ${feature.get(dimension.id)}`
+          })
+          info.push(`<p>${feature.get('value')}</p><small>(${others})</small>`);
+
+        })
+        const overlay = map.getOverlayById('tooltip-overlay')
+        overlay.setPosition(evt.coordinate);
+        tooltipElement.current!.style!.display = 'block';
+        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config.legend.concept)
+        tooltipElement.current!.children[1]!.innerHTML = info.join('\n')
+    
+        mapElement.current!.style.cursor = 'pointer';
+      } else {
+        tooltipElement.current!.style.display = 'none';
+        mapElement.current!.style.cursor = '';
+      }
+    };
+    mapRef.current?.on('pointermove', (evt: MapBrowserEvent<UIEvent>) => {
+      displayFeatureInfo(evt);
+    });
+    
+    mapRef.current?.on('click',  (evt: MapBrowserEvent<UIEvent>) => {
+      displayFeatureInfo(evt);
+    });
+  }, [dimensions])
+    
+    return (
+      <div className={`${config.frame ? "border" : "" }`}>
+        <div id={`map-${config.id || 'id'}`} ref={mapElement} className={`map ${styles.minCellHeight}`}></div>
+        <div ref={tooltipElement} className={styles.mapTooltip}>
+          <div className={styles.mapTooltipHeader} id="map-tooltip-header"></div>
+          <div id="map-tooltip-content"></div>
+        </div>
+        <div ref={legendElement} className={`${styles.mapLegend} ol-control-panel ol-unselectable ol-control`}>
+          <div className={styles.legendTitle}></div>
+          <div className={styles.legendItem}></div>
+        </div>
+
       </div>
 
-    </div>
-
-  )
-}
+    )
+  }
 
 export default MapComponent;

@@ -37,6 +37,13 @@ npm run dev
 
 The components are located in the `lib` folder where as the `src` folder hosts a demo application.
 
+The vite preview mode can also be used to test the built library in the demo application.
+
+```bash
+npm run preview
+```
+
+
 ## Build
 
 ```bash

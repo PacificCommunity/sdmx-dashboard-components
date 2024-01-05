@@ -1,0 +1,262 @@
+{
+  "id": "PacificPopulation",
+  "languages": {
+      "en": "English",
+      "fr": "Français"
+  },
+  "header": {
+    "title": {
+      "text": {
+        "en": "Population Statistics in the Pacific region",
+        "fr": "Les statistiques sur la population dans la region Pacifique"
+      }
+    },
+    "subtitle": {
+      "text": {
+        "en": "Dashboard with population statistics in the Pacific region provided by PDH.stat",
+        "fr": "Dashboard presentant les donnees statistiques de population du Pacifique fournies par PDH.stat"
+      }
+    }
+  },
+  "rows": [
+    {
+      "columns": [
+        {
+          "id": "total_population",
+          "type": "value",
+          "title": {
+            "text": {
+              "en": "Total Population",
+              "fr": "Population totale"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "labels": false,
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A._T.MIDYEARPOPEST._T._T?startPeriod=2023&endPeriod=2023&dimensionAtObservation=AllDimensions"
+        },
+        {
+          "id": "sex_ratio",
+          "type": "value",
+          "title": {
+            "text": {
+              "en": "Sex ratio",
+              "fr": "Ratio de sexe"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "unit": {
+            "text": "%",
+            "location": "suffix"
+          },
+          "labels": false,
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_SEX,1.0/A._T.SEXRATIO._T?startPeriod=2022&endPeriod=2022&dimensionAtObservation=AllDimensions"
+        },
+        {
+          "id": "population_density",
+          "type": "value",
+          "title": {
+            "text": {
+              "en": "Population Density",
+              "fr": "Densite de population"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "unit": {
+            "text": {
+              "en": " per sq. km",
+              "fr": "par km2"
+            },
+            "location": "suffix"
+          },
+          "labels": false,
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_DENSITY,1.0/A._T.POPDENSITY?startPeriod=2022&endPeriod=2022&dimensionAtObservation=AllDimensions"
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "population_by_pict",
+          "type": "bar",
+          "title": {
+            "text": {
+              "en": "Population by Countries and Territories",
+              "fr": "Population par pays et territoires"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "labels": true,
+          "legend": {
+            "location": "none"
+          },
+          "xAxisConcept": "GEO_PICT",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A.AS+CK+FJ+PF+GU+KI+MH+FM+NR+NC+NU+MP+PW+PG+PN+WS+SB+TK+TO+TV+VU+WF.MIDYEARPOPEST._T._T?startPeriod=2023&endPeriod=2023&dimensionAtObservation=AllDimensions"
+        },
+        {
+          "id": "population_map",
+          "type": "map",
+          "title": {
+            "text": {
+              "en": "Population in the Pacific Region",
+              "fr": "Population dans la region Pacifique"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "xAxisConcept":"GEO_PICT",
+          "legend": {
+            "concept": "INDICATOR"
+          },
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A.AS+CK+FJ+PF+GU+KI+MH+FM+NR+NC+NU+MP+PW+PG+PN+WS+SB+TK+TO+TV+VU+WF.MIDYEARPOPEST._T._T?startPeriod=2023&endPeriod=2023&dimensionAtObservation=AllDimensions, {GEO_PICT} | https://www.spc.int/modules/contrib/spc_dot_stat_data/modules/spc_dot_stat_map/maps/eez.json, EPSG:3832, {id}" 
+        },
+        {
+          "id": "population_projections",
+          "type": "line",
+          "title": {
+            "text": {
+              "en": "Population Projections",
+              "fr": "Projections de population"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$TIME_PERIOD}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "label": true,
+          "legend": {
+            "concept": "INDICATOR"
+          },
+          "xAxisConcept": "TIME_PERIOD",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A._T.MIDYEARPOPEST._T._T?dimensionAtObservation=AllDimensions"
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "birth_deaths",
+          "type": "line",
+          "title": {
+            "text": {
+              "en": "Births and Deaths",
+              "fr": "Naissances et deces"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": {
+              "en": "{$GEO_PICT} (per 1,000 population)",
+              "fr": "{$GEO_PICT} (pour 1 000 habitants)"
+            },
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "legend": {
+            "concept": "INDICATOR",
+            "position": "bottom"
+          },
+          "xAxisConcept": "TIME_PERIOD",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_VITAL,1.0/A.WS.IMR+CBR+CDR.?dimensionAtObservation=AllDimensions"
+        },
+        {
+          "id": "fertility_rate",
+          "type": "line",
+          "title": {
+            "text": {
+              "en": "Fertility Rate",
+              "fr": "Taux de fecondite"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$GEO_PICT}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "legend": {
+            "concept": "INDICATOR"
+          },
+          "xAxisConcept": "TIME_PERIOD",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_VITAL,1.0/A.WS.TFR.?dimensionAtObservation=AllDimensions"
+        },
+        {
+          "id": "labour_force",
+          "type": "pie",
+          "title": {
+            "text": {
+              "en": "Population by labour force and employment status",
+              "fr": "Population par secteur d'activite et statut d'emploi"
+            },
+            "size": "20px",
+            "weight": "bold",
+            "align": "center"
+          },
+          "subtitle": {
+            "text": "{$GEO_PICT}",
+            "size": "13px",
+            "weight": "normal",
+            "align": "center"
+          },
+          "legend": {
+            "concept": "LABEMP_STATUS"
+          },
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_LABEMP,1.0/A.WS.LABEMPRF._T._T._T._T.6+5+3+2+1+U+O?startPeriod=2013&endPeriod=2019&lastNObservations=1&dimensionAtObservation=AllDimensions"
+        }
+      ]
+    }
+  ]
+}

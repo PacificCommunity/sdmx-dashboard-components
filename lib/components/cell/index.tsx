@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
 import Text from '../text';
 import Value from '../value';
 import Chart from '../chart';
-// import MapComponent from '../map';
 import { ErrorBoundary } from 'react-error-boundary';
+import MapComponent from '../map';
 
 /**
  * Return div/col with component corresponding to chart type
@@ -27,12 +26,11 @@ const Cell = ({ config, language, className }: { config: any, language: string, 
                     config={config}
                     language={language}
                 />
-            /* 
-            case 'MAP':
+            case 'map':
                 return <MapComponent
                     config={config}
+                    language={language}
                 />
-            */
             case 'value':
                 return <Value
                     config={config}
@@ -49,7 +47,7 @@ const Cell = ({ config, language, className }: { config: any, language: string, 
 
     }
 
-    const fallbackRender = ({ error, resetErrorBoundary }: { error: any, resetErrorBoundary: any }) => {
+    const fallbackRender = ({ error }: { error: any }) => {
         return (
             <div className="text-danger">
                 <p>Something went wrong:</p>

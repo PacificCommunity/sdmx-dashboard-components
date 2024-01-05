@@ -69,7 +69,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 const attributes = parser.getAttributes();
                 // if alternate label specified in the DATA field, the label is appended to the data with key xAxisConcept
                 if (dataObj.alternateLabel) {
-                    data.forEach((dataItem: any, index: number, data: [any]) => {
+                    data.forEach((_dataItem: any, index: number, data: [any]) => {
                         data[index][config.xAxisConcept] = dataObj.alternateLabel;
                     });
                 }
@@ -78,7 +78,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     if (dataObj.operand.startsWith('{')) {
                         // operand is an attribute
                         const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                        data.forEach((dataItem: any, index: number, data: [any]) => {
+                        data.forEach((_dataItem: any, index: number, data: [any]) => {
                             data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                         });
                         return [data, parser.getDimensions()];
@@ -92,7 +92,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                         }).then(() => {
                             const dataOperand = parserOperand.getData();
                             const operandValue = dataOperand[0].value;
-                            data.forEach((dataItem: any, index: number, data: [any]) => {
+                            data.forEach((_dataItem: any, index: number, data: [any]) => {
                                 data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                             });
                             return [data, parser.getDimensions()];
@@ -112,12 +112,12 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
 
                 if(typeof config.title == 'string') {
                     titleText = parseTextExpr(config.title, dimensions)
-                } else {
+                } else if (typeof config.title === 'object') {
                     titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
                 }
                 if(typeof config.subtitle == 'string') {
                     subtitleText = parseTextExpr(config.subtitle, dimensions)
-                } else {
+                } else if (typeof config.subtitle === 'object') {
                     subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
                 }
 
@@ -129,15 +129,15 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
                 }
                 // check if legendConcept exists in dataFlow
-                if (config.legend.concept && config.legend.concept !== 'MULTI') {
-                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config.legendConcept);
+                if (config.legend && config.legend.concept && config.legend.concept !== 'MULTI') {
+                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config.legend.concept);
                     if (!legendDimension) {
                         throw new Error(`legendConcept ${config.legend.concept} not found in dataflow`);
                     }
                 }
 
                 let xAxisConcept = config.xAxisConcept;
-                let legendConcept = config.legend.concept;
+                let legendConcept = config?.legend?.concept;
 
                 if (chartType === 'line') {
                     // in case xAxisConcept is empty, we use TIME_PERIOD
@@ -283,14 +283,14 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
 
                     // force legend for Pie charts
-                    if (config.legend.location !== 'none' && chartType === 'pie') {
+                    if (config.legend && config.legend.location !== 'none' && chartType === 'pie') {
                         hcExtraOptions["plotOptions"][chartType]["showInLegend"] = true;
                     }
 
                     // append data to the serie
                     if (seriesData.length === 0) {
                         seriesData = [{
-                            name: config.title.text,
+                            name: titleText,
                             data: yAxisValue,
                         },];
                     } else {
@@ -305,26 +305,26 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 },
                 title: {
                     useHTML: true,
-                    text: `<h2>${titleText}${config.metadataLink?<Button variant="link" onClick={() => window.open(config.metadataLink, "_blank")}><InfoCircle></InfoCircle></Button>:""}</h2>`,
+                    text: `<h2 style="font-weight:inherit;font-size:inherit;font-style:inherit;">${titleText}${config.metadataLink?<Button variant="link" onClick={() => window.open(config.metadataLink, "_blank")}><InfoCircle></InfoCircle></Button>:""}</h2>`,
                     style: {
-                        fontweight: config.title?.weight? config.title.weight : "",
-                        fontstyle: config.title?.italic?"italic":"",
-                        fontsize: config.title?.size
+                        fontWeight: config.title?.weight? config.title.weight : "",
+                        fontStyle: config.title?.style,
+                        fontSize: config.title?.size
                     },
                     align: config.title?.align
                 },
                 subtitle: {
                     text: `<h4>${subtitleText}</h4>`,
                     style: {
-                        fontweight: config.subtitle?.weight ? config.subtitle.weight : "",
-                        fontstyle: config.subtitle?.italic?"italic":"",
-                        fontsize: config.subtitle?.size
+                        fontWeight: config.subtitle?.weight ? config.subtitle.weight : "",
+                        fontStyle: config.subtitle?.italic?"italic":"",
+                        fontSize: config.subtitle?.size
                     },
                     align: config.subtitle?.align
                 },
                 legend: {
-                    enabled: config.legend.location === 'none' ? false : true,
-                    align: config.legend.location && (config.legend.location.toLowerCase() || 'right')
+                    enabled: config?.legend?.location === 'none' ? false : true,
+                    align: ((config.legend && config.legend.location && config.legend.location.toLowerCase()) || 'right')
                 },
                 series: seriesData,
                 ...hcExtraOptions,
@@ -341,7 +341,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
 
     return (
         <>
-        { config.dataLink ? <a href={config.dataLink} target="_blank">{chart}</a>
+        { config.dataLink ? <a href={config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
             : chart}
         </>
     )

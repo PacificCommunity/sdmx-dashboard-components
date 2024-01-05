@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { parseTextExpr } from '../../utils/parseTextExpr';
 
 const Text = ({ config, language }: { config: any, language: string }) => {
@@ -38,7 +38,7 @@ const Text = ({ config, language }: { config: any, language: string }) => {
                 setNoteStyle({...noteStyle, ...config.note})
             }
         }
-    }, [config, language, titleText, titleStyle, subtitleText, subtitleStyle, noteText, noteStyle])
+    }, [config, language])
 
     return (
         <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white ${config.frame ? "border" : ""}`}>

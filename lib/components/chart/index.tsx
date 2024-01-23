@@ -170,6 +170,10 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     serieDimensions.values.forEach((serieDimension: any) => {
                         // a serie is created for each of the serie's dimension value
                         const serieData = data.filter((val: any) => val[config.legend.concept] === serieDimension.name);
+                        if(serieData.length == 0) {
+                          // continue if no data for this serie
+                          return
+                        }
                         const sortedData = sortByDimensionName(serieData, xAxisConcept);
                         const yAxisValue = sortedData.map((val: any) => {
                             return {
@@ -193,6 +197,10 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     let dataDrilldownData: any[] = []
                     serieDimensions.values.forEach((serieDimensionValue: any) => {
                         const serieDimensionData = data.filter((val: any) => val[config.legend.concept] === serieDimensionValue.name);
+                        if(serieDimensionData.length == 0) {
+                          // continue if no data for this serie
+                          return
+                        }
                         let serieDataDimensionValue = serieDimensionData[0];
                         if (xAxisConcept === "TIME_PERIOD") {
                             // we display the latest value in the bar and the whole time series in drilldown
@@ -206,7 +214,6 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                             const totalDimensionValue = xDimension.values.find((value: any) => value.id === '_T')
                             serieDataDimensionValue = serieDimensionData.find((value: any) => value[xAxisConcept] === totalDimensionValue.name)
                         }
-                        xAxisValue.push(serieDimensionValue[legendConcept])
                         dataSerieData.push({
                             ...serieDataDimensionValue,
                             name: serieDataDimensionValue[legendConcept],

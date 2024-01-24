@@ -22,7 +22,11 @@ if (typeof Highcharts === 'object') {
 
 const Chart = ({ config, language }: { config: any, language: string }) => {
 
-    const [hcOptions, setHcOptions] = useState({})
+    const [hcOptions, setHcOptions] = useState({
+        title: {
+            text: "Loading..."
+        }
+    })
 
     const sortByDimensionName = (data: any, dimension: string) => {
         return data.sort((a: any, b: any) => {

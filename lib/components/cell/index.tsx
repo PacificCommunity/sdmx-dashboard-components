@@ -24,21 +24,25 @@ const Cell = ({ config, language, className }: { config: any, language: string, 
             case 'pie':
                 return <Chart
                     config={config}
+                    key={language}
                     language={language}
                 />
             case 'map':
                 return <MapComponent
                     config={config}
+                    key={language}
                     language={language}
                 />
             case 'value':
                 return <Value
                     config={config}
+                    key={language}
                     language={language}
                 />
             case 'note':
                 return <Text
                     config={config}
+                    key={language}
                     language={language}
                 />
             default:

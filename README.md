@@ -7,9 +7,12 @@ The components are built using [Vite](https://vitejs.dev/).
 
 ## Usage
 
-This library provides a `SDMXDashboard` component that generates a React dashboard from a JSON configuration file passed via `dashUrl`.
+This library provides a set of components to build visuals for SDMX data.
+Single React components are available `SDMXChart`, `SDMXMap` and `SDMXValue` to embed SDMX visuals in your application and can also be combined in a
+ `SDMXDashboard` component that generates a dashboard.
+The single components are only configured via props, while the dashboard component can configured via a JSON configuration file.
 
-More information on the syntax of the configuration file can be found [here](https://github.com/thhomas/dashboard-creator/blob/main/public/doc.md)
+More information on the syntax of the configuration can be found [here](https://github.com/thhomas/dashboard-creator/blob/main/public/doc.md)
 
 ```bash
 npm install sdmx-dashboard-react
@@ -20,8 +23,28 @@ import { SDMXDashboard } from 'sdmx-dashboard-react';
 
 const App = () => {
   return (
+    // SDMX dashboard component build from JSON configuration file
     <SDMXDashboard
-      dashUrl='path/to/dashboard.json'
+      url='path/to/dashboard.json'
+    />
+    // SDMX chart component built from props
+    <SDMXChart
+      config={{
+        data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_WBWGI,1.0/A..VA_EST?startPeriod=2010&dimensionAtObservation=AllDimensions"],
+        title: {
+          text: "World Bank Worldwide Governance Indicator",
+        },
+        subtitle: {
+          text: "Voice and Accountability"
+        },
+        id:"wgi_va",
+        type: "drilldown",
+        xAxisConcept:"TIME_PERIOD",
+        legend: {
+          concept: "GEO_PICT"
+        },
+        yAxisConcept: "OBS_VALUE"
+      }}
     />
   );
 };

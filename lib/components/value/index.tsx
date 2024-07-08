@@ -5,8 +5,9 @@ import { SDMXParser } from 'sdmx-json-parser';
 import { parseDataExpr } from "../../utils/parseDataExpr";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
+import { SDMXVisualConfig } from "../types";
 
-const Value = ({ config, language }: { config: any, language: string }) => {
+const Value = ({ config, language }: { config: SDMXVisualConfig, language: string }) => {
 
     const [valueStr, setValueStr] = useState("Loading...")
     const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
@@ -94,7 +95,7 @@ const Value = ({ config, language }: { config: any, language: string }) => {
     const valueNode: React.ReactNode =
         <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.frame ? "border" : ""}`}>
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
-            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title.style:''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
+            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
             <div className="display-2 flex-grow-1 d-flex align-items-center justify-content-center">
                 <p>{valueStr}</p>
             </div>

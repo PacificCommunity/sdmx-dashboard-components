@@ -13,6 +13,7 @@ import { parseDataExpr } from "../../utils/parseDataExpr";
 import { parseDate } from "../../utils/parseDate";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
+import { SDMXVisualConfig } from "../types";
 
 if (typeof Highcharts === 'object') {
     HighchartsExporting(Highcharts);
@@ -20,7 +21,7 @@ if (typeof Highcharts === 'object') {
     Drilldown(Highcharts)
 }
 
-const Chart = ({ config, language }: { config: any, language: string }) => {
+const Chart = ({ config, language }: { config: SDMXVisualConfig, language: string }) => {
 
     const [hcOptions, setHcOptions] = useState({
         title: {
@@ -327,8 +328,8 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 subtitle: {
                     text: `<h4>${subtitleText}</h4>`,
                     style: {
-                        fontWeight: config.subtitle?.weight ? config.subtitle.weight : "",
-                        fontStyle: config.subtitle?.italic?"italic":"",
+                        fontWeight: config.subtitle?.weight || "",
+                        fontStyle: config.subtitle?.style || "",
                         fontSize: config.subtitle?.size
                     },
                     align: config.subtitle?.align
@@ -347,7 +348,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
         <HighchartsReact
             highcharts={Highcharts}
             options={hcOptions}
-            containerProps={{ className: config.frame && config.frame.toLowerCase() == 'yes' ? "border" : "" }}
+            containerProps={{ className: config.frame && config.frame ? "border" : "" }}
         />
 
     return (

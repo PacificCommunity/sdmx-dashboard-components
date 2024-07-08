@@ -11,7 +11,7 @@
  * @param {String} dataExpr
  * @returns {Object}
  */
-export const parseDataExpr = (dataExprs: [string]) => {
+export const parseDataExpr = (dataExprs: string | Array<string>) => {
 
   if(typeof dataExprs === 'string') {
     dataExprs = [dataExprs];

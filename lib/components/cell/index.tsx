@@ -3,6 +3,7 @@ import Value from '../value';
 import Chart from '../chart';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
+import { SDMXVisualConfig } from '../types';
 
 /**
  * Return div/col with component corresponding to chart type
@@ -12,7 +13,7 @@ import MapComponent from '../map';
  * @param config Dashboard element configuration
  * @returns 
  */
-const Cell = ({ config, language, className }: { config: any, language: string, className: string }) => {
+const Cell = ({ config, language, className }: { config: SDMXVisualConfig, language: string, className: string }) => {
 
     const conditionalBoardComponent = () => {
 
@@ -46,7 +47,7 @@ const Cell = ({ config, language, className }: { config: any, language: string, 
                     language={language}
                 />
             default:
-                return <p className="text-danger">[{config.chartType}]<br />{config.Title}</p>
+                return <p className="text-danger">[{config.type}]<br />Type does not exists.</p>
         }
 
     }

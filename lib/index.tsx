@@ -1,3 +1,7 @@
-export { default as SDMXDashboard } from './components/dashboard'; // export the default export from './hello', this is Hello component
-export * from './components/dashboard'; // export all named exports from './hello' like HelloProps
+export { default as SDMXDashboard } from './components/dashboard';
+export * from './components/dashboard';
+
+export { default as SDMXChart } from './components/chart';
+export { default as SDMXMap } from './components/map';
+export { default as SDMXValue } from './components/value';
 

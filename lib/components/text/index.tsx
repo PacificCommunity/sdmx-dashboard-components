@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { parseTextExpr } from '../../utils/parseTextExpr';
+import { SDMXTextConfig } from "../types";
 
-const Text = ({ config, language }: { config: any, language: string }) => {
+const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:SDMXTextConfig, note?: SDMXTextConfig, frame?: boolean}, language: string }) => {
 
     const [titleText, setTitleText] = useState<string>('Loading...')
     const [titleStyle, setTitleStyle] = useState<any>({})

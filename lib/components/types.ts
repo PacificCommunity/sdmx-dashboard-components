@@ -1,7 +1,7 @@
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property
-    align?: string, // alignment of the text as in text-align css property
+    align?: "center" | "left" | "right", // alignment of the text as in text-align css property
     color?: string, // color of the text
     font?: string, // font of the text
     style?: string, // style of the text as in font-style css property
@@ -25,9 +25,8 @@ export type SDMXVisualConfig = {
         location?: "prefix" | "suffix" | "under" // location of the unit
     },
     decimals?: number | string, // number of decimals to display
-    displayLegend?: boolean, // indicates whether or not the legend should be displayed
-    legend: {
-        concept: string, // SDMX concept of the legend
+    legend?: {
+        concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
     labels?: boolean, // indicates whether or not the labels should be displayed

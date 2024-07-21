@@ -1,3 +1,4 @@
+import React from 'react';
 import Text from '../text';
 import Value from '../value';
 import Chart from '../chart';

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -279,7 +280,7 @@ const MapComponent = ({config, language} : {config: SDMXVisualConfig, language :
       map.forEachFeatureAtPixel(pixel, (feature: FeatureLike) => {
         features.push(feature);
       });
-      if (features.length > 0) {
+      if (features.length > 0 && config?.legend?.concept) {
         const info: any[] = [];
         features.forEach((feature: FeatureLike) => {
           const others = dimensions.map((dimension: any) => {
@@ -291,7 +292,7 @@ const MapComponent = ({config, language} : {config: SDMXVisualConfig, language :
         const overlay = map.getOverlayById('tooltip-overlay')
         overlay.setPosition(evt.coordinate);
         tooltipElement.current!.style!.display = 'block';
-        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config.legend.concept)
+        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config?.legend?.concept)
         tooltipElement.current!.children[1]!.innerHTML = info.join('\n')
     
         mapElement.current!.style.cursor = 'pointer';

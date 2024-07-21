@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useState } from "react";
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXTextConfig } from "../types";

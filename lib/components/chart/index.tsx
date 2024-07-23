@@ -1,13 +1,12 @@
 "use client"
 
-import React, { useRef } from "react";
-import HighchartsReact from "highcharts-react-official";
+import React, { useState, useEffect, useRef } from "react";
+import { HighchartsReact } from "highcharts-react-official";
 import HighchartsExporting from "highcharts/modules/exporting";
 import Accessibility from "highcharts/modules/accessibility";
-// import ExportData from "highcharts/modules/export-data";
+import ExportData from "highcharts/modules/export-data";
 import Drilldown from "highcharts/modules/drilldown"
 import Highcharts from 'highcharts';
-import { useEffect, useState } from "react";
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr, parseOperandTextExpr } from '../../utils/parseTextExpr';
@@ -22,6 +21,7 @@ if (typeof Highcharts === 'object') {
     HighchartsExporting(Highcharts);
     Accessibility(Highcharts);
     Drilldown(Highcharts);
+    ExportData(Highcharts);
 }
 
 const Chart = ({ config, language }: { config: SDMXVisualConfig, language: string }) => {

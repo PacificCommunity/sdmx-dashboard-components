@@ -36,6 +36,7 @@ export type SDMXVisualConfig = {
     dataLink?: string, // link to the data,
     metadataLink?: string, // link to the metadata,
     data: string | Array<string>, // data to be displayed
+    extraOptions?: any // extra options for the visualization
 }
 
 

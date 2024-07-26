@@ -69,7 +69,7 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
         const hcExtraOptions: Highcharts.Options = {
             plotOptions: {
                 [chartType]: {}
-            }
+            },
         };
 
         let seriesData: any[] = [];
@@ -93,28 +93,56 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                 }
                 // if operation specified in the DATA field, it is applied here whether the operand is an attribute or another SDMX request
                 if (dataObj.operator) {
-                    if (dataObj.operand.startsWith('{')) {
-                        // operand is an attribute
-                        const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                        data.forEach((_dataItem: any, index: number, data: [any]) => {
-                            data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
-                        });
-                        return [data, parser.getDimensions()];
-                    } else {
-                        // operand is another SDMX request
-                        const parserOperand = new SDMXParser();
-                        return parserOperand.getDatasets(dataObj.operand, {
-                            headers: new Headers({
-                                Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+                    if (dataObj.operator === 'hist') {
+                        // we compute the histogram of values along the xAxisConcept
+                        // we also need to get all the values for the xAxisConcept dimension to take into account the 'no-data'
+                        let histData: any[] = []
+                        data.forEach((_dataItem: any) => {
+                            let histItemIndex = histData.findIndex(item => {
+                                if (item.binValue === _dataItem.value) {
+                                    let found = true
+                                    return found
+                                } else {
+                                    return false
+                                }
                             })
-                        }).then(() => {
-                            const dataOperand = parserOperand.getData();
-                            const operandValue = dataOperand[0].value;
+                            if (histItemIndex === -1) {
+                                let histItem: any = {}
+                                histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept]
+                                histItem.value = 1
+                                histItem.binValue = _dataItem.value
+                                histData.push(histItem)
+                            } else {
+                                histData[histItemIndex].value += 1
+                                histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}, ${_dataItem[config.xAxisConcept]}`
+                            }
+                        })
+                        return [histData, parser.getDimensions()]
+
+                    } else {
+                        if (dataObj.operand.startsWith('{')) {
+                            // operand is an attribute
+                            const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
                             data.forEach((_dataItem: any, index: number, data: [any]) => {
                                 data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                             });
                             return [data, parser.getDimensions()];
-                        });
+                        } else {
+                            // operand is another SDMX request
+                            const parserOperand = new SDMXParser();
+                            return parserOperand.getDatasets(dataObj.operand, {
+                                headers: new Headers({
+                                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+                                })
+                            }).then(() => {
+                                const dataOperand = parserOperand.getData();
+                                const operandValue = dataOperand[0].value;
+                                data.forEach((_dataItem: any, index: number, data: [any]) => {
+                                    data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
+                                });
+                                return [data, parser.getDimensions()];
+                            });
+                        }
                     }
                 } else {
                     return [data, parser.getDimensions(), parser.getActiveDimensions()];
@@ -222,15 +250,11 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                     }
                     legendConcept = config?.legend?.concept
                     let serieDimension: any = {}
-                    if (activeDimensions.length === 1) {
-                        serieDimension = activeDimensions[0]
+                    // in case legendConcept is empty, we take the other active dimension and display a serie for each value
+                    if (!legendConcept) {
+                        serieDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
                     } else {
-                        // in case legendConcept is empty, we take the other active dimension and display a serie for each value
-                        if (!legendConcept) {
-                            serieDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
-                        } else {
-                            serieDimension = activeDimensions.find((dimension: any) => dimension.id === legendConcept)
-                        }
+                        serieDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
                     }
                     serieDimension.values.forEach((serieDimensionValue: any) => {
                         const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
@@ -249,10 +273,12 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                                 xAxisValue.push(val[xAxisConcept])
                             }
                         });
-                        seriesData.push({
-                            name: serieDimensionValue.name,
-                            data: yAxisValue
-                        })
+                        if (yAxisValue.length > 0) {
+                            seriesData.push({
+                                name: serieDimensionValue.name,
+                                data: yAxisValue
+                            })
+                        }
                     })
 
                     hcExtraOptions["xAxis"] = {
@@ -375,7 +401,7 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                     // append data to the serie
                     if (seriesData.length === 0) {
                         seriesData = [{
-                            name: titleText,
+                            name: titleText || dimensions.find((dim: any) => dim.id === config.legend?.concept).values[0].name,
                             data: yAxisValue,
                         },];
                     } else {
@@ -439,6 +465,7 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                 },
                 series: seriesData,
                 ...hcExtraOptions,
+                ...config.extraOptions
             });
         })
     }, [config, language]);

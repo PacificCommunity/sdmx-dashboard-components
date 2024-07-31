@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Cell from './cell';
 import Text from './text';
 
-import 'bootstrap/dist/css/bootstrap.css';
 import '../global.module.css';
 import { SDMXDashboardConfig } from './types';
 

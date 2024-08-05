@@ -114,7 +114,7 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                                 histData.push(histItem)
                             } else {
                                 histData[histItemIndex].value += 1
-                                histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}, ${_dataItem[config.xAxisConcept]}`
+                                histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}<br/>${_dataItem[config.xAxisConcept]}`
                             }
                         })
                         return [histData, parser.getDimensions()]

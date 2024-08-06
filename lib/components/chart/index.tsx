@@ -24,13 +24,21 @@ if (typeof Highcharts === 'object') {
     ExportData(Highcharts);
 }
 
-const Chart = ({ config, language }: { config: SDMXVisualConfig, language: string }) => {
+interface ChartProps extends HighchartsReact.Props {
+    config: SDMXVisualConfig;
+    language: string;
+    placeholder?: React.JSX.Element
+}
+
+const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
     const [hcOptions, setHcOptions] = useState<Highcharts.Options>({
         title: {
             text: "Loading..."
         }
     })
+
+    const [isLoading, setIsLoading] = useState(true)
 
     const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
 
@@ -436,6 +444,8 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
                 }
             }
 
+            setIsLoading(false)
+
             setHcOptions({
                 chart: {
                     type: chartType === 'drilldown' ? 'column' : chartType,
@@ -469,19 +479,21 @@ const Chart = ({ config, language }: { config: SDMXVisualConfig, language: strin
             });
         })
     }, [config, language]);
- 
+
     const chart: React.ReactNode =
         <HighchartsReact
             highcharts={Highcharts}
             options={hcOptions}
             ref={chartComponentRef}
-            containerProps={{ className: config.frame && config.frame ? "border" : "" }}
+            containerProps={{ ...props, className: `${props.className} ${config.frame && config.frame ? "border" : ""}`}}
         />
 
     return (
         <>
-        { config.dataLink ? <a href={config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
-            : chart}
+            {isLoading ? placeholder || <div className="opacity-50 d-table-cell align-middle" style={{ "height": 400, "width": 600 }}>Loading...</div>
+            :  config.dataLink ? <a href={ config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
+                : chart
+            }
         </>
     )
 }

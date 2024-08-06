@@ -3,4 +3,4 @@ lib
 rollup.config.mjs
 tsconfig*.json
 vite*.ts
-
+*.tgz

@@ -10,6 +10,12 @@ export type SDMXTextConfig = {
     }
 }
 
+export type SDMXColorPalette = {
+    [keyof: string]: { // SDMX dimension concept
+        [keyof: string]: string // key value of dimension
+    }
+}
+
 
 export type SDMXVisualConfig = {
     id: string, // unique identifier
@@ -36,6 +42,7 @@ export type SDMXVisualConfig = {
     dataLink?: string, // link to the data,
     metadataLink?: string, // link to the metadata,
     data: string | Array<string>, // data to be displayed
+    colorPalette?: SDMXColorPalette, // color palette used for the visualization`
     extraOptions?: any // extra options for the visualization
 }
 

@@ -16,6 +16,7 @@ import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig } from "../types";
 import { AlignValue } from "highcharts";
+import { merge } from "ts-deepmerge";
 
 if (typeof Highcharts === 'object') {
     HighchartsExporting(Highcharts);
@@ -192,7 +193,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                 }
 
                 let xAxisConcept = config.xAxisConcept;
-                let legendConcept = config?.legend?.concept;
+                let legendConcept = config?.legend?.concept || "";
 
                 if (chartType === 'line') {
                     // in case xAxisConcept is empty, we use TIME_PERIOD
@@ -246,9 +247,15 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                                 x: parseDate(val[xAxisConcept])
                             };
                         });
+                        let serieColor = undefined;
+                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                            serieColor = config.colorPalette[legendConcept][serieDimension.name]
+                        }
+
                         seriesData.push({
                             name: serieDimension.name,
-                            data: yAxisValue
+                            data: yAxisValue,
+                            color: serieColor
                         });
                     });
                 } else if (chartType === 'column' || chartType === 'bar') {
@@ -256,7 +263,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     if (!xAxisConcept) {
                         throw new Error('No xAxis concept found')
                     }
-                    legendConcept = config?.legend?.concept
+                    legendConcept = config?.legend?.concept || "";
                     let serieDimension: any = {}
                     // in case legendConcept is empty, we take the other active dimension and display a serie for each value
                     if (!legendConcept) {
@@ -330,9 +337,15 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             y: serieDataDimensionValue["value"]
 
                         });
+
+                        let drilledDownColor = undefined
+                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                            drilledDownColor = config.colorPalette[legendConcept][serieDimensionValue.name]
+                        }
                         dataDrilldownData.push({
                             id: serieDataDimensionValue[legendConcept],
                             type: (xAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
+                            color: drilledDownColor,
                             data: serieDimensionData.map((value: any) => {
                                 if (xAxisConcept !== "TIME_PERIOD") {
                                     // we remove the Total value from the drilled down data
@@ -446,7 +459,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
             setIsLoading(false)
 
-            setHcOptions({
+            setHcOptions(merge({
                 chart: {
                     type: chartType === 'drilldown' ? 'column' : chartType,
                 },
@@ -473,10 +486,8 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     enabled: config.legend?.location !== "none" ? true:false,
                     align: legendAlign
                 },
-                series: seriesData,
-                ...hcExtraOptions,
-                ...config.extraOptions
-            });
+                series: seriesData
+            }, hcExtraOptions, config.extraOptions));
         })
     }, [config, language]);
 

@@ -29,9 +29,9 @@ import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { Polygon } from 'ol/geom';
 import { parseTextExpr } from '../../utils/parseTextExpr';
-import { SDMXVisualConfig } from '../types';
+import { SDMXMapConfig } from '../types';
 
-const MapComponent = ({config, language} : {config: SDMXVisualConfig, language : string}) => {
+const MapComponent = ({config, language} : {config: SDMXMapConfig, language : string}) => {
   // set intial state - used to track references to OpenLayers 
   //  objects for use in hooks, event handlers, etc.
   const [ featuresLayer, setFeaturesLayer ] = useState<VectorLayer<VectorSource>>()

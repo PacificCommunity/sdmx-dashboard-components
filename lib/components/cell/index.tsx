@@ -4,7 +4,7 @@ import Value from '../value';
 import Chart from '../chart';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
-import { SDMXVisualConfig } from '../types';
+import { SDMXChartConfig, SDMXMapConfig, SDMXVisualConfig } from '../types';
 
 /**
  * Return div/col with component corresponding to chart type
@@ -14,7 +14,7 @@ import { SDMXVisualConfig } from '../types';
  * @param config Dashboard element configuration
  * @returns 
  */
-const Cell = ({ config, language, className }: { config: SDMXVisualConfig, language: string, className: string }) => {
+const Cell = ({ config, language, className }: { config: SDMXVisualConfig | SDMXChartConfig | SDMXMapConfig, language: string, className: string }) => {
 
     const conditionalBoardComponent = () => {
 
@@ -25,13 +25,13 @@ const Cell = ({ config, language, className }: { config: SDMXVisualConfig, langu
             case 'drilldown':
             case 'pie':
                 return <Chart
-                    config={config}
+                    config={config as SDMXChartConfig}
                     key={language}
                     language={language}
                 />
             case 'map':
                 return <MapComponent
-                    config={config}
+                    config={config as SDMXMapConfig}
                     key={language}
                     language={language}
                 />

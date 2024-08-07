@@ -21,7 +21,6 @@ export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
     type: "line" | "bar" | "pie" | "column" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
-    colorScheme?: string, // color scheme used for maps (available values: Blues, BrBg, Greens, Greys, Oranges, PRGn, PiYG, PuOr, Purples, RdGy, RdYlBu, RdYlGn, Reds, Spectral, Turbo, Viridis)
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization
@@ -46,6 +45,15 @@ export type SDMXChartConfig = {
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
+    extraOptions?: any // extra options for the visualization
+} & SDMXVisualConfig
+
+export type SDMXMapConfig = {
+    colorScheme: string, // SDMX concept of the color
+    legend?: {
+        concept?: string, // SDMX concept of the legend
+        location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
+    },
     extraOptions?: any // extra options for the visualization
 } & SDMXVisualConfig
 

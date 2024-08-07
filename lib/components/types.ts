@@ -31,20 +31,23 @@ export type SDMXVisualConfig = {
         location?: "prefix" | "suffix" | "under" // location of the unit
     },
     decimals?: number | string, // number of decimals to display
+    labels?: boolean, // indicates whether or not the labels should be displayed
+    download?: boolean, // indicates whether or not the visualization should be downloadable
+    dataLink?: string, // link to the data,
+    metadataLink?: string, // link to the metadata,
+    xAxisConcept: string, // SDMX concept of the x-axis
+    data: string | Array<string>, // data to be displayed
+}
+
+export type SDMXChartConfig = {
+    yAxisConcept: string, // SDMX concept of the y-axis
     legend?: {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
-    labels?: boolean, // indicates whether or not the labels should be displayed
-    xAxisConcept: string, // SDMX concept of the x-axis,
-    yAxisConcept: string, // SDMX concept of the y-axis,
-    download?: boolean, // indicates whether or not the visualization should be downloadable
-    dataLink?: string, // link to the data,
-    metadataLink?: string, // link to the metadata,
-    data: string | Array<string>, // data to be displayed
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
     extraOptions?: any // extra options for the visualization
-}
+} & SDMXVisualConfig
 
 
 export type SDMXDashboardConfig = {

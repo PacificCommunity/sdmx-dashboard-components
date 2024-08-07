@@ -14,7 +14,7 @@ import { parseDataExpr } from "../../utils/parseDataExpr";
 import { parseDate } from "../../utils/parseDate";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import { SDMXVisualConfig } from "../types";
+import { SDMXChartConfig } from "../types";
 import { AlignValue } from "highcharts";
 import { merge } from "ts-deepmerge";
 
@@ -26,7 +26,7 @@ if (typeof Highcharts === 'object') {
 }
 
 interface ChartProps extends HighchartsReact.Props {
-    config: SDMXVisualConfig;
+    config: SDMXChartConfig;
     language: string;
     placeholder?: React.JSX.Element
 }
@@ -487,7 +487,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     align: legendAlign
                 },
                 series: seriesData
-            }, hcExtraOptions, config.extraOptions));
+            }, hcExtraOptions || {}, config.extraOptions || {}));
         })
     }, [config, language]);
 

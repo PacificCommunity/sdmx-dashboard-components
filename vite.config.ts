@@ -19,7 +19,7 @@ export default defineConfig({
       formats: ['es']
     },
     rollupOptions: {
-      external: [ ...Object.keys(pkg.dependencies), ...Object.keys(pkg.peerDependencies), /^highcharts\/modules\/.*/]
+      external: [ ...Object.keys(pkg.peerDependencies), /^highcharts\/modules\/.*/]
     },
     copyPublicDir: false
   }

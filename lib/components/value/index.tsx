@@ -25,15 +25,15 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     const sdmxParser = new SDMXParser();
 
     const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
-        if (config['Decimals']) {
-            const decimalNumber = Number(parseOperandTextExpr(config['Decimals'], data[0], attributes));
+        if (config['decimals']) {
+            const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
-        if (config['Unit']) {
-            if (config['unitLoc'] === 'SUFFIX') {
-                valueStr += config['Unit'];
-            } else if (config['unitLoc'] === 'PREFIX') {
-                valueStr = config['Unit'] + valueStr;
+        if (config.unit) {
+            if (config.unit['location'] === 'suffix') {
+                valueStr += config.unit['text'];
+            } else if (config.unit['location'] === 'prefix') {
+                valueStr = config.unit['text'] + valueStr;
             }
         }
         return valueStr.toLocaleString(language);

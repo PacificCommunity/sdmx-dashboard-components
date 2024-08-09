@@ -87,12 +87,13 @@
           },
           "unit": {
             "text": {
-              "en": " per sq. km",
+              "en": "per sq. km",
               "fr": "par km2"
             },
-            "location": "suffix"
+            "location": "below"
           },
           "labels": false,
+          "adaptiveTextSize": true,
           "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_DENSITY,1.0/A._T.POPDENSITY?startPeriod=2022&endPeriod=2022&dimensionAtObservation=AllDimensions"
         }
       ]

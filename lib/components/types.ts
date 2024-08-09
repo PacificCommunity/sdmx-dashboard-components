@@ -44,6 +44,13 @@ export type SDMXChartConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
+    drilldown?: {
+        xAxisConcept: string, // SDMX concept of the x-axis
+        legend?: {
+            concept?: string, // SDMX concept of the legend
+            location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
+        },
+    },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
     extraOptions?: any // extra options for the visualization
 } & SDMXVisualConfig

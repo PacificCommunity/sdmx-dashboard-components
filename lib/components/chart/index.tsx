@@ -271,7 +271,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     } else {
                         serieDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
                     }
-                    serieDimension.values.forEach((serieDimensionValue: any) => {
+                    serieDimension.values.sort((a: any, b: any) => a.order - b.order).forEach((serieDimensionValue: any) => {
                         const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
                         const sortedData = sortByDimensionName(serieData, xAxisConcept)
                         const latestValues = getLatestValue(sortedData, xAxisConcept)
@@ -304,72 +304,70 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                 } else if (chartType === 'drilldown') {
                     const xAxisConcept = config.xAxisConcept;
                     const legendConcept = config?.legend?.concept;
+                    const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
+                    if (!drilldownXAxisConcept) {
+                        throw new Error('No drilldown xAxis concept found')
+                    }
                     if (!legendConcept) {
-                        throw new Error(`No legend concept defined for drilldown chart`);
+                        throw new Error('No legend concept found')
                     }
-                    const serieDimensions = dimensions.find((dimension: any) => dimension.id === legendConcept);
-                    const xDimension = dimensions.find((dimension: any) => dimension.id === xAxisConcept)
-                    let dataSerieData: any[] = []
+                    const xAxisDimension = dimensions.find((dimension: any) => dimension.id === xAxisConcept);
+                    const legendDimension = dimensions.find((dimension: any) => dimension.id === legendConcept);
+                    const drilldownXAxisDimension = dimensions.find((dimension: any) => dimension.id === drilldownXAxisConcept)
+
                     let dataDrilldownData: any[] = []
-                    serieDimensions.values.forEach((serieDimensionValue: any) => {
-                        const serieDimensionData = data.filter((val: any) => val[legendConcept || ""] === serieDimensionValue.name);
-                        if(serieDimensionData.length == 0) {
-                          // continue if no data for this serie
-                          return
-                        }
-                        let serieDataDimensionValue = serieDimensionData[0];
-                        if (xAxisConcept === "TIME_PERIOD") {
-                            // we display the latest value in the bar and the whole time series in drilldown
-                            serieDimensionData.forEach((value: any) => {
-                                if (value["TIME_PERIOD"] > serieDataDimensionValue["TIME_PERIOD"]) {
-                                    serieDataDimensionValue = value;
-                                }
+                    legendDimension.values.sort((a: any, b: any) => a.order - b.order ).forEach((legendDimensionValue: any) => {
+                        const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
+                        let legendSerieData: any[] = []
+                        xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
+                            const tmpArr = legendSerie
+                                .filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name)
+                                .filter((val: any) => val[legendConcept] === legendDimensionValue.name);
+                            // data is sorted by DESC drilldownXAxisConcept to get the latest value
+                            tmpArr.sort((a: any, b: any) => {
+                                return parseInt(b[drilldownXAxisDimension.id]) - parseInt(a[drilldownXAxisDimension.id])
                             })
-                        } else {
-                            // we look for a "total" (_T) value to display in the bars
-                            const totalDimensionValue = xDimension.values.find((value: any) => value.id === '_T')
-                            serieDataDimensionValue = serieDimensionData.find((value: any) => value[xAxisConcept] === totalDimensionValue.name)
-                        }
-                        dataSerieData.push({
-                            ...serieDataDimensionValue,
-                            name: serieDataDimensionValue[legendConcept],
-                            drilldown: serieDataDimensionValue[legendConcept],
-                            y: serieDataDimensionValue["value"]
 
-                        });
+                            if (tmpArr.length === 0) {
+                                return
+                            }
+                            legendSerieData.push({
+                                ...tmpArr[0],
+                                name: xAxisDimensionValue.name,
+                                drilldown: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
+                                y: tmpArr[0]["value"]
+                            });
 
-                        let drilledDownColor = undefined
-                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                            drilledDownColor = config.colorPalette[legendConcept][serieDimensionValue.name]
-                        }
-                        dataDrilldownData.push({
-                            id: serieDataDimensionValue[legendConcept],
-                            type: (xAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
-                            color: drilledDownColor,
-                            data: serieDimensionData.map((value: any) => {
-                                if (xAxisConcept !== "TIME_PERIOD") {
-                                    // we remove the Total value from the drilled down data
-                                    const totalDimensionValue = xDimension.values.find((value: any) => value.id === '_T')
-                                    if (value[xAxisConcept] === totalDimensionValue.name) {
-                                        return false
+                            let drilldownSerie: any = {
+                                id: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
+                                type: (drilldownXAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
+                                name: `${legendDimensionValue.name}`,
+                                data: tmpArr.map((value: any) => {
+                                    return {
+                                        ...value,
+                                        name: value[drilldownXAxisConcept],
+                                        y: value["value"]
                                     }
-                                }
-                                return {
-                                    ...value,
-                                    name: value[xAxisConcept],
-                                    y: value["value"]
-                                }
-                            })
+                                })
+                            }
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
+                                drilldownSerie["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.name]
+                            }
+
+                            dataDrilldownData.push(drilldownSerie)
                         })
+
+
+                        if (legendSerieData.length !== 0) {
+                            seriesData.push({
+                                name: legendDimensionValue.name,
+                                data: legendSerieData
+                            })
+                        }
+
                     })
-                    if (seriesData.length === 0) {
-                        seriesData = [{
-                            name: serieDimensions["name"],
-                            colorByPoint: true,
-                            data: dataSerieData
-                        }]
-                    }
                     hcExtraOptions["drilldown"] = {
+                        allowPointDrilldown: false,
                         series: dataDrilldownData
                     }
                     hcExtraOptions["xAxis"] = {

@@ -1,18 +1,19 @@
+import React from 'react';
 import { useState, useEffect } from 'react';
 
 import Cell from './cell';
 import Text from './text';
 
-import 'bootstrap/dist/css/bootstrap.css';
 import '../global.module.css';
+import { SDMXDashboardConfig } from './types';
 
-const Dashboard = ({ dashUrl, lang = document.documentElement.lang || "en" }: { dashUrl: string, lang?: string}) => {
+const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }: { url?: string, config?: SDMXDashboardConfig, lang?: string}) => {
 
-    const [pageData, setPageData] = useState<any>({});
+    const [pageData, setPageData] = useState<SDMXDashboardConfig>();
 
     useEffect(() => {
-        fetch(dashUrl).then(response => response.json()).then((data) => {
-            setPageData(data)
+      if (url) {
+        fetch(url).then(response => response.json()).then((data) => {
             // set default values
             if (!data.colCount) {
                 data.colCount = 3;
@@ -24,15 +25,33 @@ const Dashboard = ({ dashUrl, lang = document.documentElement.lang || "en" }: { 
                 }
               })
             })
+            setPageData(data)
 
         }).catch((e) => {
             console.log(e)
         })
-    }, [dashUrl])
+      }
+    }, [url])
+
+    useEffect(() => {
+      if(config) {
+        if (!config.colCount) {
+            config.colCount = 3;
+        }
+        config.rows.forEach((row: any) => {
+          row.columns.forEach((cell: any) => {
+            if (!cell.colSize) {
+              cell.colSize = 1;
+            }
+          })
+        })
+        setPageData(config)
+      }
+    }, [config])
 
     return (
         <>
-          { Object.keys(pageData).length !== 0 ?
+          { pageData && Object.keys(pageData).length !== 0 ?
             <div key={`container-${pageData.id}`} className="container-fluid mt-2">
                 {
                   pageData.header ?
@@ -45,7 +64,7 @@ const Dashboard = ({ dashUrl, lang = document.documentElement.lang || "en" }: { 
                     <div key={`row-${index_row}`} className="row mb-3 display-flex">
                       {
                         row.columns.map((cell: any) => (
-                          <Cell key={`col-${cell.id}`} className={`col-md-${Math.ceil((12/pageData.colCount)*cell.colSize)}`} language={lang} config={cell} />
+                          <Cell key={`col-${cell.id}`} className={`col-md-${Math.ceil((12/(pageData.colCount || 3))*cell.colSize)}`} language={lang} config={cell} />
                         ))
                       }
                     </div>

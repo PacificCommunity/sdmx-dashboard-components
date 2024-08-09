@@ -11,7 +11,7 @@
  * @param {String} dataExpr
  * @returns {Object}
  */
-export const parseDataExpr = (dataExprs: [string]) => {
+export const parseDataExpr = (dataExprs: string | Array<string>) => {
 
   if(typeof dataExprs === 'string') {
     dataExprs = [dataExprs];
@@ -52,6 +52,12 @@ export const parseDataExpr = (dataExprs: [string]) => {
       parsedExpr['geojsonUrl'] = tokensMap[1].split(', ')[0]
       parsedExpr['geojsonProjection'] = tokensMap[1].split(', ')[1]
       parsedExpr['geojsonKey'] = tokensMap[1].split(', ')[2].trim().replace(/[{}]+/g, '')
+    }
+
+    // when we want a visual based on the histogram of the observations
+    if (dataExpr.startsWith('hist')) {
+      parsedExpr['dataFlowUrl'] = dataExpr.split('(')[1].split(')')[0]
+      parsedExpr['operator'] = 'hist'
     }
     
     results.push(parsedExpr);

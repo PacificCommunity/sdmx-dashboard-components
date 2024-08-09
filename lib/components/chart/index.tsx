@@ -1,11 +1,12 @@
-import React from "react";
-import HighchartsReact from "highcharts-react-official";
+"use client"
+
+import React, { useState, useEffect, useRef } from "react";
+import { HighchartsReact } from "highcharts-react-official";
 import HighchartsExporting from "highcharts/modules/exporting";
 import Accessibility from "highcharts/modules/accessibility";
 import ExportData from "highcharts/modules/export-data";
 import Drilldown from "highcharts/modules/drilldown"
-import * as Highcharts from 'highcharts';
-import { useEffect, useState } from "react";
+import Highcharts from 'highcharts';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr, parseOperandTextExpr } from '../../utils/parseTextExpr';
@@ -13,20 +14,34 @@ import { parseDataExpr } from "../../utils/parseDataExpr";
 import { parseDate } from "../../utils/parseDate";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
+import { SDMXChartConfig } from "../types";
+import { AlignValue } from "highcharts";
+import { merge } from "ts-deepmerge";
 
 if (typeof Highcharts === 'object') {
     HighchartsExporting(Highcharts);
     Accessibility(Highcharts);
-    Drilldown(Highcharts)
+    Drilldown(Highcharts);
+    ExportData(Highcharts);
 }
 
-const Chart = ({ config, language }: { config: any, language: string }) => {
+interface ChartProps extends HighchartsReact.Props {
+    config: SDMXChartConfig;
+    language: string;
+    placeholder?: React.JSX.Element
+}
 
-    const [hcOptions, setHcOptions] = useState({
+const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
+
+    const [hcOptions, setHcOptions] = useState<Highcharts.Options>({
         title: {
             text: "Loading..."
         }
     })
+
+    const [isLoading, setIsLoading] = useState(true)
+
+    const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
 
     const sortByDimensionName = (data: any, dimension: string) => {
         return data.sort((a: any, b: any) => {
@@ -40,26 +55,34 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
         });
     };
 
+    const getLatestValue = (data: any, dimension: string) => {
+        let values  = []
+        values = data.map((dataPoint: any) => dataPoint[dimension])
+                    .map((e: any, i: number, final: any) => final.indexOf(e) === i && i)
+                    .filter((e: any) => data[e]).map((e: any) => data[e])
+        return values;
+    }
+
     useEffect(() => {
 
         const dataObjs = parseDataExpr(config.data);
 
         if (config.download) {
-            ExportData(Highcharts)
+            // ExportData(Highcharts)
         }
 
         const chartType = config.type
         if (!chartType) {
             throw new Error('Chart type not defined');
         }
-        const hcExtraOptions: any = {
+        const hcExtraOptions: Highcharts.Options = {
             plotOptions: {
                 [chartType]: {}
-            }
+            },
         };
 
         let seriesData: any[] = [];
-        let xAxisValue = [];
+        let xAxisValue: any[] = [];
 
         const dataPromises = dataObjs.map((dataObj) => {
             const parser = new SDMXParser();
@@ -79,31 +102,59 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 }
                 // if operation specified in the DATA field, it is applied here whether the operand is an attribute or another SDMX request
                 if (dataObj.operator) {
-                    if (dataObj.operand.startsWith('{')) {
-                        // operand is an attribute
-                        const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                        data.forEach((_dataItem: any, index: number, data: [any]) => {
-                            data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
-                        });
-                        return [data, parser.getDimensions()];
-                    } else {
-                        // operand is another SDMX request
-                        const parserOperand = new SDMXParser();
-                        return parserOperand.getDatasets(dataObj.operand, {
-                            headers: new Headers({
-                                Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+                    if (dataObj.operator === 'hist') {
+                        // we compute the histogram of values along the xAxisConcept
+                        // we also need to get all the values for the xAxisConcept dimension to take into account the 'no-data'
+                        let histData: any[] = []
+                        data.forEach((_dataItem: any) => {
+                            let histItemIndex = histData.findIndex(item => {
+                                if (item.binValue === _dataItem.value) {
+                                    let found = true
+                                    return found
+                                } else {
+                                    return false
+                                }
                             })
-                        }).then(() => {
-                            const dataOperand = parserOperand.getData();
-                            const operandValue = dataOperand[0].value;
+                            if (histItemIndex === -1) {
+                                let histItem: any = {}
+                                histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept]
+                                histItem.value = 1
+                                histItem.binValue = _dataItem.value
+                                histData.push(histItem)
+                            } else {
+                                histData[histItemIndex].value += 1
+                                histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}<br/>${_dataItem[config.xAxisConcept]}`
+                            }
+                        })
+                        return [histData, parser.getDimensions()]
+
+                    } else {
+                        if (dataObj.operand.startsWith('{')) {
+                            // operand is an attribute
+                            const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
                             data.forEach((_dataItem: any, index: number, data: [any]) => {
                                 data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
                             });
                             return [data, parser.getDimensions()];
-                        });
+                        } else {
+                            // operand is another SDMX request
+                            const parserOperand = new SDMXParser();
+                            return parserOperand.getDatasets(dataObj.operand, {
+                                headers: new Headers({
+                                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+                                })
+                            }).then(() => {
+                                const dataOperand = parserOperand.getData();
+                                const operandValue = dataOperand[0].value;
+                                data.forEach((_dataItem: any, index: number, data: [any]) => {
+                                    data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
+                                });
+                                return [data, parser.getDimensions()];
+                            });
+                        }
                     }
                 } else {
-                    return [data, parser.getDimensions()];
+                    return [data, parser.getDimensions(), parser.getActiveDimensions()];
                 }
             })
         });
@@ -113,6 +164,7 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
             sdmxObjs.forEach((sdmxObj: any) => {
                 const data = sdmxObj[0];
                 const dimensions = sdmxObj[1];
+                const activeDimensions = sdmxObj[2];
 
                 if(typeof config.title == 'string') {
                     titleText = parseTextExpr(config.title, dimensions)
@@ -134,20 +186,23 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                 }
                 // check if legendConcept exists in dataFlow
                 if (config.legend && config.legend.concept && config.legend.concept !== 'MULTI') {
-                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config.legend.concept);
+                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config?.legend?.concept);
                     if (!legendDimension) {
                         throw new Error(`legendConcept ${config.legend.concept} not found in dataflow`);
                     }
                 }
 
                 let xAxisConcept = config.xAxisConcept;
-                let legendConcept = config?.legend?.concept;
+                let legendConcept = config?.legend?.concept || "";
 
                 if (chartType === 'line') {
                     // in case xAxisConcept is empty, we use TIME_PERIOD
                     xAxisConcept = config.xAxisConcept || 'TIME_PERIOD';
                     // in case legendConcept is empty, we use the first dimension which is not TIME_PERIOD
-                    legendConcept = config.legend.concept || dimensions.find((dimension: any) => dimension.id !== 'TIME_PERIOD')['id']
+                    legendConcept = config?.legend?.concept || dimensions.find((dimension: any) => dimension.id !== xAxisConcept)['id']
+                    if (!legendConcept) {
+                        throw new Error(`No other dimension than ${xAxisConcept} found`);
+                    }
                     // for (multiple) line charts, we create multiple series for each legendConcept dimension values and using xAxisConcept as the x-axis dimension
                     // TODO in case any other dimension has multiple values, we fix them to their latest value and display a select field to change their value.
                     let serieDimensions = dimensions.find((dimension: any) => dimension.id === legendConcept);
@@ -165,15 +220,20 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                         }
                         hcExtraOptions["xAxis"] = {
                             type: "datetime",
-                            units: [[unit]],
+                            units: [[unit, []]],
                             labels: {
                                 format: xAxisLabelformat
                             }
                         }
+                    } else {
+                        hcExtraOptions["xAxis"] = {
+                            type: "category",
+                            categories: data.map((val: any) => val[xAxisConcept])
+                        }
                     }
                     serieDimensions.values.forEach((serieDimension: any) => {
                         // a serie is created for each of the serie's dimension value
-                        const serieData = data.filter((val: any) => val[config.legend.concept] === serieDimension.name);
+                        const serieData = data.filter((val: any) => val[legendConcept||""] === serieDimension.name);
                         if(serieData.length == 0) {
                           // continue if no data for this serie
                           return
@@ -187,20 +247,72 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                                 x: parseDate(val[xAxisConcept])
                             };
                         });
+                        let serieColor = undefined;
+                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                            serieColor = config.colorPalette[legendConcept][serieDimension.name]
+                        }
+
                         seriesData.push({
                             name: serieDimension.name,
-                            data: yAxisValue
+                            data: yAxisValue,
+                            color: serieColor
                         });
                     });
+                } else if (chartType === 'column' || chartType === 'bar') {
+                    xAxisConcept = config.xAxisConcept;
+                    if (!xAxisConcept) {
+                        throw new Error('No xAxis concept found')
+                    }
+                    legendConcept = config?.legend?.concept || "";
+                    let serieDimension: any = {}
+                    // in case legendConcept is empty, we take the other active dimension and display a serie for each value
+                    if (!legendConcept) {
+                        serieDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
+                    } else {
+                        serieDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
+                    }
+                    serieDimension.values.forEach((serieDimensionValue: any) => {
+                        const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
+                        const sortedData = sortByDimensionName(serieData, xAxisConcept)
+                        const latestValues = getLatestValue(sortedData, xAxisConcept)
+                        const yAxisValue = latestValues.map((val: any) => {
+                            return {
+                                ...val,
+                                y: val["value"],
+                                name: val[xAxisConcept]
+                            }
+                        })
+
+                        latestValues.forEach((val: any) => {
+                            if (!xAxisValue.includes(val[xAxisConcept])) {
+                                xAxisValue.push(val[xAxisConcept])
+                            }
+                        });
+                        if (yAxisValue.length > 0) {
+                            seriesData.push({
+                                name: serieDimensionValue.name,
+                                data: yAxisValue
+                            })
+                        }
+                    })
+
+                    hcExtraOptions["xAxis"] = {
+                        categories: xAxisValue,
+                        type: 'category'
+                    }
+
                 } else if (chartType === 'drilldown') {
                     const xAxisConcept = config.xAxisConcept;
-                    const legendConcept = config.legend.concept;
+                    const legendConcept = config?.legend?.concept;
+                    if (!legendConcept) {
+                        throw new Error(`No legend concept defined for drilldown chart`);
+                    }
                     const serieDimensions = dimensions.find((dimension: any) => dimension.id === legendConcept);
                     const xDimension = dimensions.find((dimension: any) => dimension.id === xAxisConcept)
                     let dataSerieData: any[] = []
                     let dataDrilldownData: any[] = []
                     serieDimensions.values.forEach((serieDimensionValue: any) => {
-                        const serieDimensionData = data.filter((val: any) => val[config.legend.concept] === serieDimensionValue.name);
+                        const serieDimensionData = data.filter((val: any) => val[legendConcept || ""] === serieDimensionValue.name);
                         if(serieDimensionData.length == 0) {
                           // continue if no data for this serie
                           return
@@ -225,9 +337,15 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                             y: serieDataDimensionValue["value"]
 
                         });
+
+                        let drilledDownColor = undefined
+                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                            drilledDownColor = config.colorPalette[legendConcept][serieDimensionValue.name]
+                        }
                         dataDrilldownData.push({
                             id: serieDataDimensionValue[legendConcept],
                             type: (xAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
+                            color: drilledDownColor,
                             data: serieDimensionData.map((value: any) => {
                                 if (xAxisConcept !== "TIME_PERIOD") {
                                     // we remove the Total value from the drilled down data
@@ -257,36 +375,35 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     hcExtraOptions["xAxis"] = {
                         type: 'category'
                     }
-                } else {
+                } else if (chartType === 'pie') {
                     // other chart type (bar, pie) only one serie is created using the dimension specified in xAxisConcept
                     const sortedData = sortByDimensionName(data, xAxisConcept);
                     xAxisValue = sortedData.map((val: any) => {
                         return val[xAxisConcept];
                     });
                     hcExtraOptions["xAxis"] = {
+                        type: 'category',
                         categories: xAxisValue
                     }
                     const yAxisValue = sortedData.map((val: any) => {
                         return {
                             ...val,
                             y: val["value"],
-                            name: xAxisConcept ? val[xAxisConcept] : val[config.legend.concept],
+                            name: xAxisConcept ? val[xAxisConcept] : val[legendConcept || ""],
                         };
                     });
 
                     if (config.labels) {
-                        hcExtraOptions["plotOptions"][chartType] = {
-                            dataLabels: {
-                                enabled: true,
-                                formatter: function (this: any) {
-                                    if (config?.unit?.text === '%') {
-                                        if (chartType === "pie") {
+                        hcExtraOptions["plotOptions"] = {
+                            [chartType]: {
+                                dataLabels: {
+                                    enabled: true,
+                                    formatter: function (this: any) {
+                                        if (config?.unit?.text === '%') {
                                             return `${this.point?.name}: ${this.point?.percentage.toFixed(config.decimals)} %`
                                         } else {
-                                            return `${this.point?.percentage.toFixed(config.decimals)} %`
+                                            return `${this.point?.y?.toLocaleString(language)}`
                                         }
-                                    } else {
-                                        return `${this.point?.y?.toLocaleString(language)}`
                                     }
                                 }
                             }
@@ -294,14 +411,18 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
 
                     // force legend for Pie charts
-                    if (config.legend && config.legend.location !== 'none' && chartType === 'pie') {
-                        hcExtraOptions["plotOptions"][chartType]["showInLegend"] = true;
+                    if (config.legend && chartType === 'pie') {
+                        hcExtraOptions["plotOptions"] = {
+                            [chartType]: {
+                                showInLegend: true
+                            }
+                        }
                     }
 
                     // append data to the serie
                     if (seriesData.length === 0) {
                         seriesData = [{
-                            name: titleText,
+                            name: titleText || dimensions.find((dim: any) => dim.id === config.legend?.concept).values[0].name,
                             data: yAxisValue,
                         },];
                     } else {
@@ -309,10 +430,38 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                     }
                 }
             })
-            setHcOptions({
+            let legendAlign: AlignValue = "center"
+            if (config?.legend?.location) {
+                if (config.legend.location == "left" || config.legend.location == "right") {
+                    legendAlign = config.legend.location
+                }
+            }
+            if (config.labels) {
+                hcExtraOptions["plotOptions"]= {
+                    [chartType] : {
+                        dataLabels: {
+                            enabled: true,
+                            formatter: function (this: any) {
+                                if (config?.unit?.text === '%') {
+                                    if (chartType === "pie") {
+                                        return `${this.point?.name}: ${this.point?.percentage.toFixed(config.decimals)} %`
+                                    } else {
+                                        return `${this.point?.percentage.toFixed(config.decimals)} %`
+                                    }
+                                } else {
+                                    return `${this.point?.y?.toLocaleString(language)}`
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            setIsLoading(false)
+
+            setHcOptions(merge({
                 chart: {
                     type: chartType === 'drilldown' ? 'column' : chartType,
-                    style: {"fontFamily": null}
                 },
                 title: {
                     useHTML: true,
@@ -322,38 +471,40 @@ const Chart = ({ config, language }: { config: any, language: string }) => {
                         fontStyle: config.title?.style,
                         fontSize: config.title?.size
                     },
-                    align: config.title?.align
+                    align: config.title?.align || "center"
                 },
                 subtitle: {
                     text: `<h4>${subtitleText}</h4>`,
                     style: {
-                        fontWeight: config.subtitle?.weight ? config.subtitle.weight : "",
-                        fontStyle: config.subtitle?.italic?"italic":"",
+                        fontWeight: config.subtitle?.weight || "",
+                        fontStyle: config.subtitle?.style || "",
                         fontSize: config.subtitle?.size
                     },
-                    align: config.subtitle?.align
+                    align: config.subtitle?.align || "center"
                 },
                 legend: {
-                    enabled: config?.legend?.location === 'none' ? false : true,
-                    align: ((config.legend && config.legend.location && config.legend.location.toLowerCase()) || 'right')
+                    enabled: config.legend?.location !== "none" ? true:false,
+                    align: legendAlign
                 },
-                series: seriesData,
-                ...hcExtraOptions,
-            });
+                series: seriesData
+            }, hcExtraOptions || {}, config.extraOptions || {}));
         })
     }, [config, language]);
- 
+
     const chart: React.ReactNode =
         <HighchartsReact
             highcharts={Highcharts}
             options={hcOptions}
-            containerProps={{ className: config.frame && config.frame.toLowerCase() == 'yes' ? "border" : "" }}
+            ref={chartComponentRef}
+            containerProps={{ ...props, className: `${props.className} ${config.frame && config.frame ? "border" : ""}`}}
         />
 
     return (
         <>
-        { config.dataLink ? <a href={config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
-            : chart}
+            {isLoading ? placeholder || <div className="opacity-50 d-table-cell align-middle" style={{ "height": 400, "width": 600 }}>Loading...</div>
+            :  config.dataLink ? <a href={ config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
+                : chart
+            }
         </>
     )
 }

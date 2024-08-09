@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -28,8 +29,9 @@ import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { Polygon } from 'ol/geom';
 import { parseTextExpr } from '../../utils/parseTextExpr';
+import { SDMXMapConfig } from '../types';
 
-const MapComponent = ({config, language} : {config: any, language : string}) => {
+const MapComponent = ({config, language} : {config: SDMXMapConfig, language : string}) => {
   // set intial state - used to track references to OpenLayers 
   //  objects for use in hooks, event handlers, etc.
   const [ featuresLayer, setFeaturesLayer ] = useState<VectorLayer<VectorSource>>()
@@ -278,7 +280,7 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
       map.forEachFeatureAtPixel(pixel, (feature: FeatureLike) => {
         features.push(feature);
       });
-      if (features.length > 0) {
+      if (features.length > 0 && config?.legend?.concept) {
         const info: any[] = [];
         features.forEach((feature: FeatureLike) => {
           const others = dimensions.map((dimension: any) => {
@@ -290,7 +292,7 @@ const MapComponent = ({config, language} : {config: any, language : string}) => 
         const overlay = map.getOverlayById('tooltip-overlay')
         overlay.setPosition(evt.coordinate);
         tooltipElement.current!.style!.display = 'block';
-        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config.legend.concept)
+        tooltipElement.current!.children[0]!.innerHTML = features[0].get(config?.legend?.concept)
         tooltipElement.current!.children[1]!.innerHTML = info.join('\n')
     
         mapElement.current!.style.cursor = 'pointer';

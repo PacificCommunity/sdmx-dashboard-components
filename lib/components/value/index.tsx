@@ -24,12 +24,16 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     const [isLoading, setIsLoading] = useState(true)
 
     const sdmxParser = new SDMXParser();
-    const containerRef = useRef(null);
+    const containerRef = useRef<null | HTMLParagraphElement>(null);
 
     const calculateFontSize = (text: string) => {
-        const containerWidth = containerRef?.current?.clientWidth;
-        // Adjust the formula as needed to fit your design
-        return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
+        if (containerRef.current) {
+            const containerWidth = containerRef?.current.clientWidth;
+            // Adjust the formula as needed to fit your design
+            return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
+        } else {
+            return '4em';
+        }
     };
 
     const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {

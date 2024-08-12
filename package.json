@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-react",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "main": "dist/sdmx-dashboard-react.js",
   "types": "dist/index.d.ts",
@@ -15,7 +15,7 @@
   "peerDependencies": {
     "bootstrap": "^5.3.2",
     "d3-scale-chromatic": "^3.0.0",
-    "highcharts": "^11.2.0",
+    "highcharts": "^11.4.6",
     "highcharts-react-official": "^3.2.1",
     "ol": "^8.2.0",
     "proj4": "^2.9.2",

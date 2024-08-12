@@ -256,7 +256,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             data: yAxisValue,
                         }
                         if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                            serieData['colors'] = config.colorPalette[legendConcept][serieDimension.id]
+                            serieDataObj['color'] = config.colorPalette[legendConcept][serieDimension.id]
                         }
 
                         seriesData.push(serieDataObj);

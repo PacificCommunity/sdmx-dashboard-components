@@ -29,6 +29,7 @@ export type SDMXVisualConfig = {
         text: string, // text of the unit
         location?: "prefix" | "suffix" | "under" // location of the unit
     },
+    adaptiveTextSize?: boolean, // indicates whether or not the text size should be adaptive
     decimals?: number | string, // number of decimals to display
     labels?: boolean, // indicates whether or not the labels should be displayed
     download?: boolean, // indicates whether or not the visualization should be downloadable

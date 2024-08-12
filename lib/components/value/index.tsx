@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -16,27 +16,54 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
 
-    const [valueStr, setValueStr] = useState("Loading...")
+    const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
     const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
     const [subtitleText, setSubtitleText] = useState<string>(config.subtitle?'Loading...':'')
     const [isLoading, setIsLoading] = useState(true)
 
     const sdmxParser = new SDMXParser();
+    const containerRef = useRef(null);
+
+    const calculateFontSize = (text: string) => {
+        const containerWidth = containerRef.current.clientWidth;
+        // Adjust the formula as needed to fit your design
+        return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
+    };
 
     const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
         if (config['decimals']) {
             const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
+        let valueLabel = '';
+        let valueUnder = false;
         if (config.unit) {
+            // if config.unit[text] is string, just use it as is, otherwise use the language version
+            if (typeof config.unit['text'] === 'string') {
+                valueLabel = config.unit['text'];
+            } else {
+                valueLabel = config.unit['text'][language];
+            }
+
             if (config.unit['location'] === 'suffix') {
-                valueStr += config.unit['text'];
+                valueStr += ' '+valueLabel;
             } else if (config.unit['location'] === 'prefix') {
-                valueStr = config.unit['text'] + valueStr;
+                valueStr = valueLabel+' '+valueStr;
+            } else if (config.unit['location'] === 'below') {
+                valueUnder = true;
             }
         }
-        return valueStr.toLocaleString(language);
+        const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
+        const unitSize = config.adaptiveTextSize ? calculateFontSize(valueLabel) : '4em';
+        return (
+            <>
+            <span style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
+            {
+                valueUnder && <span style={{fontSize: unitSize}}>{valueLabel}</span>
+            }
+            </>
+        )
     }
 
     useEffect(() => {
@@ -101,13 +128,13 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                             histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}, ${_dataItem[config.xAxisConcept]}`
                         }
                     })
-                    setValueStr(formatValue(histData[0].value, config, histData, attributes, language));
+                    setValueElement(formatValue(histData[0].value, config, histData, attributes, language));
                     setPopupStr(histData[0][config.xAxisConcept])
                 } else if (dataObj.operand.startsWith('{')) {
                     // if operand starts with { then it is an attribute
                     const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
                     valueStr = eval(`${valueStr} ${dataObj.operator} ${operandValue}`);
-                    setValueStr(formatValue(valueStr, config, data, attributes, language));
+                    setValueElement(formatValue(valueStr, config, data, attributes, language));
                     setPopupStr(data[0][config.xAxisConcept])
                 } else {
                     // we presume it is a dataflow url
@@ -120,24 +147,24 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                         const dataOperand = parserOperand.getData();
                         const dataOperandValue = dataOperand[0].value;
                         valueStr = eval(`${valueStr} ${dataObj.operator} ${dataOperandValue}`);
-                        setValueStr(formatValue(valueStr, config, data, attributes, language));
+                        setValueElement(formatValue(valueStr, config, data, attributes, language));
                         setPopupStr(data[0][config.xAxisConcept])
                     });
                 }
 
             } else {
-                setValueStr(formatValue(valueStr, config, data, attributes, language));
+                setValueElement(formatValue(valueStr, config, data, attributes, language));
                 setPopupStr(data[0][config.xAxisConcept])
             }
         });
     }, [language]);
 
     const valueNode: React.ReactNode =
-        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.frame ? "border" : ""}`}>
+        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}>
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
             {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
-            <div className="display-2 flex-grow-1 d-flex align-items-center justify-content-center" {...props} title={popupStr}>
-                <span>{valueStr}</span>
+            <div ref={containerRef} className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" {...props} title={popupStr}>
+                {valueElement}
             </div>
         </div> 
 

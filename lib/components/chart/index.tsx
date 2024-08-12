@@ -365,8 +365,17 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                                     }
                                 })
                             }
-                            // if colorPalette specifies a color based on the drilldownXAxisConcept, we apply it to the drilldown serie
+                            // depending on what is available in the passed object config `colorPalette` we use them to color the series
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                                // if colorPalette specifies a color based on the legendConcept, we apply it to the drilldown serie
+                                drilldownSerieObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                            } else if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
+                                // else if colorPalette specifies a color based on the xAxisConcept, we apply it
+                                drilldownSerieObj["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
+                            }
+
                             if (config.colorPalette && Object.keys(config.colorPalette).includes(drilldownXAxisConcept)) {
+                                // on top of that, if colorPalette specifies a color based on the drilldownXAxisConcept, we apply it to the drilldown serie
                                 drilldownSerieObj.data = drilldownSerieObj.data.map((item: any) => {
                                     const dimId = dimensions.find((dim: any) => dim.id === drilldownXAxisConcept).values.find((val: any) => val.name === item[drilldownXAxisConcept]).id
                                     return {

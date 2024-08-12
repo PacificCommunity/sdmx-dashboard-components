@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { HighchartsReact } from "highcharts-react-official";
-import HighchartsExporting from "highcharts/modules/exporting";
-import Accessibility from "highcharts/modules/accessibility";
-import ExportData from "highcharts/modules/export-data";
-import Drilldown from "highcharts/modules/drilldown"
 import Highcharts from 'highcharts';
+import highchartsMore from "highcharts/highcharts-more";
+import highchartsExporting from "highcharts/modules/exporting";
+import highchartsAccessibility from "highcharts/modules/accessibility";
+import highchartsExportData from "highcharts/modules/export-data";
+import highchartsDumbbell from "highcharts/modules/dumbbell"
+import highchartsDrilldown from "highcharts/modules/drilldown"
+import highchartsLollipop from "highcharts/modules/lollipop"
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr, parseOperandTextExpr } from '../../utils/parseTextExpr';
@@ -19,10 +22,13 @@ import { AlignValue } from "highcharts";
 import { merge } from "ts-deepmerge";
 
 if (typeof Highcharts === 'object') {
-    HighchartsExporting(Highcharts);
-    Accessibility(Highcharts);
-    Drilldown(Highcharts);
-    ExportData(Highcharts);
+    highchartsMore(Highcharts)
+    highchartsExporting(Highcharts);
+    highchartsAccessibility(Highcharts);
+    highchartsDrilldown(Highcharts);
+    highchartsDumbbell(Highcharts);
+    highchartsLollipop(Highcharts);
+    highchartsExportData(Highcharts);
 }
 
 interface ChartProps extends HighchartsReact.Props {
@@ -43,17 +49,16 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
     const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
 
-    const sortByDimensionName = (data: any, dimension: string) => {
+    const sortByDimension = (data: any, dimensionId: string) => {
+
         return data.sort((a: any, b: any) => {
-            if (a[dimension] < b[dimension]) {
-                return -1;
+            if (dimensionId === "TIME_PERIOD") {
+                return parseInt(a[dimensionId]) - parseInt(b[dimensionId])
+            } else {
+                return a[dimensionId].localeCompare(b[dimensionId])
             }
-            if (a[dimension] > b[dimension]) {
-                return 1;
-            }
-            return 0;
-        });
-    };
+        })
+    }
 
     const getLatestValue = (data: any, dimension: string) => {
         let values  = []
@@ -204,7 +209,6 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         throw new Error(`No other dimension than ${xAxisConcept} found`);
                     }
                     // for (multiple) line charts, we create multiple series for each legendConcept dimension values and using xAxisConcept as the x-axis dimension
-                    // TODO in case any other dimension has multiple values, we fix them to their latest value and display a select field to change their value.
                     let serieDimensions = dimensions.find((dimension: any) => dimension.id === legendConcept);
                     if (xAxisConcept === "TIME_PERIOD") {
                         // we assume that line charts have a time dimension represented on x-axis
@@ -231,14 +235,14 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             categories: data.map((val: any) => val[xAxisConcept])
                         }
                     }
-                    serieDimensions.values.forEach((serieDimension: any) => {
+                    serieDimensions.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((serieDimension: any) => {
                         // a serie is created for each of the serie's dimension value
                         const serieData = data.filter((val: any) => val[legendConcept||""] === serieDimension.name);
                         if(serieData.length == 0) {
                           // continue if no data for this serie
                           return
                         }
-                        const sortedData = sortByDimensionName(serieData, xAxisConcept);
+                        const sortedData = sortByDimension(serieData, xAxisConcept);
                         const yAxisValue = sortedData.map((val: any) => {
                             return {
                                 //...dimensionSingleValues,
@@ -247,18 +251,17 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                                 x: parseDate(val[xAxisConcept])
                             };
                         });
-                        let serieColor = undefined;
-                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                            serieColor = config.colorPalette[legendConcept][serieDimension.name]
-                        }
-
-                        seriesData.push({
+                        let serieDataObj: any = {
                             name: serieDimension.name,
                             data: yAxisValue,
-                            color: serieColor
-                        });
+                        }
+                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                            serieData['colors'] = config.colorPalette[legendConcept][serieDimension.id]
+                        }
+
+                        seriesData.push(serieDataObj);
                     });
-                } else if (chartType === 'column' || chartType === 'bar') {
+                } else if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop') {
                     xAxisConcept = config.xAxisConcept;
                     if (!xAxisConcept) {
                         throw new Error('No xAxis concept found')
@@ -271,9 +274,9 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     } else {
                         serieDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
                     }
-                    serieDimension.values.sort((a: any, b: any) => a.order - b.order).forEach((serieDimensionValue: any) => {
+                    serieDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((serieDimensionValue: any) => {
                         const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
-                        const sortedData = sortByDimensionName(serieData, xAxisConcept)
+                        const sortedData = sortByDimension(serieData, xAxisConcept)
                         const latestValues = getLatestValue(sortedData, xAxisConcept)
                         const yAxisValue = latestValues.map((val: any) => {
                             return {
@@ -289,10 +292,14 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             }
                         });
                         if (yAxisValue.length > 0) {
-                            seriesData.push({
+                            let serieDataObj: any = {
                                 name: serieDimensionValue.name,
-                                data: yAxisValue
-                            })
+                                data: yAxisValue,
+                            }
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                                serieDataObj["color"] = config.colorPalette[legendConcept][serieDimensionValue.id]
+                            }
+                            seriesData.push(serieDataObj)
                         }
                     })
 
@@ -313,32 +320,40 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     }
                     const xAxisDimension = dimensions.find((dimension: any) => dimension.id === xAxisConcept);
                     const legendDimension = dimensions.find((dimension: any) => dimension.id === legendConcept);
-                    const drilldownXAxisDimension = dimensions.find((dimension: any) => dimension.id === drilldownXAxisConcept)
+                    // const drilldownXAxisDimension = dimensions.find((dimension: any) => dimension.id === drilldownXAxisConcept)
 
                     let dataDrilldownData: any[] = []
-                    legendDimension.values.sort((a: any, b: any) => a.order - b.order ).forEach((legendDimensionValue: any) => {
+                    legendDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((legendDimensionValue: any) => {
                         const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
                         let legendSerieData: any[] = []
                         xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
-                            const tmpArr = legendSerie
+                            let tmpArr = legendSerie
                                 .filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name)
-                                .filter((val: any) => val[legendConcept] === legendDimensionValue.name);
-                            // data is sorted by DESC drilldownXAxisConcept to get the latest value
-                            tmpArr.sort((a: any, b: any) => {
-                                return parseInt(b[drilldownXAxisDimension.id]) - parseInt(a[drilldownXAxisDimension.id])
-                            })
+                                .filter((val: any) => val[legendConcept] === legendDimensionValue.name)
+
+                            // sort data by drilldownXAxisConcept ASC
+                            tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept)
+                            // either the "Total" value or the latest value is used to display in the column chart of drilldown
+                            let legendSerieDataValue = tmpArr.find((val: any) => val[drilldownXAxisConcept] === "Total")
+                            if (drilldownXAxisConcept === "TIME_PERIOD") {
+                                legendSerieDataValue = tmpArr[tmpArr.length - 1]
+                            } else {
+                                // filter out the "Total" value from the drilled down data array
+                                tmpArr = tmpArr.filter((val: any) => val[drilldownXAxisConcept] !== "Total")
+                            }
 
                             if (tmpArr.length === 0) {
                                 return
                             }
-                            legendSerieData.push({
-                                ...tmpArr[0],
+                            let legendSerieDataObj: any = {
+                                ...legendSerieDataValue,
                                 name: xAxisDimensionValue.name,
                                 drilldown: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
-                                y: tmpArr[0]["value"]
-                            });
+                                y: legendSerieDataValue["value"]
+                            }
+                            legendSerieData.push(legendSerieDataObj);
 
-                            let drilldownSerie: any = {
+                            let drilldownSerieObj: any = {
                                 id: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
                                 type: (drilldownXAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
                                 name: `${legendDimensionValue.name}`,
@@ -350,19 +365,32 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                                     }
                                 })
                             }
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
-                                drilldownSerie["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.name]
+                            // if colorPalette specifies a color based on the drilldownXAxisConcept, we apply it to the drilldown serie
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(drilldownXAxisConcept)) {
+                                drilldownSerieObj.data = drilldownSerieObj.data.map((item: any) => {
+                                    const dimId = dimensions.find((dim: any) => dim.id === drilldownXAxisConcept).values.find((val: any) => val.name === item[drilldownXAxisConcept]).id
+                                    return {
+                                        ...item,
+                                        color: config.colorPalette?.[drilldownXAxisConcept][dimId]
+                                    }
+                                })
                             }
 
-                            dataDrilldownData.push(drilldownSerie)
+                            dataDrilldownData.push(drilldownSerieObj)
                         })
 
 
                         if (legendSerieData.length !== 0) {
-                            seriesData.push({
+                            let seriesDataObj: any = {
                                 name: legendDimensionValue.name,
-                                data: legendSerieData
-                            })
+                                data: legendSerieData.sort((a: any, b: any) => {
+                                    return a[xAxisDimension.id].localeCompare(b[xAxisDimension.id])
+                                })
+                            }
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                                seriesDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                            }
+                            seriesData.push(seriesDataObj)
                         }
 
                     })
@@ -375,7 +403,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     }
                 } else if (chartType === 'pie') {
                     // other chart type (bar, pie) only one serie is created using the dimension specified in xAxisConcept
-                    const sortedData = sortByDimensionName(data, xAxisConcept);
+                    const sortedData = sortByDimension(data, xAxisConcept);
                     xAxisValue = sortedData.map((val: any) => {
                         return val[xAxisConcept];
                     });

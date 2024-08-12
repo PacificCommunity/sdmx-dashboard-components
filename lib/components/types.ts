@@ -20,7 +20,7 @@ export type SDMXColorPalette = {
 export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
-    type: "line" | "bar" | "pie" | "column" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
+    type: "line" | "bar" | "pie" | "column" | "lollipop" |  "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization

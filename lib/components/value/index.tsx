@@ -23,12 +23,18 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     const [isLoading, setIsLoading] = useState(true)
 
     const sdmxParser = new SDMXParser();
-    const containerRef = useRef(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const { className, ...otherProps } = props;
 
     const calculateFontSize = (text: string) => {
-        const containerWidth = containerRef.current.clientWidth;
-        // Adjust the formula as needed to fit your design
-        return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
+        if (containerRef.current) {
+            const containerWidth = containerRef.current.clientWidth;
+            // Adjust the formula as needed to fit your design
+            return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
+        } else {
+            return '4em';
+        }
     };
 
     const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
@@ -58,7 +64,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
         const unitSize = config.adaptiveTextSize ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize}}>{valueLabel}</span>
             }
@@ -72,6 +78,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             throw new Error('Multiple data expressions are not supported for Value component');
         }
         const dataObj = dataObjs[0];
+
  
         const dataFlowUrl = dataObj.dataFlowUrl;
         sdmxParser.getDatasets(dataFlowUrl, {
@@ -98,8 +105,6 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                     setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
                 }
             }
-
-            setIsLoading(false)
 
             let valueStr = data[0].value;
             // apply operation to data
@@ -156,25 +161,35 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                 setValueElement(formatValue(valueStr, config, data, attributes, language));
                 setPopupStr(data[0][config.xAxisConcept])
             }
+            
+            setIsLoading(false)
         });
     }, [language]);
 
     const valueNode: React.ReactNode =
-        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}>
+        <div className="d-flex flex-column h-100">
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
             {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
-            <div ref={containerRef} className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" {...props} title={popupStr}>
+            <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" title={popupStr}>
                 {valueElement}
             </div>
-        </div> 
+        </div>
+
+    // if no style provided, set default style
+    if (!props.className && !otherProps.style) {
+        otherProps.style = { minHeight: '400px', width: '100%' };
+    }
 
     return (
-        <>
-            { isLoading ? placeholder || <div className="opacity-50 d-table-cell align-middle" style={{ "height": 100, "width": 600 }}>Loading...</div>
+        <div ref={containerRef}
+            className={`${props.className || "pt-3 pb-2 px-2 px-xl-3 bg-white h-100"} ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}
+            {...otherProps}
+        >
+            { isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }
-        </>
+        </div>
 
     )
 }

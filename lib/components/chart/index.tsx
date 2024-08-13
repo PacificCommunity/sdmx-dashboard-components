@@ -428,6 +428,11 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         };
                     });
 
+                    // in case of "boolean" pie chart with only 2 values resulting of a hist, we order values DESC (true first)
+                    if (yAxisValue.length == 2 && Object.keys(yAxisValue[0]).includes("binValue")) {
+                        yAxisValue.sort((a: any, b: any) => b.binValue - a.binValue)
+                    }
+
                     if (config.labels) {
                         hcExtraOptions["plotOptions"] = {
                             [chartType]: {

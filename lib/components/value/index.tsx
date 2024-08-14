@@ -36,6 +36,12 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     let containerStyle = {};
     let valueStyle = style;
 
+    // is adtaptive text size requested ?
+    // check from config and from classname "adaptive-text"
+    if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
+        config.adaptiveTextSize = true;
+    }
+
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
     // percentage: width is a percentage of the container div

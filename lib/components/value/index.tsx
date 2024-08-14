@@ -24,16 +24,62 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     const [isLoading, setIsLoading] = useState(true)
 
     const sdmxParser = new SDMXParser();
-    const containerRef = useRef<null | HTMLParagraphElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // className is applied to container div
+    // style is applied to value div
+    // style main contain width, height, color and backgroundColor
+    // other props are applied to container div
+    let { className, style, ...otherProps } = props;
+
+    let containerClass = props.className || '';
+    let containerStyle = {};
+    let valueStyle = style;
+
+    // create valueDivWidth variable as a string or number, and store the width of the value div
+    // this will be either a percentage or a number of pixels
+    // percentage: width is a percentage of the container div
+    // number: width is fixed in pixels
+    let valueDivWidth: string | number = '100%';
+
+    // if no className and no style are provided, set default style
+    if (!containerClass) {
+        // container div default className
+        containerClass = 'pt-3 pb-2 px-2 px-xl-3 bg-white h-100';
+        // container default style
+        containerStyle = { minHeight: '400px', width: '100%' };
+    }
+    if (!props.style) {
+        // value div default style
+        valueStyle = { height: '100%', width: '100%' };
+    } else if (props.style && props.style.width) {
+        if (typeof props.style.width === 'number') {
+            // number provided: width is in pixels
+            valueDivWidth = props.style.width;
+        } else if (typeof props.style.width === 'string') {
+            if (props.style.width.endsWith('px')) {
+                // string provided ending with 'px': width is in pixels
+                valueDivWidth = parseInt(props.style.width);
+            } else if (props.style.width.endsWith('%')) {
+                // a percentage value
+                // note: if 'em' or 'rem' is used, the value will be ignored
+                valueDivWidth = props.style.width;
+            }
+        }
+    }
 
     const calculateFontSize = (text: string) => {
+        if (typeof valueDivWidth === 'number') {
+            return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
+        }
         if (containerRef.current) {
-            const containerWidth = containerRef?.current.clientWidth;
+            // calculate the width of the value div in pixel, as a percentage of the container div
+            let containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
             // Adjust the formula as needed to fit your design
             return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
-        } else {
-            return '4em';
         }
+        // default value if no container found
+        return '4em';
     };
 
     const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
@@ -50,20 +96,20 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             } else {
                 valueLabel = config.unit['text'][language];
             }
-
+            // position the unit label
             if (config.unit['location'] === 'suffix') {
                 valueStr += ' '+valueLabel;
             } else if (config.unit['location'] === 'prefix') {
                 valueStr = valueLabel+' '+valueStr;
-            } else if (config.unit['location'] === 'below') {
+            } else if (config.unit['location'] === 'under') {
                 valueUnder = true;
             }
         }
         const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
-        const unitSize = config.adaptiveTextSize ? calculateFontSize(valueLabel) : '4em';
+        const unitSize = config.adaptiveTextSize && valueUnder? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize}}>{valueLabel}</span>
             }
@@ -103,8 +149,6 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                     setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
                 }
             }
-
-            setIsLoading(false)
 
             let valueStr = data[0].value;
             // apply operation to data
@@ -161,25 +205,31 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                 setValueElement(formatValue(valueStr, config, data, attributes, language));
                 setPopupStr(data[0][config.xAxisConcept])
             }
+            
+            setIsLoading(false)
         });
     }, [language]);
 
     const valueNode: React.ReactNode =
-        <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white h-100 d-flex flex-column min-cell-height ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}>
+        <div className="d-flex flex-column h-100">
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
-            {config.subtitle && (<span className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</span>)}
-            <div ref={containerRef} className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" {...props} title={popupStr}>
+            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</h4>)}
+            <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={valueStyle} title={popupStr}>
                 {valueElement}
             </div>
-        </div> 
+        </div>
 
     return (
-        <>
-            { isLoading ? placeholder || <div className="opacity-50 d-table-cell align-middle" style={{ "height": 100, "width": 600 }}>Loading...</div>
+        <div ref={containerRef}
+            className={`${containerClass} ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}
+            style={containerStyle}
+            {...otherProps}
+        >
+            { isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }
-        </>
+        </div>
 
     )
 }

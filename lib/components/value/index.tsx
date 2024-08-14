@@ -227,7 +227,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
 
     return (
         <div ref={containerRef}
-            className={`${containerClass} ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}
+            className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
             {...otherProps}
         >

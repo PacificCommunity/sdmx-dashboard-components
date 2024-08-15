@@ -36,6 +36,12 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     let containerStyle = {};
     let valueStyle = style;
 
+    // is adtaptive text size requested ?
+    // check from config and from classname "adaptive-text"
+    if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
+        config.adaptiveTextSize = true;
+    }
+
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
     // percentage: width is a percentage of the container div
@@ -106,7 +112,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             }
         }
         const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
-        const unitSize = config.adaptiveTextSize && valueUnder? calculateFontSize(valueLabel) : '4em';
+        const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
             <span className="lh-1" style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
@@ -211,9 +217,9 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     }, [language]);
 
     const valueNode: React.ReactNode =
-        <div className="d-flex flex-column h-100">
+        <div className="value-node d-flex flex-column h-100">
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
-            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</h4>)}
+            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</h4>)}
             <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={valueStyle} title={popupStr}>
                 {valueElement}
             </div>
@@ -221,7 +227,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
 
     return (
         <div ref={containerRef}
-            className={`${containerClass} ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}
+            className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
             {...otherProps}
         >

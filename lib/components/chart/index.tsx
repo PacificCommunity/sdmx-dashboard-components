@@ -235,7 +235,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             categories: data.map((val: any) => val[xAxisConcept])
                         }
                     }
-                    serieDimensions.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((serieDimension: any) => {
+                    serieDimensions.values.sort((a: any, b: any) => a.name.localeCompare(b.name)).forEach((serieDimension: any) => {
                         // a serie is created for each of the serie's dimension value
                         const serieData = data.filter((val: any) => val[legendConcept||""] === serieDimension.name);
                         if(serieData.length == 0) {
@@ -278,7 +278,9 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
                         const sortedData = sortByDimension(serieData, xAxisConcept)
                         const latestValues = getLatestValue(sortedData, xAxisConcept)
-                        const yAxisValue = latestValues.map((val: any) => {
+                        const yAxisValue = latestValues
+                            .filter((val: any) => val.value !== null ) // remove null values from chart
+                            .map((val: any) => {
                             return {
                                 ...val,
                                 y: val["value"],
@@ -286,7 +288,8 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             }
                         })
 
-                        latestValues.forEach((val: any) => {
+                        // add category to xAxis
+                        yAxisValue.forEach((val: any) => {
                             if (!xAxisValue.includes(val[xAxisConcept])) {
                                 xAxisValue.push(val[xAxisConcept])
                             }

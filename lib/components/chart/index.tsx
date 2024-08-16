@@ -307,7 +307,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     })
 
                     hcExtraOptions["xAxis"] = {
-                        categories: xAxisValue,
+                        categories: xAxisValue.sort(),
                         type: 'category'
                     }
 

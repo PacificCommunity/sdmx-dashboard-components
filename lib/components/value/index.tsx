@@ -129,6 +129,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             throw new Error('Multiple data expressions are not supported for Value component');
         }
         const dataObj = dataObjs[0];
+        dataObj.index = dataObj.index || 0;
  
         const dataFlowUrl = dataObj.dataFlowUrl;
         sdmxParser.getDatasets(dataFlowUrl, {
@@ -159,32 +160,15 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             let valueStr = data[0].value;
             // apply operation to data
             if (dataObj.operator) {
-                if (dataObj.operator === 'hist') {
-                    // we compute the histogram of values along the xAxisConcept
-                    // we also need to get all the values for the xAxisConcept dimension to take into account the 'no-data'
-                    let histData: any[] = []
-                    data.forEach((_dataItem: any) => {
-                        let histItemIndex = histData.findIndex(item => {
-                            if (item.binValue === _dataItem.value) {
-                                let found = true
-                                return found
-                            } else {
-                                return false
-                            }
+                if(dataObj.operator === "count") {
+                    const countData = data
+                        .map((item: any) => {
+                            const exprOperand = parseOperandTextExpr(dataObj.exprOperand, item, attributes);
+                            return eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
                         })
-                        if (histItemIndex === -1) {
-                            let histItem: any = {}
-                            histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept]
-                            histItem.value = 1
-                            histItem.binValue = _dataItem.value
-                            histData.push(histItem)
-                        } else {
-                            histData[histItemIndex].value += 1
-                            histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}, ${_dataItem[config.xAxisConcept]}`
-                        }
-                    })
-                    setValueElement(formatValue(histData[0].value, config, histData, attributes, language));
-                    setPopupStr(histData[0][config.xAxisConcept])
+                        .filter((item: any) => item); // count number of true
+                    setValueElement(formatValue(countData.length, config, countData, attributes, language));
+                    setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                 } else if (dataObj.operand.startsWith('{')) {
                     // if operand starts with { then it is an attribute
                     const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);

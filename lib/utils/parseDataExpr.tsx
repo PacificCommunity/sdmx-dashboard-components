@@ -55,9 +55,22 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
     }
 
     // when we want a visual based on the histogram of the observations
+    // syntax is `hist($DATA_URL)`
     if (dataExpr.startsWith('hist')) {
       parsedExpr['dataFlowUrl'] = dataExpr.split('(')[1].split(')')[0]
       parsedExpr['operator'] = 'hist'
+      parsedExpr['index'] = dataExpr.split(')')[1]?.split('[')[1]?.split(']')[0]
+    }
+
+    // when we want a visual with the number of observations matching a criteria
+    // syntax is 'count($EXPRESSION)'
+    if (dataExpr.startsWith('count')) {
+      const expression = dataExpr.split('(')[1].split(')')[0]
+      const tokens = expression.split(/ [/[=!]== /g);
+      parsedExpr['dataFlowUrl'] = tokens[0].trim();
+      parsedExpr['operator'] = 'count'
+      parsedExpr['exprOperator'] = expression.match(/ [/[=!]== /g)![0].trim()
+      parsedExpr['exprOperand'] = tokens[1].trim();
     }
     
     results.push(parsedExpr);

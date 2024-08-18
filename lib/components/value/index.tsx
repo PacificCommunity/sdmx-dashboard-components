@@ -115,9 +115,9 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
         const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(language)}</span>
             {
-                valueUnder && <span style={{fontSize: unitSize}}>{valueLabel}</span>
+                valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
             </>
         )
@@ -164,7 +164,8 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                     const countData = data
                         .map((item: any) => {
                             const exprOperand = parseOperandTextExpr(dataObj.exprOperand, item, attributes);
-                            return eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
+                            const result = eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
+                            return result && item;
                         })
                         .filter((item: any) => item); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));

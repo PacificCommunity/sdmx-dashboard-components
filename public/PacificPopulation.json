@@ -120,6 +120,7 @@
           },
           "labels": true,
           "legend": {
+            "concept": "INDICATOR",
             "location": "none"
           },
           "xAxisConcept": "GEO_PICT",
@@ -251,9 +252,7 @@
             "weight": "normal",
             "align": "center"
           },
-          "legend": {
-            "concept": "LABEMP_STATUS"
-          },
+          "xAxisConcept": "LABEMP_STATUS",
           "yAxisConcept": "OBS_VALUE",
           "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_LABEMP,1.0/A.WS.LABEMPRF._T._T._T._T.6+5+3+2+1+U+O?startPeriod=2013&endPeriod=2019&lastNObservations=1&dimensionAtObservation=AllDimensions"
         }

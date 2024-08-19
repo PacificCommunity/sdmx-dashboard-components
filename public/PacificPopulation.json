@@ -90,7 +90,7 @@
               "en": "per sq. km",
               "fr": "par km2"
             },
-            "location": "below"
+            "location": "under"
           },
           "labels": false,
           "adaptiveTextSize": true,

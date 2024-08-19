@@ -198,5 +198,25 @@
             "yAxisConcept": "OBS_VALUE",
             "data": "https://www.ilo.org/sdmx/rest/data/ILO,DF_EMP_TEMP_SEX_AGE_STE_NB,1.0/CHL.A..SEX_T.AGE_YTHADULT_YGE15.STE_ICSE93_6+STE_ICSE93_5+STE_ICSE93_4+STE_ICSE93_3+STE_ICSE93_2+STE_ICSE93_1?endPeriod=2022&lastNObservations=1"
         }]
+    }, {
+        "columns": [{
+            "id": "drilldown",
+            "type": "drilldown",
+            "xAxisConcept": "TIME_PERIOD",
+            "yAxisConcept": "OBS_VALUE",
+            "legend": {
+                "concept": "GEO_PICT"
+            },
+            "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_DIGITAL_DEVELOPMENT,1.0/A..DD006?startPeriod=2013&endPeriod=2021&dimensionAtObservation=AllDimensions"
+        }, {
+            "id": "line",
+            "type": "line",
+            "xAxisConcept": "TIME_PERIOD",
+            "yAxisConcept": "OBS_VALUE",
+            "legend": {
+                "concept": "GEO_PICT"
+            },
+            "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_DIGITAL_DEVELOPMENT,1.0/A..DD006?startPeriod=2013&endPeriod=2021&dimensionAtObservation=AllDimensions"
+        }]
     }]
 }

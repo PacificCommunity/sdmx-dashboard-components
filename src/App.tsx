@@ -43,12 +43,18 @@ function App() {
         className='mb-3'
       >
         <Tab eventKey={'dashboard'} title="Dashboard">
+          <div>
             <select className="form-select w-50" aria-label="select language" value={language} onChange={(evt)=>setLanguage(evt.target.value)}>
               {Object.keys(dash1Languages).map((key: string) => (
                 <option key={key} value={key}>{dash1Languages[key as keyof typeof dash1Languages]}</option>
               ))}
             </select>
             <SDMXDashboard url='./PacificPopulation.json' lang={language}/>
+          </div>
+          <div>
+            <SDMXDashboard url='./ExampleCLNew.json' lang={language}/>
+          </div>
+
         </Tab>
         <Tab eventKey={'line'} title="Line charts">
             <SDMXChart 

@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-react",
-  "version": "0.2.14",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/sdmx-dashboard-react.js",
   "types": "dist/index.d.ts",

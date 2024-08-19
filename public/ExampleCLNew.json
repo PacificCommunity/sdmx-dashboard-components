@@ -1,0 +1,226 @@
+{
+    "header": {
+        "subtitle": {
+            "text": {
+                "en": "Example of a dashboard script with data from Chile",
+                "es": "Ejemplo de un script de panel con datos de Chile"
+            }
+        },
+        "title": {
+            "text": {
+                "en": "The Labour Market at a glance",
+                "es": "El mercado laboral en un vistazo"
+            }
+        }
+    },
+    "id": "ExampleCLNew",
+    "languages": {
+        "en": "English",
+        "es": "Español"
+    },
+    "rows": [
+        {
+            "columns": [
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_UNE_DEAP_SEX_AGE_RT,1.0/CHL.A..SEX_T.AGE_YTHADULT_YGE15?endPeriod=2024&lastNObservations=1",
+                    "id": "unemployment_rate",
+                    "labels": false,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Unemployment rate",
+                            "es": "Tasa de desempleo"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "value"
+                },
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EES_TEES_SEX_MJH_NB,1.0/CHL.A..SEX_T.MJH_AGGREGATE_MULTI?endPeriod=2024&lastNObservations=1 * {UNIT_MULT}",
+                    "id": "multiple_jobs",
+                    "labels": false,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Number of persons with multiple jobs",
+                            "es": "Número de personas con múltiples trabajos"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "value"
+                },
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EIP_NEET_SEX_RT,1.0/CHL.A..SEX_T?endPeriod=2024&lastNObservations=1",
+                    "decimals": 2,
+                    "id": "neet",
+                    "labels": false,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "NEET - Youth not in employment, education or training",
+                            "es": "Jóvenes que no estudian ni trabajan"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "value",
+                    "unit": {
+                        "location": "suffix",
+                        "text": "%"
+                    }
+                }
+            ]
+        },
+        {
+            "columns": [
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EIP_TEIP_SEX_AGE_NB,1.0/CHL.A..SEX_F+SEX_M.AGE_AGGREGATE_TOTAL?endPeriod=2024&lastNObservations=1&dimensionAtObservation=AllDimensions",
+                    "id": "outside_labor_force",
+                    "labels": true,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Persons outside the labour force by sex",
+                            "es": "Personas fuera de la fuerza laboral por sexo"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "pie",
+                    "xAxisConcept": "SEX",
+                    "unit": {
+                        "location": "suffix",
+                        "text": "%"
+                    }
+                },
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_LAI_INDE_NOC_RT,1.0/CHL.A.?endPeriod=2024&lastNObservations=1",
+                    "decimals": "{$DECIMALS}",
+                    "id": "inspectors",
+                    "labels": false,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": "{$MEASURE}",
+                        "weight": "bold"
+                    },
+                    "adaptiveTextSize": true,
+                    "type": "value"
+                },
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EMP_TEMP_SEX_ECO_NB,1.0/CHL.A..SEX_T.ECO_SECTOR_X+ECO_SECTOR_SER+ECO_SECTOR_IND+ECO_SECTOR_AGR?endPeriod=2024&lastNObservations=1",
+                    "id": "employment_by_activity",
+                    "labels": true,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Employment by economic activity",
+                            "es": "Empleo por actividad económica"
+                        },
+                        "weight": "bold"
+                    },
+                    "xAxisConcept": "ECO",
+                    "type": "pie",
+                    "unit": {
+                        "location": "suffix",
+                        "text": "%"
+                    }
+                }
+            ]
+        },
+        {
+            "columns": [
+                {
+                    "colSize": 2,
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EAP_DWAP_SEX_AGE_RT,1.0/CHL.A..SEX_O+SEX_F+SEX_M+SEX_T.AGE_YTHADULT_YGE15?startPeriod=2010&endPeriod=2024",
+                    "decimals": 0,
+                    "id": "labour_force_participation",
+                    "labels": false,
+                    "legend": {
+                        "concept": "SEX",
+                        "location": "left"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Labour Force participation rates",
+                            "es": "Tasas de participación en la fuerza laboral"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "line",
+                    "xAxisConcept": "TIME_PERIOD",
+                    "yAxisConcept": "OBS_VALUE"
+                },
+                {
+                    "data": "https://sdmx.ilo.org/rest/data/ILO,DF_EMP_TEMP_SEX_AGE_STE_NB,1.0/CHL.A..SEX_T.AGE_YTHADULT_YGE15.STE_ICSE93_6+STE_ICSE93_5+STE_ICSE93_4+STE_ICSE93_3+STE_ICSE93_2+STE_ICSE93_1?endPeriod=2024&lastNObservations=1",
+                    "decimals": 0,
+                    "id": "status_employment",
+                    "labels": true,
+                    "subtitle": {
+                        "align": "center",
+                        "size": "13px",
+                        "text": "{$TIME_PERIOD}",
+                        "weight": "normal"
+                    },
+                    "title": {
+                        "align": "center",
+                        "size": "20px",
+                        "text": {
+                            "en": "Status in employment",
+                            "es": "Situación en el empleo"
+                        },
+                        "weight": "bold"
+                    },
+                    "type": "bar",
+                    "xAxisConcept": "STE",
+                    "legend": {
+                        "concept": "MEASURE",
+                        "location": "none"
+                    },
+                    "yAxisConcept": "OBS_VALUE"
+                }
+            ]
+        }
+    ]
+}

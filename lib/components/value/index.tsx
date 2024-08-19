@@ -100,7 +100,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                 valueStr += ' '+valueLabel;
             } else if (config.unit['location'] === 'prefix') {
                 valueStr = valueLabel+' '+valueStr;
-            } else if (config.unit['location'] === 'below') {
+            } else if (config.unit['location'] === 'under') {
                 valueUnder = true;
             }
         }

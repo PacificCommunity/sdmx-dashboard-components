@@ -63,7 +63,7 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
     }
 
     // when we want a visual with the number of observations matching a criteria
-    // syntax is 'count($EXPRESSION)'
+    // syntax is 'count($EXPRESSION)' where $EXPRESSION is a string like 'https://www.ilo.org/sdmx/rest/data/ILO,DF_EES_TEES !== 0'
     if (dataExpr.startsWith('count')) {
       const expression = dataExpr.split('(')[1].split(')')[0]
       const tokens = expression.split(/ [/[=!]== /g);

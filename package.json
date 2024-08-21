@@ -1,8 +1,8 @@
 {
-  "name": "sdmx-dashboard-react",
-  "version": "0.2.4",
+  "name": "sdmx-dashboard-components",
+  "version": "0.3.0",
   "type": "module",
-  "main": "dist/sdmx-dashboard-react.js",
+  "main": "dist/sdmx-dashboard-components.js",
   "types": "dist/index.d.ts",
   "author": "Thomas Tilak & Stan Ozier",
   "license": "CC-BY-4.0",

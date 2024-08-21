@@ -3,6 +3,8 @@
 Embeddable React components to create a dashboard for SDMX data.
 The components are built using [Vite](https://vitejs.dev/).
 
+This repository also embeds a demo application to showcase the components (more info [here](#development)).
+
 <sub>Project generated thanks to this great article: [Create a Component Library Fast🚀\(using Vite's library mode\)](https://dev.to/receter/how-to-create-a-react-component-library-using-vites-library-mode-4lma)</sub>
 
 ## Usage
@@ -15,11 +17,11 @@ The single components are only configured via props, while the dashboard compone
 More information on the syntax of the configuration can be found [here](https://github.com/thhomas/dashboard-creator/blob/main/public/doc.md)
 
 ```bash
-npm install sdmx-dashboard-react
+npm install sdmx-dashboard-components
 ```
 
 ```javascript
-import { SDMXDashboard } from 'sdmx-dashboard-react';
+import { SDMXDashboard } from 'sdmx-dashboard-components';
 
 const App = () => {
   return (

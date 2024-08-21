@@ -1,10 +1,6 @@
 {
-<<<<<<< HEAD
   "name": "sdmx-dashboard-components",
-=======
-  "name": "sdmx-dashboard-react",
->>>>>>> 1797587ce4c71255fef291cbab4a5b37fe481cbc
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "main": "dist/sdmx-dashboard-components.js",
   "types": "dist/index.d.ts",

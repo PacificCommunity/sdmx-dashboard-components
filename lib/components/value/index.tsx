@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -34,6 +35,12 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     let containerClass = props.className || '';
     let containerStyle = {};
     let valueStyle = style;
+
+    // is adtaptive text size requested ?
+    // check from config and from classname "adaptive-text"
+    if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
+        config.adaptiveTextSize = true;
+    }
 
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
@@ -105,12 +112,12 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             }
         }
         const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
-        const unitSize = config.adaptiveTextSize && valueUnder? calculateFontSize(valueLabel) : '4em';
+        const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(language)}</span>
             {
-                valueUnder && <span style={{fontSize: unitSize}}>{valueLabel}</span>
+                valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
             </>
         )
@@ -122,6 +129,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             throw new Error('Multiple data expressions are not supported for Value component');
         }
         const dataObj = dataObjs[0];
+        dataObj.index = dataObj.index || 0;
  
         const dataFlowUrl = dataObj.dataFlowUrl;
         sdmxParser.getDatasets(dataFlowUrl, {
@@ -152,32 +160,16 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             let valueStr = data[0].value;
             // apply operation to data
             if (dataObj.operator) {
-                if (dataObj.operator === 'hist') {
-                    // we compute the histogram of values along the xAxisConcept
-                    // we also need to get all the values for the xAxisConcept dimension to take into account the 'no-data'
-                    let histData: any[] = []
-                    data.forEach((_dataItem: any) => {
-                        let histItemIndex = histData.findIndex(item => {
-                            if (item.binValue === _dataItem.value) {
-                                let found = true
-                                return found
-                            } else {
-                                return false
-                            }
+                if(dataObj.operator === "count") {
+                    const countData = data
+                        .map((item: any) => {
+                            const exprOperand = parseOperandTextExpr(dataObj.exprOperand, item, attributes);
+                            const result = eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
+                            return result && item;
                         })
-                        if (histItemIndex === -1) {
-                            let histItem: any = {}
-                            histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept]
-                            histItem.value = 1
-                            histItem.binValue = _dataItem.value
-                            histData.push(histItem)
-                        } else {
-                            histData[histItemIndex].value += 1
-                            histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}, ${_dataItem[config.xAxisConcept]}`
-                        }
-                    })
-                    setValueElement(formatValue(histData[0].value, config, histData, attributes, language));
-                    setPopupStr(histData[0][config.xAxisConcept])
+                        .filter((item: any) => item); // count number of true
+                    setValueElement(formatValue(countData.length, config, countData, attributes, language));
+                    setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                 } else if (dataObj.operand.startsWith('{')) {
                     // if operand starts with { then it is an attribute
                     const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
@@ -210,9 +202,9 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     }, [language]);
 
     const valueNode: React.ReactNode =
-        <div className="d-flex flex-column h-100">
+        <div className="value-node d-flex flex-column h-100">
             {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
-            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""}  ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{subtitleText}</h4>)}
+            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</h4>)}
             <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={valueStyle} title={popupStr}>
                 {valueElement}
             </div>
@@ -220,7 +212,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
 
     return (
         <div ref={containerRef}
-            className={`${containerClass} ${config.adaptiveTextSize ? "adaptive-text" : ""} ${config.frame ? "border" : ""}`}
+            className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
             {...otherProps}
         >

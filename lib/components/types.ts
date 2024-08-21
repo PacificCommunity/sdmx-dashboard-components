@@ -20,7 +20,7 @@ export type SDMXColorPalette = {
 export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
-    type: "line" | "bar" | "pie" | "column" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
+    type: "line" | "bar" | "pie" | "column" | "lollipop" |  "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization
@@ -44,6 +44,13 @@ export type SDMXChartConfig = {
     legend?: {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
+    },
+    drilldown?: {
+        xAxisConcept: string, // SDMX concept of the x-axis
+        legend?: {
+            concept?: string, // SDMX concept of the legend
+            location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
+        },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
     extraOptions?: any // extra options for the visualization

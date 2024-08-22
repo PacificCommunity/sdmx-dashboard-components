@@ -348,6 +348,10 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             if (tmpArr.length === 0) {
                                 return
                             }
+                            // add category to xAxis
+                            if (!xAxisValue.includes(xAxisDimensionValue.name)) {
+                                xAxisValue.push(xAxisDimensionValue.name)
+                            }
                             let legendSerieDataObj: any = {
                                 ...legendSerieDataValue,
                                 name: xAxisDimensionValue.name,
@@ -411,6 +415,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         series: dataDrilldownData
                     }
                     hcExtraOptions["xAxis"] = {
+                        categories: xAxisValue.sort(),
                         type: 'category'
                     }
                 } else if (chartType === 'pie') {

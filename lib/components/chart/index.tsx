@@ -348,10 +348,6 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                             if (tmpArr.length === 0) {
                                 return
                             }
-                            // add category to xAxis
-                            if (!xAxisValue.includes(xAxisDimensionValue.name)) {
-                                xAxisValue.push(xAxisDimensionValue.name)
-                            }
                             let legendSerieDataObj: any = {
                                 ...legendSerieDataValue,
                                 name: xAxisDimensionValue.name,
@@ -410,12 +406,15 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         }
 
                     })
+                    // move the serie with the more data to the top of the array to keep sorting
+                    seriesData.sort((a: any, b: any) => {
+                        return b.data.length - a.data.length
+                    })
                     hcExtraOptions["drilldown"] = {
                         allowPointDrilldown: false,
                         series: dataDrilldownData
                     }
                     hcExtraOptions["xAxis"] = {
-                        categories: xAxisValue.sort(),
                         type: 'category'
                     }
                 } else if (chartType === 'pie') {

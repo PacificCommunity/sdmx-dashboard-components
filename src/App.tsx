@@ -6,11 +6,14 @@ import { useEffect, useRef, useState } from 'react'
 import { SDMXDashboardConfig } from '../lib/components/types'
 import 'bootstrap/dist/css/bootstrap.css';
 import { Container, Row, Tab, Tabs } from 'react-bootstrap'
+import Form from 'react-bootstrap/Form'
+import 'highcharts/css/highcharts.css';
 
 function App() {
 
   const [language, setLanguage] = useState(document.documentElement.lang || 'en')
   const [pacificConfig, setPacificConfig] = useState<SDMXDashboardConfig>()
+  const [isDarkTheme, setIsDarkTheme] = useState(false)
 
   const dash1Languages = {
     en: 'English',
@@ -28,7 +31,11 @@ function App() {
   }, [])
 
   return (
-    <Container>
+    <>
+    <Form>
+      <Form.Check type='switch' id='theme-switch' label='Dark theme' onChange={() => setIsDarkTheme(!isDarkTheme)} />
+    </Form>
+    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'} className={isDarkTheme ? 'highcharts-dark' : 'highcharts-light'}>
       <Row>
         <h1>SDMX Visual Components Library</h1>
         <p>On this page, some examples of charts generated using the sdmx-dashboard-react library.</p>
@@ -403,6 +410,7 @@ function App() {
         </Tabs>
       </Row>
     </Container>
+    </>
   )
 }
 

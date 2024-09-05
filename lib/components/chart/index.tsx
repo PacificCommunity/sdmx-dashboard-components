@@ -509,6 +509,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
             setHcOptions(merge({
                 chart: {
                     type: chartType === 'drilldown' ? 'column' : chartType,
+                    styledMode: true
                 },
                 title: {
                     useHTML: true,

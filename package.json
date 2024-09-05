@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "type": "module",
   "main": "dist/sdmx-dashboard-components.js",
   "types": "dist/index.d.ts",

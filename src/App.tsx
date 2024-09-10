@@ -67,7 +67,7 @@ function App() {
             <SDMXChart 
               config={{
                 subtitle: {
-                  text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
+                  text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
                 }, data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
                 id: "DC_TRF_TOTL",
                 type: "line",
@@ -79,25 +79,28 @@ function App() {
                 yAxisConcept: "OBS_VALUE", 
                 colorPalette: {
                   "GEO_PICT": {
-                    "CK": '#E16A86',
-                    "FJ": '#D7765B',
-                    "FM": '#C7821C',
-                    "KI": '#AF8E00',
-                    "MH": '#909800',
-                    "NC": '#65A100',
-                    "NR": '#00A846',
-                    "NU": '#00AC74',
-                    "PF": '#00AD9A',
-                    "PG": '#00AABA',
-                    "PW": '#00A2D3',
-                    "SB": '#4495E2',
-                    "TO": '#9183E6',
-                    "TV": '#BD72DD',
-                    "VU": '#D766C9',
-                    "WF": '#E264AB'
+                    "CK": 0,
+                    "FJ": 1,
+                    "FM": 2,
+                    "KI": 3,
+                    "MH": 4,
+                    "NC": 5,
+                    "NR": 6,
+                    "NU": 7,
+                    "PF": 8,
+                    "PG": 9,
+                    "PW": 10,
+                    "SB": 11,
+                    "TO": 12,
+                    "TV": 13,
+                    "VU": 14,
+                    "WF": 15
                   }
                 },
                 extraOptions: {
+                  chart: {
+                    styledMode: true
+                  },
                   credits: {
                     enabled: false
                   }, 
@@ -119,7 +122,33 @@ function App() {
               language='en'
             />
             <SDMXChart
-              config={{"data": ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T?lastNObservations=1&dimensionAtObservation=AllDimensions"], "id": "SE_ACC_HNDWSH", "type": "column", "xAxisConcept": "GEO_PICT", "legend": {"concept": "COMPOSITE_BREAKDOWN", "location": "bottom"}, "yAxisConcept": "OBS_VALUE", "extraOptions": {"credits": {"enabled": false}, "yAxis": {"title": {"text": "percent"}, "max": 100}, "tooltip": {"valueSuffix": " %", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}, "colorPalette": {"COMPOSITE_BREAKDOWN": {"SECONDARY_LOWER": "#E16A86", "PRIMARY_ALL": "#50A315", "SECONDARY_UPPER": "#009ADE"}}}}
+              config={{"data": ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T?lastNObservations=1&dimensionAtObservation=AllDimensions"], "id": "SE_ACC_HNDWSH", "type": "column", "xAxisConcept": "GEO_PICT", "legend": {"concept": "COMPOSITE_BREAKDOWN", "location": "bottom"}, "yAxisConcept": "OBS_VALUE", 
+                "extraOptions": {
+                  "chart": {
+                    "styledMode": true
+                  },
+                  "credits": {
+                    "enabled": false
+                  }, 
+                  "yAxis": {
+                    "title": {"text": "percent"}, "max": 100
+                  }, 
+                  "tooltip": {
+                    "valueSuffix": " %", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"
+                  }, 
+                  "plotOptions": {
+                    "column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}
+                  }
+                }, 
+                "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}, 
+                "colorPalette": {
+                  "COMPOSITE_BREAKDOWN": {
+                    "SECONDARY_LOWER": 0, 
+                    "PRIMARY_ALL": 1, 
+                    "SECONDARY_UPPER": 2
+                  }
+                },
+              }}
               language='en'
             />
             <SDMXChart
@@ -135,11 +164,14 @@ function App() {
                 yAxisConcept: "OBS_VALUE",
                 colorPalette: {
                   SEX: {
-                    M: "#fecba1", 
-                    F: "#c5b3e6"
+                    M: 0, 
+                    F: 1 
                   }
                 },
                 extraOptions: {
+                  chart: {
+                    styledMode: true
+                  },
                   credits: {
                     enabled: false
                   }, 
@@ -236,24 +268,26 @@ function App() {
               yAxisConcept: "OBS_VALUE",
               colorPalette: {
                 "GEO_PICT": {
-                  "Cook Islands": "#FFD700",
-                  "Fiji": "#FF0000",
-                  "French Polynesia": "#0000FF",
-                  "Kiribati": "#008000",
-                  "Marshall Islands": "#FFA500",
-                  "New Caledonia": "#800080",
-                  "Nauru": "#00FF00",
-                  "Niue": "#FF00FF",
-                  "Palau": "#FFFF00",
-                  "Papua New Guinea": "#00FFFF",
-                  "Samoa": "#000000",
-                  "Solomon Islands": "#C0C0C0",
-                  "Tonga": "#808080",
-                  "Tuvalu": "#800000",
-                  "Vanuatu": "#008080",
-                  "Wallis and Futuna": "#000080"
+                  "CK": 0,
+                  "FJ": 1,
+                  "FM": 2,
+                  "KI": 3,
+                  "MH": 4,
+                  "NC": 5,
+                  "NR": 6,
+                  "NU": 7,
+                  "PF": 8,
+                  "PG": 9,
+                  "PW": 10,
+                  "SB": 11,
+                  "TO": 12,
+                  "TV": 13,
+                  "VU": 14,
+                  "WF": 15
+                },
+                "INDICATOR": {
+                  "SG_GEN_PARL": 0 
                 }
-
               },
               extraOptions: {
                 credits: {
@@ -306,8 +340,7 @@ function App() {
                   SEX: {
                     M: "#fecba1", 
                     F: "#c5b3e6"
-                  },
-                  GEO_PICT: {"CK": "#E16A86", "Fiji": "#D7765B", "Micronesia (Federated States of)": "#C7821C", "Kiribati": "#AF8E00", "Marshall Islands": "#909800", "New Caledonia": "#65A100", "Nauru": "#00A846", "Niue": "#00AC74", "French Polynesia": "#00AD9A", "Papua New Guinea": "#00AABA", "Palau": "#00A2D3", "Solomon Islands": "#4495E2", "Tonga": "#9183E6", "Tuvalu": "#BD72DD", "Vanuatu": "#D766C9", "Wallis and Futuna": "#E264AB"}
+                  }
                 }, 
                 yAxisConcept: "OBS_VALUE", 
                 extraOptions: {

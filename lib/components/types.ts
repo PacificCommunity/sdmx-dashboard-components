@@ -12,7 +12,7 @@ export type SDMXTextConfig = {
 
 export type SDMXColorPalette = {
     [keyof: string]: { // SDMX dimension concept
-        [keyof: string]: string // key value of dimension
+        [keyof: string]: string | number // key value of dimension and value can be either a HEX color code or a colorIndex in case of use of styledMode
     }
 }
 

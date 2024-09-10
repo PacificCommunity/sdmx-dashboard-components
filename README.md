@@ -14,7 +14,7 @@ Single React components are available `SDMXChart`, `SDMXMap` and `SDMXValue` to 
  `SDMXDashboard` component that generates a dashboard.
 The single components are only configured via props, while the dashboard component can configured via a JSON configuration file.
 
-More information on the syntax of the configuration can be found [here](https://github.com/thhomas/dashboard-creator/blob/main/public/doc.md)
+More information on the syntax of the configuration can be found [here](https://github.com/PacificCommunity/sdmx-dashboard-demo/blob/main/public/doc.md)
 
 ```bash
 npm install sdmx-dashboard-components

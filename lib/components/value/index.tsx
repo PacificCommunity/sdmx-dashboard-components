@@ -203,25 +203,50 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
-            {config.title && <h2 className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`} style={{fontSize: config.title.size}}>{titleText}{config.metadataLink && <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}><InfoCircle/></Button>} </h2>}
-            {config.subtitle && (<h4 className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`} style={{fontSize: config.subtitle.size}}>{parse(subtitleText)}</h4>)}
-            <div className="flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={valueStyle} title={popupStr}>
+            {config.title &&
+                <h2
+                    className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`}
+                    style={{
+                        fontSize: config.title.size,
+                        color: config.title?.color
+                    }}>
+                    {titleText}
+                    {config.metadataLink &&
+                        <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}>
+                            <InfoCircle/>
+                        </Button>
+                    }
+                </h2>
+            }
+            {config.subtitle &&
+                <h4
+                    className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`}
+                    style={{
+                        fontSize: config.subtitle.size,
+                        textAlign: config.subtitle?.align
+                    }}>
+                    {parse(subtitleText)}
+                </h4>
+            }
+            <div
+                className="flex-grow-1 d-flex flex-column align-items-center justify-content-center"
+                style={valueStyle}
+                title={popupStr}>
                 {valueElement}
             </div>
         </div>
 
     return (
-        <div ref={containerRef}
+        <div
+            ref={containerRef}
             className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
-            {...otherProps}
-        >
+            {...otherProps}>
             { isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }
         </div>
-
     )
 }
 export default Value;

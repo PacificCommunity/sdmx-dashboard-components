@@ -516,7 +516,8 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     style: {
                         fontWeight: config.title?.weight? config.title.weight : "",
                         fontStyle: config.title?.style,
-                        fontSize: config.title?.size
+                        fontSize: config.title?.size,
+                        color: config.title?.color
                     },
                     align: config.title?.align || "center"
                 },
@@ -525,7 +526,8 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     style: {
                         fontWeight: config.subtitle?.weight || "",
                         fontStyle: config.subtitle?.style || "",
-                        fontSize: config.subtitle?.size
+                        fontSize: config.subtitle?.size,
+                        color: config.subtitle?.color
                     },
                     align: config.subtitle?.align || "center"
                 },

@@ -1,5 +1,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
+import parse from "html-react-parser";
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXTextConfig } from "../types";
 
@@ -44,9 +45,35 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
 
     return (
         <div className={`pt-3 pb-2 px-2 px-xl-3 bg-white ${config.frame ? "border" : ""}`}>
-            {config.title && <h2 className={`${titleStyle.weight?"fw-"+titleStyle.weight:""} ${ titleStyle.italic?'fst-italic':''} ${titleStyle.align == "left"? "text-start": titleStyle.align === "right"?"text-end": titleStyle.align === "center"?"text-center":""}`} style={{fontSize: titleStyle.size}}>{titleText}</h2>}
-            {config.subtitle && (<h4 className={`${subtitleStyle.weight?"fw-"+subtitleStyle.weight:""}  ${subtitleStyle.italic?'fst-italic':''}`} style={{fontSize: subtitleStyle.size}}>{subtitleText}</h4>)}
-            {config.note && (<p className={`${noteStyle.weight?"fw-"+noteStyle.weight:""}  ${noteStyle.italic?'fst-italic':''}`} style={{fontSize: noteStyle.size}}>{noteText}</p>)}
+            {config.title &&
+                <h2
+                    className={`${titleStyle.weight?"fw-"+titleStyle.weight:""} ${ titleStyle.italic?'fst-italic':''} ${titleStyle.align == "left"? "text-start": titleStyle.align === "right"?"text-end": titleStyle.align === "center"?"text-center":""}`}
+                    style={{
+                        fontSize: titleStyle.size,
+                        color: titleStyle.color
+                    }}>
+                    {parse(titleText)}
+                </h2>
+            }
+            {config.subtitle &&
+                <h4
+                    className={`${subtitleStyle.weight?"fw-"+subtitleStyle.weight:""}  ${subtitleStyle.italic?'fst-italic':''}`}
+                    style={{
+                        fontSize: subtitleStyle.size,
+                        color: subtitleStyle.color
+                    }}>
+                    {parse(subtitleText)}</h4>
+            }
+            {config.note &&
+                <p
+                    className={`${noteStyle.weight?"fw-"+noteStyle.weight:""} ${noteStyle.italic?'fst-italic':''}`}
+                    style={{
+                        fontSize: noteStyle.size,
+                        color: noteStyle.color
+                    }}>
+                    {parse(noteText)}
+                </p>
+            }
         </div>
     )
 }

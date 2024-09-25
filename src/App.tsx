@@ -510,6 +510,9 @@ function App() {
                 }
               },
               extraOptions: {
+                chart: {
+                  styledMode: true,
+                },
                 credits: {
                   enabled: false
                 },

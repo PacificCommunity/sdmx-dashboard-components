@@ -52,6 +52,60 @@ const App = () => {
 };
 ```
 
+### Highcharts Styled Mode
+
+The user can also make use of all the Highcharts options passing them as props to the components with the `extraOptions` parameter of the config object.
+
+For instance, the Highcharts `styledMode` option can be used to apply CSS styles to the chart's elements and also leverage the dark theme. In this case, the `colorPalette` parameter passed to the component must be an object that specify a colorIndex and not a color code. The integrating application has to include in its CSS the highcharts classes for the indexes. 
+
+```javascript
+<SDMXChart
+  config={{
+    data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_WBWGI,1.0/A..VA_EST?startPeriod=2010&dimensionAtObservation=AllDimensions"],
+    title: {
+      text: "World Bank Worldwide Governance Indicator",
+    },
+    colorPalette: {
+      "GEO_PICT": {
+        "CK": 0,
+        "FJ": 1,
+        "FM": 2,
+        "KI": 3,
+        "MH": 4,
+        "NC": 5,
+        "PF": 8,
+        "PW": 10,
+        "SB": 11,
+        "TO": 12,
+        "VU": 14,
+        "WF": 15
+      }
+    },
+    extraOptions: {
+      chart: {
+        styledMode: true
+      }
+    }
+  }}
+/>
+```
+
+```css
+.highcharts-color-0 {
+  fill: #E16A86;
+  stroke: #E16A86;
+}
+.highcharts-color-1 {
+  fill: #D7765B;
+  stroke: #D7765B;
+}
+.highcharts-color-2 {
+  fill: #C7821C;
+  stroke: #C7821C;
+}
+...
+```
+
 
 ## Development
 

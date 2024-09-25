@@ -1,3 +1,5 @@
+@import 'highcharts/css/highcharts.css';
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -16,35 +18,35 @@
 
 
 .highcharts-colorPalette-SEX {
-  &.highcharts-color-0 { fill: #fecba1; stroke: #fecba1; } /* M */
-  &.highcharts-color-1 { fill: #c5b3e6; stroke: #c5b3e6; } /* F */
+  &.highcharts-color-0, .highcharts-color-0 { fill: #fecba1; stroke: #fecba1; } /* M */
+  &.highcharts-color-1, .highcharts-color-1 { fill: #c5b3e6; stroke: #c5b3e6; } /* F */
 }
 
 .highcharts-colorPalette-COMPOSITE_BREAKDOWN {
-  &.highcharts-color-0 { fill: #E16A86; stroke: #E16A86; }
-  &.highcharts-color-1 { fill: #50A315; stroke: #50A315; }
-  &.highcharts-color-2 { fill: #009ADE; stroke: #009ADE; }
+  &.highcharts-color-0, .highcharts-color-0 { fill: #E16A86; stroke: #E16A86; }
+  &.highcharts-color-1, .highcharts-color-1 { fill: #50A315; stroke: #50A315; }
+  &.highcharts-color-2, .highcharts-color-2 { fill: #009ADE; stroke: #009ADE; }
 }
 
 .highcharts-colorPalette-GEO_PICT {
-  &.highcharts-color-0 { fill: #E16A86; stroke: #E16A86; } /* CK */
-  &.highcharts-color-1 { fill: #D7765B; stroke: #D7765B; } /* FJ */
-  &.highcharts-color-2 { fill: #C7821C; stroke: #C7821C; } /* FM */
-  &.highcharts-color-3 { fill: #AF8E00; stroke: #AF8E00; } /* KI */
-  &.highcharts-color-4 { fill: #909800; stroke: #909800; } /* MH */
-  &.highcharts-color-5 { fill: #65A100; stroke: #65A100; } /* NC */
-  &.highcharts-color-6 { fill: #00A846; stroke: #00A846; } /* NR */
-  &.highcharts-color-7 { fill: #00AC74; stroke: #00AC74; } /* NU */
-  &.highcharts-color-8 { fill: #00AD9A; stroke: #00AD9A; } /* PF */
-  &.highcharts-color-9 { fill: #00AABA; stroke: #00AABA; } /* PG */
-  &.highcharts-color-10 { fill: #00A2D3; stroke: #00A2D3; } /* PW */
-  &.highcharts-color-11 { fill: #4495E2; stroke: #4495E2; } /* SB */
-  &.highcharts-color-12 { fill: #9183E6; stroke: #9183E6; } /* TO */
-  &.highcharts-color-13 { fill: #BD72DD; stroke: #BD72DD; } /* TV */
-  &.highcharts-color-14 { fill: #D766C9; stroke: #D766C9; } /* VU */
-  &.highcharts-color-15 { fill: #E264AB; stroke: #E264AB; } /* WF */
+  &.highcharts-color-0, .highcharts-color-0 { fill: #E16A86; stroke: #E16A86; } /* CK */
+  &.highcharts-color-1, .highcharts-color-1 { fill: #D7765B; stroke: #D7765B; } /* FJ */
+  &.highcharts-color-2, .highcharts-color-2 { fill: #C7821C; stroke: #C7821C; } /* FM */
+  &.highcharts-color-3, .highcharts-color-3 { fill: #AF8E00; stroke: #AF8E00; } /* KI */
+  &.highcharts-color-4, .highcharts-color-4 { fill: #909800; stroke: #909800; } /* MH */
+  &.highcharts-color-5, .highcharts-color-5 { fill: #65A100; stroke: #65A100; } /* NC */
+  &.highcharts-color-6, .highcharts-color-6 { fill: #00A846; stroke: #00A846; } /* NR */
+  &.highcharts-color-7, .highcharts-color-7 { fill: #00AC74; stroke: #00AC74; } /* NU */
+  &.highcharts-color-8, .highcharts-color-8 { fill: #00AD9A; stroke: #00AD9A; } /* PF */
+  &.highcharts-color-9, .highcharts-color-9 { fill: #00AABA; stroke: #00AABA; } /* PG */
+  &.highcharts-color-10, .highcharts-color-10 { fill: #00A2D3; stroke: #00A2D3; } /* PW */
+  &.highcharts-color-11, .highcharts-color-11 { fill: #4495E2; stroke: #4495E2; } /* SB */
+  &.highcharts-color-12, .highcharts-color-12 { fill: #9183E6; stroke: #9183E6; } /* TO */
+  &.highcharts-color-13, .highcharts-color-13 { fill: #BD72DD; stroke: #BD72DD; } /* TV */
+  &.highcharts-color-14, .highcharts-color-14 { fill: #D766C9; stroke: #D766C9; } /* VU */
+  &.highcharts-color-15, .highcharts-color-15 { fill: #E264AB; stroke: #E264AB; } /* WF */
 }
 
 .highcharts-colorPalette-INDICATOR {
-  &.highcharts-color-0 { fill: brown; stroke: brown }
+  &.highcharts-color-0, .highcharts-color-0 { fill: brown; stroke: brown }
 }

@@ -23,6 +23,8 @@ const Cell = ({ config, language, className }: { config: SDMXVisualConfig | SDMX
             case 'column':
             case 'line':
             case 'drilldown':
+            case 'lollipop':
+            case 'treemap':
             case 'pie':
                 return <Chart
                     config={config as SDMXChartConfig}

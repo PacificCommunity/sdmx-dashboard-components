@@ -106,6 +106,19 @@ For instance, the Highcharts `styledMode` option can be used to apply CSS styles
 ...
 ```
 
+### Sorting data by value
+
+For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the data is sorted alphabetically by default. The data can be sorted by value with the `sortByValue` config parameter in ascending or descending order. The sorting is done on the x-axis dimension.
+
+```javascript
+<SDMXChart
+  config={{
+    ...
+    sortByValue: "asc" | "desc"
+    ...
+  }}
+/>
+```
 
 ## Development
 

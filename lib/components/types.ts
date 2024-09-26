@@ -37,6 +37,7 @@ export type SDMXVisualConfig = {
     metadataLink?: string, // link to the metadata,
     xAxisConcept: string, // SDMX concept of the x-axis
     data: string | Array<string>, // data to be displayed
+    sortByValue?: "asc" | "desc", // sort data by value (asc or desc)
 }
 
 export type SDMXChartConfig = {

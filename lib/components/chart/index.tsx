@@ -62,6 +62,17 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
         })
     }
 
+    const sortByValue = (data: any, order: string) => {
+        data.sort((a: any, b: any) => {
+            if (order === 'asc') {
+                return a.value - b.value
+            } else {
+                return b.value - a.value
+            }
+        })
+        return data
+    }
+
     const getLatestValue = (data: any, dimension: string) => {
         let values  = []
         values = data.map((dataPoint: any) => dataPoint[dimension])
@@ -293,7 +304,10 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     const xAxisDimension = activeDimensions.find((dimension: any) => dimension.id === xAxisConcept)
                     legendDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((legendDimensionValue: any) => {
                         const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
-                        const sortedData = sortByDimension(legendSerie, xAxisConcept)
+                        let sortedData = sortByDimension(legendSerie, xAxisConcept)
+                        if (config.sortByValue) {
+                            sortedData = sortByValue(sortedData, config.sortByValue);
+                        }
                         const latestValues = getLatestValue(sortedData, xAxisConcept)
                         const yAxisValue = latestValues
                             .filter((val: any) => val.value !== null ) // remove null values from chart
@@ -455,11 +469,13 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
 
                         if (legendSerieData.length !== 0) {
+                            let sortedData = sortByDimension(legendSerieData, xAxisDimension.id)
+                            if (config.sortByValue) {
+                                sortedData = sortByValue(sortedData, config.sortByValue);
+                            }
                             let seriesDataObj: any = {
                                 name: legendDimensionValue.name,
-                                data: legendSerieData.sort((a: any, b: any) => {
-                                    return a[xAxisDimension.id].localeCompare(b[xAxisDimension.id])
-                                })
+                                data: sortedData
                             }
                             if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
                                 if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {

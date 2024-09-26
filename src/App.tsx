@@ -448,7 +448,8 @@ function App() {
                 }
               }}
               language='en'
-              style={{ width: "120px", backgroundColor: "blue", margin: "auto", padding: "1rem", borderRadius: "50%", aspectRatio: "1 / 1"}} />
+              style={{ width: "120px", margin: "auto", padding: "1rem", borderRadius: "50%", aspectRatio: "1 / 1"}}
+              valueClassName="bg-warning" />
 
           </Tab>
           <Tab eventKey={'lollipop'} title="Lollipop charts">

@@ -36,10 +36,11 @@ if (typeof Highcharts === 'object') {
 interface ChartProps extends HighchartsReact.Props {
     config: SDMXChartConfig;
     language: string;
-    placeholder?: React.JSX.Element
+    placeholder?: React.JSX.Element;
+    callback?: (chart: Highcharts.Chart) => void;
 }
 
-const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
+const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps) => {
 
     const [hcOptions, setHcOptions] = useState<Highcharts.Options>({
         title: {
@@ -355,7 +356,6 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                     })
 
                     hcExtraOptions["xAxis"] = {
-                        categories: xAxisValue.sort(),
                         type: 'category'
                     }
 
@@ -629,6 +629,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
             options={hcOptions}
             ref={chartComponentRef}
             containerProps={{ ...props, className: `${props.className} ${config.frame && config.frame ? "border" : ""}`}}
+            callback={callback}
         />
 
     return (

@@ -31,7 +31,7 @@ import { Polygon } from 'ol/geom';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig } from '../types';
 
-const MapComponent = ({config, language} : {config: SDMXMapConfig, language : string}) => {
+const MapComponent = ({config, language, callback} : {config: SDMXMapConfig, language : string, callback?: (map: Map) => void}) => {
   // set intial state - used to track references to OpenLayers 
   //  objects for use in hooks, event handlers, etc.
   const [ featuresLayer, setFeaturesLayer ] = useState<VectorLayer<VectorSource>>()
@@ -173,6 +173,9 @@ const MapComponent = ({config, language} : {config: SDMXMapConfig, language : st
               })
               setObsValueMax(max)
               setObsValueMin(min)
+              if(callback && mapRef.current) {
+                callback(mapRef.current)
+              }
             })
           },
           url: dataObj["geojsonUrl"]

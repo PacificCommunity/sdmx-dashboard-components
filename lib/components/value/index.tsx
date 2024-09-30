@@ -13,10 +13,11 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
     config: SDMXVisualConfig;
     valueClassName?: string;
     placeholder?: React.JSX.Element;
+    callback?: (value: React.JSX.Element) => void;
     language: string;
 }
 
-const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
@@ -199,6 +200,9 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             }
             
             setIsLoading(false)
+            if(callback) {
+                callback(valueElement)
+            }
         });
     }, [language]);
 

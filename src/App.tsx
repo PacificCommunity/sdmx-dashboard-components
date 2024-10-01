@@ -1,16 +1,18 @@
 
 import React, { Suspense } from 'react'
-import './App.css'
 import { SDMXChart, SDMXDashboard, SDMXMap, SDMXValue } from '../lib'
 import { useEffect, useRef, useState } from 'react'
 import { SDMXDashboardConfig } from '../lib/components/types'
 import 'bootstrap/dist/css/bootstrap.css';
 import { Container, Row, Tab, Tabs } from 'react-bootstrap'
+import Form from 'react-bootstrap/Form'
+import './App.css'
 
 function App() {
 
   const [language, setLanguage] = useState(document.documentElement.lang || 'en')
   const [pacificConfig, setPacificConfig] = useState<SDMXDashboardConfig>()
+  const [isDarkTheme, setIsDarkTheme] = useState(false)
 
   const dash1Languages = {
     en: 'English',
@@ -28,7 +30,11 @@ function App() {
   }, [])
 
   return (
-    <Container>
+    <>
+    <Form>
+      <Form.Check type='switch' id='theme-switch' label='Dark theme' onChange={() => setIsDarkTheme(!isDarkTheme)} />
+    </Form>
+    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'} className={isDarkTheme ? 'highcharts-dark' : 'highcharts-light'}>
       <Row>
         <h1>SDMX Visual Components Library</h1>
         <p>On this page, some examples of charts generated using the sdmx-dashboard-react library.</p>
@@ -60,7 +66,7 @@ function App() {
             <SDMXChart 
               config={{
                 subtitle: {
-                  text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
+                  text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
                 }, data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
                 id: "DC_TRF_TOTL",
                 type: "line",
@@ -72,25 +78,28 @@ function App() {
                 yAxisConcept: "OBS_VALUE", 
                 colorPalette: {
                   "GEO_PICT": {
-                    "CK": '#E16A86',
-                    "FJ": '#D7765B',
-                    "FM": '#C7821C',
-                    "KI": '#AF8E00',
-                    "MH": '#909800',
-                    "NC": '#65A100',
-                    "NR": '#00A846',
-                    "NU": '#00AC74',
-                    "PF": '#00AD9A',
-                    "PG": '#00AABA',
-                    "PW": '#00A2D3',
-                    "SB": '#4495E2',
-                    "TO": '#9183E6',
-                    "TV": '#BD72DD',
-                    "VU": '#D766C9',
-                    "WF": '#E264AB'
+                    "CK": 0,
+                    "FJ": 1,
+                    "FM": 2,
+                    "KI": 3,
+                    "MH": 4,
+                    "NC": 5,
+                    "NR": 6,
+                    "NU": 7,
+                    "PF": 8,
+                    "PG": 9,
+                    "PW": 10,
+                    "SB": 11,
+                    "TO": 12,
+                    "TV": 13,
+                    "VU": 14,
+                    "WF": 15
                   }
                 },
                 extraOptions: {
+                  chart: {
+                    styledMode: true
+                  },
                   credits: {
                     enabled: false
                   }, 
@@ -108,11 +117,50 @@ function App() {
           </Tab>
           <Tab eventKey={'column'} title="Column charts">
             <SDMXChart
-              config={{"data": ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.EG_ACS_ELEC.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T.R+U._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], "id": "EG_ACS_ELEC", "type": "drilldown", "xAxisConcept": "GEO_PICT", "legend": {"concept": "URBANIZATION", "location": "bottom"}, "drilldown": {"xAxisConcept": "TIME_PERIOD"}, "colorPalette": {"URBANIZATION": {"R": "#E16A86", "U": "#00AD9A"}}, "yAxisConcept": "OBS_VALUE", "extraOptions": {"credits": {"enabled": false}, "yAxis": {"title": {"text": "ratio to total population"}, "max": 100}, "tooltip": {"valueSuffix": " ratio to total population", "pointFormatter": "function() { if (this.drilldown) { return `${this.y}${this.series.tooltipOptions.valueSuffix} in ${this.TIME_PERIOD}`; } else { return `${this.y}${this.series.tooltipOptions.valueSuffix}`; } }", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"}, "drilldown": {"activeDataLabelStyle": {"textDecoration": "none", "color": "black"}, "activeAxisLabelStyle": {"textDecoration": "none", "color": "black"}}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.EG_ACS_ELEC.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T.R+U._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
+              config={{
+                "data": ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.EG_ACS_ELEC.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T.R+U._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
+                "id": "EG_ACS_ELEC",
+                "type": "column",
+                "xAxisConcept": "GEO_PICT",
+                "legend": {"concept": "URBANIZATION", "location": "bottom"},
+                "colorPalette": {
+                  "URBANIZATION": {
+                    "R": "#E16A86",
+                    "U": "#00AD9A"
+                  }
+                },
+                "yAxisConcept": "OBS_VALUE",
+                "extraOptions": {"credits": {"enabled": false}, "yAxis": {"title": {"text": "ratio to total population"}, "max": 100}, "tooltip": {"valueSuffix": " ratio to total population"}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.EG_ACS_ELEC.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T.R+U._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
               language='en'
             />
             <SDMXChart
-              config={{"data": ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T?lastNObservations=1&dimensionAtObservation=AllDimensions"], "id": "SE_ACC_HNDWSH", "type": "column", "xAxisConcept": "GEO_PICT", "legend": {"concept": "COMPOSITE_BREAKDOWN", "location": "bottom"}, "yAxisConcept": "OBS_VALUE", "extraOptions": {"credits": {"enabled": false}, "yAxis": {"title": {"text": "percent"}, "max": 100}, "tooltip": {"valueSuffix": " %", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}, "colorPalette": {"COMPOSITE_BREAKDOWN": {"SECONDARY_LOWER": "#E16A86", "PRIMARY_ALL": "#50A315", "SECONDARY_UPPER": "#009ADE"}}}}
+              config={{"data": ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T?lastNObservations=1&dimensionAtObservation=AllDimensions"], "id": "SE_ACC_HNDWSH", "type": "column", "xAxisConcept": "GEO_PICT", "legend": {"concept": "COMPOSITE_BREAKDOWN", "location": "bottom"}, "yAxisConcept": "OBS_VALUE", 
+                "extraOptions": {
+                  "chart": {
+                    "styledMode": true
+                  },
+                  "credits": {
+                    "enabled": false
+                  }, 
+                  "yAxis": {
+                    "title": {"text": "percent"}, "max": 100
+                  }, 
+                  "tooltip": {
+                    "valueSuffix": " %", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"
+                  }, 
+                  "plotOptions": {
+                    "column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}
+                  }
+                }, 
+                "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SE_ACC_HNDWSH.CK+FJ+FM+MH+NR+NU+PW+TO+TV+WS._T._T._T._T._T._T.PRIMARY_ALL+SECONDARY_LOWER+SECONDARY_UPPER._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}, 
+                "colorPalette": {
+                  "COMPOSITE_BREAKDOWN": {
+                    "SECONDARY_LOWER": 0, 
+                    "PRIMARY_ALL": 1, 
+                    "SECONDARY_UPPER": 2
+                  }
+                },
+              }}
               language='en'
             />
             <SDMXChart
@@ -128,11 +176,14 @@ function App() {
                 yAxisConcept: "OBS_VALUE",
                 colorPalette: {
                   SEX: {
-                    M: "#fecba1", 
-                    F: "#c5b3e6"
+                    M: 0, 
+                    F: 1 
                   }
                 },
                 extraOptions: {
+                  chart: {
+                    styledMode: true
+                  },
                   credits: {
                     enabled: false
                   }, 
@@ -165,8 +216,27 @@ function App() {
           <Tab eventKey={'drilldown'} title="Drilldown charts">
             <SDMXChart
               config={{
+                "data": ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SH_DYN_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PG+PW+SB+TO+TV+VU+WS.F+M.Y00T04._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
+                "id": "SH_DYN_MORT", "type": "drilldown", "xAxisConcept": "GEO_PICT", "legend": {"concept": "SEX", "location": "bottom"}, "drilldown": {"xAxisConcept": "TIME_PERIOD"}, "colorPalette": {"SEX": {"M": 0, "F": 1}}, "yAxisConcept": "OBS_VALUE", "extraOptions": {"chart": {"styledMode": true}, "credits": {"enabled": false}, "yAxis": {"title": {"text": "per 1,000 live births"}}, "tooltip": {"valueSuffix": " per 1,000 live births", "pointFormatter": "function() { if (this.drilldown) { return `${this.y}${this.series.tooltipOptions.valueSuffix} in ${this.TIME_PERIOD}`; } else { return `${this.y}${this.series.tooltipOptions.valueSuffix}`; } }", "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"}, "drilldown": {"activeDataLabelStyle": {"textDecoration": "none", "color": "black"}, "activeAxisLabelStyle": {"textDecoration": "none", "color": "black"}}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}, "xAxis": {"labels": {"autoRotationLimit": 20}}}, "subtitle": {"text": "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_DYN_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PG+PW+SB+TO+TV+VU+WS.F+M.Y00T04._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
+              language='en'
+            />
+
+            <SDMXChart
+              config={{
                 data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
-                id: "SH_STA_MORT", "type": "drilldown", "xAxisConcept": "GEO_PICT", "legend": {"concept": "INDICATOR", "location": "none"}, "drilldown": {"xAxisConcept": "TIME_PERIOD"}, "colorPalette": {"GEO_PICT": {"CK": "#E16A86", "FJ": "#D7765B", "FM": "#C7821C", "KI": "#AF8E00", "MH": "#909800", "NC": "#65A100", "NR": "#00A846", "NU": "#00AC74", "PF": "#00AD9A", "PG": "#00AABA", "PW": "#00A2D3", "SB": "#4495E2", "TO": "#9183E6", "TV": "#BD72DD", "VU": "#D766C9", "WF": "#E264AB"}}, "yAxisConcept": "OBS_VALUE", "extraOptions": {"credits": {"enabled": false}, "yAxis": {"title": {"text": "per 100,000 live births"}}, "tooltip": {"valueSuffix": " per 100,000 live births" }, "drilldown": {"activeDataLabelStyle": {"textDecoration": "none", "color": "black"}, "activeAxisLabelStyle": {"textDecoration": "none", "color": "black"}}, "plotOptions": {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
+                id: "SH_STA_MORT", 
+                type: "drilldown", 
+                xAxisConcept: "GEO_PICT",
+                legend: {"concept": "INDICATOR", "location": "none"},
+                drilldown: {"xAxisConcept": "TIME_PERIOD"},
+                colorPalette: {"GEO_PICT": {"CK": "#E16A86", "FJ": "#D7765B", "FM": "#C7821C", "KI": "#AF8E00", "MH": "#909800", "NC": "#65A100", "NR": "#00A846", "NU": "#00AC74", "PF": "#00AD9A", "PG": "#00AABA", "PW": "#00A2D3", "SB": "#4495E2", "TO": "#9183E6", "TV": "#BD72DD", "VU": "#D766C9", "WF": "#E264AB"}},
+                yAxisConcept: "OBS_VALUE", 
+                extraOptions: {
+                  credits: {"enabled": false},
+                  yAxis: {"title": {"text": "per 100,000 live births"}},
+                  tooltip: {"valueSuffix": " per 100,000 live births" },
+                  drilldown: {"activeDataLabelStyle": {"textDecoration": "none", "color": "black"}, "activeAxisLabelStyle": {"textDecoration": "none", "color": "black"}},
+                  plotOptions: {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
               language='en'
             />
             <SDMXChart config={{
@@ -195,28 +265,22 @@ function App() {
               },
               yAxisConcept: "OBS_VALUE",
               extraOptions: {
-                colors: ["#726f5c"],
                 yAxis: {
                   title: {
                     text: "per 1,000 live births"
                   }
                 },
-                plotOptions: {
-                  column: {
-                    colorByPoint: true
-                  }
-                },
                 tooltip: {
                   valueSuffix: " per 1,000 live births",
                   pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
-                },
+                }
               }
             }} language='en'/>
             <SDMXChart config={{
               subtitle: {
                 text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SG_GEN_PARL.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
               }, 
-              data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SG_GEN_PARL.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
+              data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SG_GEN_PARL.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU.F._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
               id: "SG_GEN_PARL",
               type: "drilldown",
               xAxisConcept: "GEO_PICT",
@@ -229,26 +293,31 @@ function App() {
               yAxisConcept: "OBS_VALUE",
               colorPalette: {
                 "GEO_PICT": {
-                  "Cook Islands": "#FFD700",
-                  "Fiji": "#FF0000",
-                  "French Polynesia": "#0000FF",
-                  "Kiribati": "#008000",
-                  "Marshall Islands": "#FFA500",
-                  "New Caledonia": "#800080",
-                  "Nauru": "#00FF00",
-                  "Niue": "#FF00FF",
-                  "Palau": "#FFFF00",
-                  "Papua New Guinea": "#00FFFF",
-                  "Samoa": "#000000",
-                  "Solomon Islands": "#C0C0C0",
-                  "Tonga": "#808080",
-                  "Tuvalu": "#800000",
-                  "Vanuatu": "#008080",
-                  "Wallis and Futuna": "#000080"
+                  "CK": 0,
+                  "FJ": 1,
+                  "FM": 2,
+                  "KI": 3,
+                  "MH": 4,
+                  "NC": 5,
+                  "NR": 6,
+                  "NU": 7,
+                  "PF": 8,
+                  "PG": 9,
+                  "PW": 10,
+                  "SB": 11,
+                  "TO": 12,
+                  "TV": 13,
+                  "VU": 14,
+                  "WF": 15
+                },
+                "INDICATOR": {
+                  "SG_GEN_PARL": 0 
                 }
-
               },
               extraOptions: {
+                chart: {
+                  styledMode: true
+                },
                 credits: {
                   enabled: false
                 }, 
@@ -299,8 +368,7 @@ function App() {
                   SEX: {
                     M: "#fecba1", 
                     F: "#c5b3e6"
-                  },
-                  GEO_PICT: {"CK": "#E16A86", "Fiji": "#D7765B", "Micronesia (Federated States of)": "#C7821C", "Kiribati": "#AF8E00", "Marshall Islands": "#909800", "New Caledonia": "#65A100", "Nauru": "#00A846", "Niue": "#00AC74", "French Polynesia": "#00AD9A", "Papua New Guinea": "#00AABA", "Palau": "#00A2D3", "Solomon Islands": "#4495E2", "Tonga": "#9183E6", "Tuvalu": "#BD72DD", "Vanuatu": "#D766C9", "Wallis and Futuna": "#E264AB"}
+                  }
                 }, 
                 yAxisConcept: "OBS_VALUE", 
                 extraOptions: {
@@ -309,7 +377,18 @@ function App() {
                   tooltip: {
                     pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
                   },
-                  drilldown: {activeDataLabelStyle: {"textDecoration": "none", "color": "black"}, activeAxisLabelStyle: {"textDecoration": "none", "color": "black"}},
+                  drilldown: {
+                    activeDataLabelStyle: {"textDecoration": "none", "color": "black"},
+                    activeAxisLabelStyle: {"textDecoration": "none", "color": "black"},
+                    breadcrumbs: {
+                      formatter: function (level: any) {
+                          if (level.level === 0) {
+                              return `${level.levelOptions.data[0]['INDICATOR']}`;
+                          }
+                          return `${level.levelOptions.name}`;
+                      }
+                    }
+                  },
                 }
               }}
               language='en'
@@ -369,7 +448,8 @@ function App() {
                 }
               }}
               language='en'
-              style={{ width: "120px", backgroundColor: "blue", margin: "auto", padding: "1rem", borderRadius: "50%", aspectRatio: "1 / 1"}} />
+              style={{ width: "120px", margin: "auto", padding: "1rem", borderRadius: "50%", aspectRatio: "1 / 1"}}
+              valueClassName="bg-warning" />
 
           </Tab>
           <Tab eventKey={'lollipop'} title="Lollipop charts">
@@ -400,9 +480,55 @@ function App() {
               language='en'
             />
           </Tab>
+          <Tab eventKey={'other'} title="Other">
+            <SDMXChart config={{
+              data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.EN_MAR_BEALITSQ.FJ+FM+KI+MH+NC+PF+PW+SB+TO+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+              id: "EN_MAR_BEALITSQ",
+              type: "treemap",
+              xAxisConcept: "GEO_PICT", 
+              legend: {
+                concept: "INDICATOR", location: "none"
+              }, 
+              yAxisConcept: "OBS_VALUE",
+              colorPalette: {
+                "GEO_PICT": {
+                  "CK": 0,
+                  "FJ": 1,
+                  "FM": 2,
+                  "KI": 3,
+                  "MH": 4,
+                  "NC": 5,
+                  "NR": 6,
+                  "NU": 7,
+                  "PF": 8,
+                  "PG": 9,
+                  "PW": 10,
+                  "SB": 11,
+                  "TO": 12,
+                  "TV": 13,
+                  "VU": 14,
+                  "WF": 15
+                }
+              },
+              extraOptions: {
+                chart: {
+                  styledMode: true,
+                },
+                credits: {
+                  enabled: false
+                },
+                plotOptions: {
+                  treemap: {
+                    colorByPoint: true
+                  }
+                }
+              }
+            }} language='en'/>
+          </Tab>
         </Tabs>
       </Row>
     </Container>
+    </>
   )
 }
 

@@ -5,6 +5,7 @@ import Chart from '../chart';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
 import { SDMXChartConfig, SDMXMapConfig, SDMXVisualConfig } from '../types';
+import { Map } from 'ol';
 
 /**
  * Return div/col with component corresponding to chart type
@@ -14,7 +15,15 @@ import { SDMXChartConfig, SDMXMapConfig, SDMXVisualConfig } from '../types';
  * @param config Dashboard element configuration
  * @returns 
  */
-const Cell = ({ config, language, className }: { config: SDMXVisualConfig | SDMXChartConfig | SDMXMapConfig, language: string, className: string }) => {
+const Cell = ({
+    config,
+    callback,
+    language,
+    className
+}: {
+    config: SDMXVisualConfig | SDMXChartConfig | SDMXMapConfig,
+    callback?: (component: React.JSX.Element | Highcharts.Chart | Map) => void,
+    language: string, className: string }) => {
 
     const conditionalBoardComponent = () => {
 
@@ -23,10 +32,13 @@ const Cell = ({ config, language, className }: { config: SDMXVisualConfig | SDMX
             case 'column':
             case 'line':
             case 'drilldown':
+            case 'lollipop':
+            case 'treemap':
             case 'pie':
                 return <Chart
                     config={config as SDMXChartConfig}
                     key={language}
+                    callback={callback}
                     language={language}
                 />
             case 'map':
@@ -34,12 +46,14 @@ const Cell = ({ config, language, className }: { config: SDMXVisualConfig | SDMX
                     config={config as SDMXMapConfig}
                     key={language}
                     language={language}
+                    callback={callback}
                 />
             case 'value':
                 return <Value
                     config={config}
                     key={language}
                     language={language}
+                    callback={callback}
                 />
             case 'note':
                 return <Text

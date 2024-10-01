@@ -12,7 +12,7 @@ export type SDMXTextConfig = {
 
 export type SDMXColorPalette = {
     [keyof: string]: { // SDMX dimension concept
-        [keyof: string]: string // key value of dimension
+        [keyof: string]: string | number // key value of dimension and value can be either a HEX color code or a colorIndex in case of use of styledMode
     }
 }
 
@@ -20,7 +20,7 @@ export type SDMXColorPalette = {
 export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
-    type: "line" | "bar" | "pie" | "column" | "lollipop" |  "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, value, drilldown, note, map) |
+    type: "line" | "bar" | "pie" | "column" | "lollipop" | "treemap" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, lollipop, treemap, value, drilldown, note, map) |
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization
@@ -37,6 +37,7 @@ export type SDMXVisualConfig = {
     metadataLink?: string, // link to the metadata,
     xAxisConcept: string, // SDMX concept of the x-axis
     data: string | Array<string>, // data to be displayed
+    sortByValue?: "asc" | "desc", // sort data by value (asc or desc)
 }
 
 export type SDMXChartConfig = {

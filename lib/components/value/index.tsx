@@ -11,11 +11,13 @@ import { SDMXVisualConfig } from "../types";
 
 interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
     config: SDMXVisualConfig;
+    valueClassName?: string;
     placeholder?: React.JSX.Element;
+    callback?: (value: React.JSX.Element) => void;
     language: string;
 }
 
-const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
@@ -30,7 +32,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
     // style is applied to value div
     // style main contain width, height, color and backgroundColor
     // other props are applied to container div
-    let { className, style, ...otherProps } = props;
+    let { className, style, valueClassName, ...otherProps } = props;
 
     let containerClass = props.className || '';
     let containerStyle = {};
@@ -198,6 +200,9 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
             }
             
             setIsLoading(false)
+            if(callback) {
+                callback(valueElement)
+            }
         });
     }, [language]);
 
@@ -229,7 +234,7 @@ const Value = ({ config, placeholder, language, ...props }: ValueProps) => {
                 </h4>
             }
             <div
-                className="flex-grow-1 d-flex flex-column align-items-center justify-content-center"
+                className={`${valueClassName || ''} flex-grow-1 d-flex flex-column align-items-center justify-content-center`}
                 style={valueStyle}
                 title={popupStr}>
                 {valueElement}

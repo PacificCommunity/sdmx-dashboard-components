@@ -10,6 +10,7 @@ import highchartsExportData from "highcharts/modules/export-data";
 import highchartsDumbbell from "highcharts/modules/dumbbell"
 import highchartsDrilldown from "highcharts/modules/drilldown"
 import highchartsLollipop from "highcharts/modules/lollipop"
+import highchartsTreemap from "highcharts/modules/treemap"
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr, parseOperandTextExpr } from '../../utils/parseTextExpr';
@@ -29,15 +30,17 @@ if (typeof Highcharts === 'object') {
     highchartsDumbbell(Highcharts);
     highchartsLollipop(Highcharts);
     highchartsExportData(Highcharts);
+    highchartsTreemap(Highcharts);
 }
 
 interface ChartProps extends HighchartsReact.Props {
     config: SDMXChartConfig;
     language: string;
-    placeholder?: React.JSX.Element
+    placeholder?: React.JSX.Element;
+    callback?: (chart: Highcharts.Chart) => void;
 }
 
-const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
+const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps) => {
 
     const [hcOptions, setHcOptions] = useState<Highcharts.Options>({
         title: {
@@ -58,6 +61,17 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                 return a[dimensionId].localeCompare(b[dimensionId])
             }
         })
+    }
+
+    const sortByValue = (data: any, order: string) => {
+        data.sort((a: any, b: any) => {
+            if (order === 'asc') {
+                return a.value - b.value
+            } else {
+                return b.value - a.value
+            }
+        })
+        return data
     }
 
     const getLatestValue = (data: any, dimension: string) => {
@@ -200,11 +214,22 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                 let xAxisConcept = config.xAxisConcept;
                 let legendConcept = config?.legend?.concept || "";
 
+                // check if colorPalette is expressed with codes or colorIndexes
+                // if colorPalette uses number, it means that it is colorIndex
+                // otherwise it is a HEX color code
+                if ( config.colorPalette && config.colorPalette[legendConcept] && Object.values(config.colorPalette[legendConcept]).every((value: string|number) => {
+                    return typeof value === 'number'
+                })) {
+                    hcExtraOptions['chart'] = {
+                        'colorCount': Object.keys(config.colorPalette[legendConcept]).length
+                    }
+                }
+
                 if (chartType === 'line') {
                     // in case xAxisConcept is empty, we use TIME_PERIOD
-                    xAxisConcept = config.xAxisConcept || 'TIME_PERIOD';
+                    xAxisConcept = xAxisConcept || 'TIME_PERIOD';
                     // in case legendConcept is empty, we use the first dimension which is not TIME_PERIOD
-                    legendConcept = config?.legend?.concept || dimensions.find((dimension: any) => dimension.id !== xAxisConcept)['id']
+                    legendConcept = legendConcept || dimensions.find((dimension: any) => dimension.id !== xAxisConcept)['id']
                     if (!legendConcept) {
                         throw new Error(`No other dimension than ${xAxisConcept} found`);
                     }
@@ -245,7 +270,6 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         const sortedData = sortByDimension(serieData, xAxisConcept);
                         const yAxisValue = sortedData.map((val: any) => {
                             return {
-                                //...dimensionSingleValues,
                                 ...val,
                                 y: val["value"],
                                 x: parseDate(val[xAxisConcept])
@@ -257,36 +281,54 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         }
                         if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
                             serieDataObj['color'] = config.colorPalette[legendConcept][serieDimension.id]
+                            if (typeof config.colorPalette[legendConcept][serieDimension.id] === 'number') {
+                                serieDataObj.colorIndex = config.colorPalette[legendConcept][serieDimension.id]
+                                serieDataObj.className = `highcharts-colorPalette-${serieDimensions.id}`
+                            } else {
+                                serieDataObj["color"] = config.colorPalette[legendConcept][serieDimension.id]
+                            }
                         }
 
                         seriesData.push(serieDataObj);
                     });
-                } else if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop') {
-                    xAxisConcept = config.xAxisConcept;
+                } else if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop' || chartType === 'treemap') {
                     if (!xAxisConcept) {
                         throw new Error('No xAxis concept found')
                     }
-                    legendConcept = config?.legend?.concept || "";
-                    let serieDimension: any = {}
+                    let legendDimension: any = {}
                     // in case legendConcept is empty, we take the other active dimension and display a serie for each value
                     if (!legendConcept) {
-                        serieDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
+                        legendDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
                     } else {
-                        serieDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
+                        legendDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
                     }
-                    serieDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((serieDimensionValue: any) => {
-                        const serieData = data.filter((val: any) => val[serieDimension.id] === serieDimensionValue.name);
-                        const sortedData = sortByDimension(serieData, xAxisConcept)
+                    const xAxisDimension = activeDimensions.find((dimension: any) => dimension.id === xAxisConcept)
+                    legendDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((legendDimensionValue: any) => {
+                        const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
+                        let sortedData = sortByDimension(legendSerie, xAxisConcept)
+                        if (config.sortByValue) {
+                            sortedData = sortByValue(sortedData, config.sortByValue);
+                        }
                         const latestValues = getLatestValue(sortedData, xAxisConcept)
                         const yAxisValue = latestValues
                             .filter((val: any) => val.value !== null ) // remove null values from chart
                             .map((val: any) => {
-                            return {
-                                ...val,
-                                y: val["value"],
-                                name: val[xAxisConcept]
-                            }
-                        })
+                                if (config.extraOptions?.plotOptions?.[chartType]?.colorByPoint) {
+                                    // add color to each point of the serie if colorByPoint is set to true
+                                    const valXAxis = xAxisDimension.values.find((xVal: any) => xVal.name === val[xAxisConcept])
+                                    if (typeof config.colorPalette?.[xAxisConcept]?.[valXAxis.id] === 'number') {
+                                        val.className = `highcharts-colorPalette-${xAxisDimension.id}`
+                                        val.colorIndex = config.colorPalette[xAxisConcept][valXAxis.id]
+                                    } else if (typeof config.colorPalette?.[xAxisConcept]?.[valXAxis.id] === 'string') {
+                                        val.color = config.colorPalette[xAxisConcept][valXAxis.id]
+                                    }
+                                }
+                                return {
+                                    ...val,
+                                    y: val["value"],
+                                    name: val[xAxisConcept]
+                                }
+                            })
 
                         // add category to xAxis
                         yAxisValue.forEach((val: any) => {
@@ -296,24 +338,28 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         });
                         if (yAxisValue.length > 0) {
                             let serieDataObj: any = {
-                                name: serieDimensionValue.name,
+                                name: legendDimensionValue.name,
                                 data: yAxisValue,
                             }
                             if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                serieDataObj["color"] = config.colorPalette[legendConcept][serieDimensionValue.id]
+                                // if colorPalette set for legendConcept, we use the same color for every point of the serie
+                                if (typeof config.colorPalette[legendConcept][legendDimensionValue.id] === 'number') {
+                                    serieDataObj.colorIndex = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                    serieDataObj.className = `highcharts-colorPalette-${legendDimension.id}`
+                                } else {
+                                    serieDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                }
                             }
+
                             seriesData.push(serieDataObj)
                         }
                     })
 
                     hcExtraOptions["xAxis"] = {
-                        categories: xAxisValue.sort(),
                         type: 'category'
                     }
 
                 } else if (chartType === 'drilldown') {
-                    const xAxisConcept = config.xAxisConcept;
-                    const legendConcept = config?.legend?.concept;
                     const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
                     if (!drilldownXAxisConcept) {
                         throw new Error('No drilldown xAxis concept found')
@@ -332,7 +378,6 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                         xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
                             let tmpArr = legendSerie
                                 .filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name)
-                                .filter((val: any) => val[legendConcept] === legendDimensionValue.name)
 
                             // sort data by drilldownXAxisConcept ASC
                             tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept)
@@ -354,36 +399,67 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
                                 drilldown: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
                                 y: legendSerieDataValue["value"]
                             }
+                            // if colorByPoint is true, we use the colorPalette to color the series points, each column is colored differently
+                            if (config.extraOptions?.plotOptions?.column?.colorByPoint) {
+                                if (typeof config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id] === 'number') {
+                                    legendSerieDataObj.colorIndex = config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id]
+                                    legendSerieDataObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
+                                } else {
+                                    legendSerieDataObj.color = config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id]
+                                }
+                            }
                             legendSerieData.push(legendSerieDataObj);
 
                             let drilldownSerieObj: any = {
                                 id: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
                                 type: (drilldownXAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
                                 name: `${legendDimensionValue.name}`,
+                                // className: `highcharts-colorPalette-${xAxisDimension.id}`,
                                 data: tmpArr.map((value: any) => {
                                     return {
                                         ...value,
                                         name: value[drilldownXAxisConcept],
+                                        className: `highcharts-colorPalette-${xAxisDimension.id}`,
                                         y: value["value"]
                                     }
                                 })
                             }
                             // depending on what is available in the passed object config `colorPalette` we use them to color the series
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                // if colorPalette specifies a color based on the legendConcept, we apply it to the drilldown serie
-                                drilldownSerieObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                            } else if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
+                            if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
                                 // else if colorPalette specifies a color based on the xAxisConcept, we apply it
-                                drilldownSerieObj["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
+                                if (typeof config.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id] === 'number') {
+                                    drilldownSerieObj["colorIndex"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
+                                    legendSerieDataObj.className = `highcharts-colorPalette-${legendConcept}`
+                                    drilldownSerieObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
+                                } else {
+                                    drilldownSerieObj["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
+                                }
+                            } else if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
+                                // if colorPalette specifies a color based on the legendConcept, we apply it to the drilldown serie
+                                if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {
+                                    drilldownSerieObj['colorIndex'] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                    legendSerieDataObj.className = `highcharts-colorPalette-${legendConcept}`
+                                    drilldownSerieObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
+                                } else {
+                                    drilldownSerieObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                }
                             }
 
                             if (config.colorPalette && Object.keys(config.colorPalette).includes(drilldownXAxisConcept)) {
                                 // on top of that, if colorPalette specifies a color based on the drilldownXAxisConcept, we apply it to the drilldown serie
                                 drilldownSerieObj.data = drilldownSerieObj.data.map((item: any) => {
                                     const dimId = dimensions.find((dim: any) => dim.id === drilldownXAxisConcept).values.find((val: any) => val.name === item[drilldownXAxisConcept]).id
+                                    let colorObj: any = {
+                                        color: config.colorPalette?.[drilldownXAxisConcept][dimId]
+                                    }
+                                    if (typeof config.colorPalette?.[drilldownXAxisConcept]?.[dimId] === 'number') {
+                                        colorObj = {
+                                            colorIndex: config.colorPalette?.[drilldownXAxisConcept][dimId]
+                                        }
+                                    }
                                     return {
                                         ...item,
-                                        color: config.colorPalette?.[drilldownXAxisConcept][dimId]
+                                        ...colorObj
                                     }
                                 })
                             }
@@ -393,14 +469,21 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
 
                         if (legendSerieData.length !== 0) {
+                            let sortedData = sortByDimension(legendSerieData, xAxisDimension.id)
+                            if (config.sortByValue) {
+                                sortedData = sortByValue(sortedData, config.sortByValue);
+                            }
                             let seriesDataObj: any = {
                                 name: legendDimensionValue.name,
-                                data: legendSerieData.sort((a: any, b: any) => {
-                                    return a[xAxisDimension.id].localeCompare(b[xAxisDimension.id])
-                                })
+                                data: sortedData
                             }
                             if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                seriesDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {
+                                    seriesDataObj["colorIndex"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                    seriesDataObj.className = `highcharts-colorPalette-${legendConcept}`
+                                } else {
+                                    seriesDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
+                                }
                             }
                             seriesData.push(seriesDataObj)
                         }
@@ -508,7 +591,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
 
             setHcOptions(merge({
                 chart: {
-                    type: chartType === 'drilldown' ? 'column' : chartType,
+                    type: chartType === 'drilldown' ? 'column' : chartType
                 },
                 title: {
                     useHTML: true,
@@ -546,6 +629,7 @@ const Chart = ({ config, language, placeholder, ...props }: ChartProps) => {
             options={hcOptions}
             ref={chartComponentRef}
             containerProps={{ ...props, className: `${props.className} ${config.frame && config.frame ? "border" : ""}`}}
+            callback={callback}
         />
 
     return (

@@ -439,7 +439,7 @@ const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps
                                 if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {
                                     drilldownSerieObj['colorIndex'] = config.colorPalette[legendConcept][legendDimensionValue.id]
                                     legendSerieDataObj.className = `highcharts-colorPalette-${legendConcept}`
-                                    drilldownSerieObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
+                                    drilldownSerieObj.className = `highcharts-colorPalette-${legendConcept}`
                                 } else {
                                     drilldownSerieObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
                                 }

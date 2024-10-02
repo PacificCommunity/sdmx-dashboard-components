@@ -419,7 +419,7 @@ const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps
                                     return {
                                         ...value,
                                         name: value[drilldownXAxisConcept],
-                                        className: `highcharts-colorPalette-${xAxisDimension.id}`,
+                                        className: Object.keys(config.colorPalette || {}).includes(xAxisDimension.id) ? `highcharts-colorPalette-${xAxisDimension.id}` : "",
                                         y: value["value"]
                                     }
                                 })

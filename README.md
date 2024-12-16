@@ -41,12 +41,16 @@ const App = () => {
         },
         id:"wgi_va",
         type: "drilldown",
-        xAxisConcept:"TIME_PERIOD",
+        xAxisConcept: "GEO_PICT",
+        drilldown: {
+          xAxisConcept:"TIME_PERIOD",
+        },
         legend: {
-          concept: "GEO_PICT"
+          concept: "INDICATOR"
         },
         yAxisConcept: "OBS_VALUE"
       }}
+      language='en'
     />
   );
 };

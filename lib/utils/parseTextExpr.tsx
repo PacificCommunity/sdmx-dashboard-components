@@ -1,5 +1,3 @@
-import { parseDate } from "./parseDate";
-
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',

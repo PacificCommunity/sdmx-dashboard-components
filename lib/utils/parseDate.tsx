@@ -1,7 +1,8 @@
 
 /**
  * Parse Date to a UTC date
- * @param dateStr 
+ * @param dateStr
+ * @returns {Number}
  */
 export const parseDate = (dateStr: string) => {
     // test dateStr format

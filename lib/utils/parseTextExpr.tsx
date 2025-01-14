@@ -1,3 +1,5 @@
+import { parseDate } from "./parseDate";
+
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -34,18 +36,19 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
       if (dimension.values.length > 1) {
         if (dimension.id === 'TIME_PERIOD') {
           // if concept is TIME_PERIOD, we use the first and last value
-          const date1Str = dimension.values[0][valueAttribute];
-          const date2Str = dimension.values[dimension.values.length - 1][valueAttribute];
-          const date1 = new Date(date1Str);
-          const date2 = new Date(date2Str);
+          const dateMin = new Date(Math.min(...dimension.values.map((item: any) => new Date(item["start"]))));
+          const dimValueMin = dimension.values.find((item: any) => new Date(item["start"]).getTime() === dateMin.getTime());
+          const dateMax = new Date(Math.max(...dimension.values.map((item: any) => new Date(item["end"]))));
+          const date1 = new Date(dateMin);
+          const date2 = new Date(dateMax);
           let date1Text = `${date1.getFullYear()}`;
           let date2Text = `${date2.getFullYear()}`;
-          if (date1Str.split('-').length >= 2) {
+          if (dimValueMin[valueAttribute].split('-').length >= 2) {
             // if year and month is provided
             date1Text = `${date1.toLocaleString('default', { month: 'short' })} ${date1Text}`;
             date2Text = `${date2.toLocaleString('default', { month: 'short' })} ${date2Text}`;
           }
-          if (date1Str.split('-').length >= 3) {
+          if (dimValueMin[valueAttribute].split('-').length >= 3) {
             // if year, month and day is provided
             date1Text = `${date1.getDay()} ${date1Text}`;
             date2Text = `${date2.getDay()} ${date2Text}`;

@@ -50,3 +50,25 @@
 .highcharts-colorPalette-INDICATOR {
   &.highcharts-color-0, .highcharts-color-0 { fill: brown; stroke: brown }
 }
+
+.code-tabs {
+  .nav {
+    justify-content: flex-end;
+  }
+  .nav-tabs {
+    order: 2;
+  }
+  .nav-item > button {
+    margin-bottom: 0;
+    padding: 3px;
+    font-size: 12px;
+    background-color: #f0f0f0;
+  }
+  .nav-link.active {
+    background-color: #e0e0e0;
+  }
+  .prism-code {
+    height: 400px;
+    overflow-y: auto;
+  }
+}

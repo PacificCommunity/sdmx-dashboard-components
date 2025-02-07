@@ -3,10 +3,11 @@ import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
-import { parseDataExpr } from "../../utils/parseDataExpr";
+import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig } from "../types";
+import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
 interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -172,6 +173,23 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                         .filter((item: any) => item); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));
                     setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
+                } else if (dataObj.operator === "expr") {
+                    const scope: Scope = {x0: valueStr}
+                    const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                    Promise.all(dataPromises).then(() => {
+                        const astFactory = new EvalAstFactory();
+                        const expr = parseExpr(dataObj.expression, astFactory);
+                        // fetchDataExprOperand returns an array for variables, so we need to flatten it
+                        Object.keys(scope).forEach((key: string) => {
+                            if (Array.isArray(scope[key])) {
+                                scope[key] = scope[key][0]
+                            }
+                        })
+                        valueStr = expr?.evaluate(scope)
+                        setValueElement(formatValue(valueStr, config, data, attributes, language));
+                        setPopupStr(data[0][config.xAxisConcept])
+                    })
+
                 } else if (dataObj.operand.startsWith('{')) {
                     // if operand starts with { then it is an attribute
                     const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);

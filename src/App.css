@@ -50,3 +50,8 @@
 .highcharts-colorPalette-INDICATOR {
   &.highcharts-color-0, .highcharts-color-0 { fill: brown; stroke: brown }
 }
+
+.highcharts-colorPalette-URBANIZATION {
+  &.highcharts-color-0, .highcharts-color-0 { fill: #a6e9d5; stroke: #a6e9d5; }
+  &.highcharts-color-1, .highcharts-color-1 { fill: #ffe69c; stroke: #ffe69c; }
+}

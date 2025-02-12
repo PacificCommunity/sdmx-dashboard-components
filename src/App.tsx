@@ -1,8 +1,7 @@
 
-import React, { Suspense } from 'react'
-import { SDMXChart, SDMXDashboard, SDMXMap, SDMXValue } from '../lib'
-import { useEffect, useRef, useState } from 'react'
-import { SDMXDashboardConfig } from '../lib/components/types'
+import React from 'react'
+import { SDMXChart, SDMXDashboard, SDMXValue } from '../lib'
+import { useState } from 'react'
 import 'bootstrap/dist/css/bootstrap.css';
 import { Container, Row, Tab, Tabs } from 'react-bootstrap'
 import Form from 'react-bootstrap/Form'
@@ -11,7 +10,6 @@ import './App.css'
 function App() {
 
   const [language, setLanguage] = useState(document.documentElement.lang || 'en')
-  const [pacificConfig, setPacificConfig] = useState<SDMXDashboardConfig>()
   const [isDarkTheme, setIsDarkTheme] = useState(false)
 
   const dash1Languages = {
@@ -19,15 +17,6 @@ function App() {
     fr: 'French',
   }
 
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('./PacificPopulation.json').then(response => response.json()).then((data) => {
-      setPacificConfig(data)
-    }).catch((e) => {
-      console.log(e)
-    })
-  }, [])
 
   return (
     <>
@@ -63,57 +52,58 @@ function App() {
 
         </Tab>
         <Tab eventKey={'line'} title="Line charts">
-            <SDMXChart 
-              config={{
-                subtitle: {
-                  text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
-                }, data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
-                id: "DC_TRF_TOTL",
-                type: "line",
-                xAxisConcept: "TIME_PERIOD",
-                legend: {
-                  concept: "GEO_PICT", 
-                  location: "right"
-                },
-                yAxisConcept: "OBS_VALUE", 
-                colorPalette: {
-                  "GEO_PICT": {
-                    "CK": 0,
-                    "FJ": 1,
-                    "FM": 2,
-                    "KI": 3,
-                    "MH": 4,
-                    "NC": 5,
-                    "NR": 6,
-                    "NU": 7,
-                    "PF": 8,
-                    "PG": 9,
-                    "PW": 10,
-                    "SB": 11,
-                    "TO": 12,
-                    "TV": 13,
-                    "VU": 14,
-                    "WF": 15
-                  }
-                },
-                extraOptions: {
-                  chart: {
-                    styledMode: true
-                  },
-                  credits: {
-                    enabled: false
-                  }, 
-                  yAxis: {
-                    title: {
-                      text: "USD"
-                    }
-                  }, 
-                  tooltip: {
-                    valueSuffix: " USD"
-                  }
+            <SDMXChart config={{
+              title: {
+                text: "{$TIME_PERIOD}"
+              },
+              subtitle: {
+                text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
+              }, data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
+              id: "DC_TRF_TOTL",
+              type: "line",
+              xAxisConcept: "TIME_PERIOD",
+              legend: {
+                concept: "GEO_PICT", 
+                location: "right"
+              },
+              yAxisConcept: "OBS_VALUE", 
+              colorPalette: {
+                "GEO_PICT": {
+                  "CK": 0,
+                  "FJ": 1,
+                  "FM": 2,
+                  "KI": 3,
+                  "MH": 4,
+                  "NC": 5,
+                  "NR": 6,
+                  "NU": 7,
+                  "PF": 8,
+                  "PG": 9,
+                  "PW": 10,
+                  "SB": 11,
+                  "TO": 12,
+                  "TV": 13,
+                  "VU": 14,
+                  "WF": 15
                 }
-              }} 
-              language='en' />
+              },
+              extraOptions: {
+                chart: {
+                  styledMode: true
+                },
+                credits: {
+                  enabled: false
+                }, 
+                yAxis: {
+                  title: {
+                    text: "USD"
+                  }
+                }, 
+                tooltip: {
+                  valueSuffix: " USD"
+                }
+              }
+            }} language='en' />
           </Tab>
           <Tab eventKey={'column'} title="Column charts">
             <SDMXChart
@@ -393,6 +383,28 @@ function App() {
               }}
               language='en'
             />
+            <SDMXChart
+              config={{
+                data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_WBWGI,1.0/A..VA_EST?startPeriod=2010&dimensionAtObservation=AllDimensions"],
+                title: {
+                  text: "World Bank Worldwide Governance Indicator"
+                },
+                subtitle: {
+                  text: "Voice and Accountability"
+                },
+                id:"wgi_va",
+                type: "drilldown",
+                xAxisConcept: "GEO_PICT",
+                drilldown: {
+                  xAxisConcept:"TIME_PERIOD",
+                },
+                legend: {
+                  concept: "INDICATOR"
+                },
+                yAxisConcept: "OBS_VALUE"
+              }}
+              language='en'
+            />
           </Tab>
           <Tab eventKey={'pie'} title="Pie charts">
             <SDMXChart config={{
@@ -422,8 +434,8 @@ function App() {
                   }
                 },
                 tooltip: {
-                  pointFormatter: function(point) {
-                    return `${this.binValue === 1 ? "Yes" : "No"}`
+                  pointFormatter: function(point: any) {
+                    return `${point.binValue === 1 ? "Yes" : "No"}`
                   }
                 }
               }

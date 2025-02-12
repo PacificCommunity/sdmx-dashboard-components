@@ -82,4 +82,4 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
     );
 }
 
-export default Dashboard
+export default Dashboard;

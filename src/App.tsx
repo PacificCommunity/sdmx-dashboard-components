@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Form, Nav, Row, Tab } from 'react-bootstrap';
+import { Container, Form, Nav, Row } from 'react-bootstrap';
 import { useParams } from 'react-router';
 import Dashboard from './components/Dashboard';
 import Line from './components/Line';
@@ -14,7 +14,6 @@ import Other from './components/Other';
 
 const App = () => {
   const { active_tab } = useParams();
-  const [language, setLanguage] = useState(document.documentElement.lang || 'en')
   const [isDarkTheme, setIsDarkTheme] = useState(false)
 
 
@@ -64,7 +63,7 @@ const App = () => {
         <p>All those chart present data pulled out from the <a href="https://spc.int" target="_blank">SPC</a> .stat instance: <a href="https://stats.pacificdata.org" target="_blank">PDH.stat</a>.</p>
         <p>Code used to generate this page can be found <a href="https://github.com/stanozr/sdmx-dashboard-react/blob/main/src/App.tsx" target="_blank">here</a>.</p>
       </Row>
-      <Nav variant="tabs" defaultActiveKey={active_tab}>
+      <Nav variant="tabs" defaultActiveKey={active_tab || 'dashboard'}>
         {Object.keys(tabs).map((tab) => (
           <Nav.Item key={tab}>
             <Nav.Link eventKey={tab} href={`/${tab}`}>{tabs[tab as keyof typeof tabs].title}</Nav.Link>
@@ -72,7 +71,7 @@ const App = () => {
         ))}
       </Nav>
       <Row>
-        {tabs[active_tab as keyof typeof tabs].component}
+        {tabs[(active_tab || 'dashboard') as keyof typeof tabs].component}
       </Row>
     </Container>
     </>

@@ -61,7 +61,7 @@ const App = () => {
         <h1>SDMX Visual Components Library</h1>
         <p>On this page, some examples of charts generated using the sdmx-dashboard-react library.</p>
         <p>All those chart present data pulled out from the <a href="https://spc.int" target="_blank">SPC</a> .stat instance: <a href="https://stats.pacificdata.org" target="_blank">PDH.stat</a>.</p>
-        <p>Code used to generate this page can be found <a href="https://github.com/stanozr/sdmx-dashboard-react/blob/main/src/App.tsx" target="_blank">here</a>.</p>
+        <p>Code used to generate this page can be found <a href="https://github.com/PacificCommunity/sdmx-dashboard-components/blob/main/src/App.tsx" target="_blank">here</a>.</p>
       </Row>
       <Nav variant="tabs" defaultActiveKey={active_tab || 'dashboard'}>
         {Object.keys(tabs).map((tab) => (

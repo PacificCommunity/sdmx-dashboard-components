@@ -3,10 +3,11 @@ import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
-import { parseDataExpr } from "../../utils/parseDataExpr";
+import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig } from "../types";
+import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
 interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -165,35 +166,45 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                 if(dataObj.operator === "count") {
                     const countData = data
                         .map((item: any) => {
-                            const exprOperand = parseOperandTextExpr(dataObj.exprOperand, item, attributes);
-                            const result = eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
-                            return result && item;
+                            const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
+                            const scope: Scope = {x0: item.value}
+                            if (isNaN(parseInt(dataObj.exprOperand))) {
+                                const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                                Promise.all(dataPromises).then(() => {
+                                    Object.keys(scope).forEach((key: string) => {
+                                        if (Array.isArray(scope[key])) {
+                                            scope[key] = scope[key][0]
+                                        }
+                                    })
+                                    valueStr = expr?.evaluate(scope)
+                                    return valueStr && item;
+                                })
+                            } else {
+                                scope['x1'] = parseInt(dataObj.exprOperand)
+                                valueStr = expr?.evaluate(scope)
+                                return valueStr && item;
+                            }
                         })
                         .filter((item: any) => item); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));
                     setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
-                } else if (dataObj.operand.startsWith('{')) {
-                    // if operand starts with { then it is an attribute
-                    const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                    valueStr = eval(`${valueStr} ${dataObj.operator} ${operandValue}`);
-                    setValueElement(formatValue(valueStr, config, data, attributes, language));
-                    setPopupStr(data[0][config.xAxisConcept])
-                } else {
-                    // we presume it is a dataflow url
-                    const parserOperand = new SDMXParser();
-                    parserOperand.getDatasets(dataObj.operand, {
-                        headers: new Headers({
-                            Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+                } else if (dataObj.operator === "expr") {
+                    const scope: Scope = {x0: valueStr}
+                    const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                    Promise.all(dataPromises).then(() => {
+                        const astFactory = new EvalAstFactory();
+                        const expr = parseExpr(dataObj.expression, astFactory);
+                        // fetchDataExprOperand returns an array for variables, so we need to flatten it
+                        Object.keys(scope).forEach((key: string) => {
+                            if (Array.isArray(scope[key])) {
+                                scope[key] = scope[key][0]
+                            }
                         })
-                    }).then(() => {
-                        const dataOperand = parserOperand.getData();
-                        const dataOperandValue = dataOperand[0].value;
-                        valueStr = eval(`${valueStr} ${dataObj.operator} ${dataOperandValue}`);
+                        valueStr = expr?.evaluate(scope)
                         setValueElement(formatValue(valueStr, config, data, attributes, language));
                         setPopupStr(data[0][config.xAxisConcept])
-                    });
+                    })
                 }
-
             } else {
                 setValueElement(formatValue(valueStr, config, data, attributes, language));
                 setPopupStr(data[0][config.xAxisConcept])

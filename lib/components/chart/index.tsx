@@ -13,14 +13,15 @@ import highchartsLollipop from "highcharts/modules/lollipop"
 import highchartsTreemap from "highcharts/modules/treemap"
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
-import { parseTextExpr, parseOperandTextExpr } from '../../utils/parseTextExpr';
-import { parseDataExpr } from "../../utils/parseDataExpr";
+import { parseTextExpr } from '../../utils/parseTextExpr';
+import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { parseDate } from "../../utils/parseDate";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXChartConfig } from "../types";
 import { AlignValue } from "highcharts";
 import { merge } from "ts-deepmerge";
+import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 if (typeof Highcharts === 'object') {
     highchartsMore(Highcharts)
@@ -147,30 +148,23 @@ const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps
                         })
                         return [histData, parser.getDimensions()]
 
-                    } else {
-                        if (dataObj.operand.startsWith('{')) {
-                            // operand is an attribute
-                            const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                            data.forEach((_dataItem: any, index: number, data: [any]) => {
-                                data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
-                            });
-                            return [data, parser.getDimensions()];
-                        } else {
-                            // operand is another SDMX request
-                            const parserOperand = new SDMXParser();
-                            return parserOperand.getDatasets(dataObj.operand, {
-                                headers: new Headers({
-                                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                                })
-                            }).then(() => {
-                                const dataOperand = parserOperand.getData();
-                                const operandValue = dataOperand[0].value;
-                                data.forEach((_dataItem: any, index: number, data: [any]) => {
-                                    data[index].value = eval(`${data[index].value} ${dataObj.operator} ${operandValue}`);
+                    } else if (dataObj.operator === "expr") {
+                        const scope: Scope = {x0: data.map((item: any) => item.value)}
+                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                        return Promise.all(dataPromises).then(() => {
+                            const astFactory = new EvalAstFactory();
+                            const expr = parseExpr(dataObj.expression, astFactory);
+
+                            // compute the expression for each data point
+                            data.forEach((item: any, index: number) => {
+                                const scopeValues : Scope = {}
+                                Object.keys(scope).forEach((varKey: string) => {
+                                    scopeValues[varKey] = scope[varKey][index];
                                 });
-                                return [data, parser.getDimensions()];
-                            });
-                        }
+                                item.value = expr?.evaluate(scopeValues)
+                            })
+                            return [data, parser.getDimensions(), parser.getActiveDimensions()]
+                        })
                     }
                 } else {
                     return [data, parser.getDimensions(), parser.getActiveDimensions()];

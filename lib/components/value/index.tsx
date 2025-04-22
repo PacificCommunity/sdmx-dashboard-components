@@ -166,9 +166,24 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                 if(dataObj.operator === "count") {
                     const countData = data
                         .map((item: any) => {
-                            const exprOperand = parseOperandTextExpr(dataObj.exprOperand, item, attributes);
-                            const result = eval(`${item.value} ${dataObj.exprOperator} ${exprOperand}`);
-                            return result && item;
+                            const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
+                            const scope: Scope = {x0: item.value}
+                            if (isNaN(parseInt(dataObj.exprOperand))) {
+                                const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                                Promise.all(dataPromises).then(() => {
+                                    Object.keys(scope).forEach((key: string) => {
+                                        if (Array.isArray(scope[key])) {
+                                            scope[key] = scope[key][0]
+                                        }
+                                    })
+                                    valueStr = expr?.evaluate(scope)
+                                    return valueStr && item;
+                                })
+                            } else {
+                                scope['x1'] = parseInt(dataObj.exprOperand)
+                                valueStr = expr?.evaluate(scope)
+                                return valueStr && item;
+                            }
                         })
                         .filter((item: any) => item); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));
@@ -189,29 +204,7 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                         setValueElement(formatValue(valueStr, config, data, attributes, language));
                         setPopupStr(data[0][config.xAxisConcept])
                     })
-
-                } else if (dataObj.operand.startsWith('{')) {
-                    // if operand starts with { then it is an attribute
-                    const operandValue = parseOperandTextExpr(dataObj.operand, data[0], attributes);
-                    valueStr = eval(`${valueStr} ${dataObj.operator} ${operandValue}`);
-                    setValueElement(formatValue(valueStr, config, data, attributes, language));
-                    setPopupStr(data[0][config.xAxisConcept])
-                } else {
-                    // we presume it is a dataflow url
-                    const parserOperand = new SDMXParser();
-                    parserOperand.getDatasets(dataObj.operand, {
-                        headers: new Headers({
-                            Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                        })
-                    }).then(() => {
-                        const dataOperand = parserOperand.getData();
-                        const dataOperandValue = dataOperand[0].value;
-                        valueStr = eval(`${valueStr} ${dataObj.operator} ${dataOperandValue}`);
-                        setValueElement(formatValue(valueStr, config, data, attributes, language));
-                        setPopupStr(data[0][config.xAxisConcept])
-                    });
                 }
-
             } else {
                 setValueElement(formatValue(valueStr, config, data, attributes, language));
                 setPopupStr(data[0][config.xAxisConcept])

@@ -17,10 +17,10 @@ const Dashboard = () => {
                     <option key={key} value={key}>{dash1Languages[key as keyof typeof dash1Languages]}</option>
                 ))}
             </select>
-            <SDMXDashboard url='../PacificPopulation.json' lang={language}/>
+            <SDMXDashboard url={process.env.NODE_ENV === 'production' ? '/sdmx-dashboard-components/PacificPopulation.json' : '/PacificPopulation.json'} lang={language}/>
         </Row>
         <Row>
-            <SDMXDashboard url='../ExampleCLNew.json' lang={language}/>
+            <SDMXDashboard url={process.env.NODE_ENV === 'production' ? '/sdmx-dashboard-components/ExampleCLNew.json' : '/ExampleCLNew.json'} lang={language}/>
         </Row>
     </Container>
   )

@@ -3,6 +3,7 @@
   "version": "0.4.4",
   "type": "module",
   "main": "dist/sdmx-dashboard-components.js",
+  "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
   "types": "dist/index.d.ts",
   "author": "Thomas Tilak & Stan Ozier",
   "license": "CC-BY-4.0",
@@ -11,7 +12,8 @@
     "build": "tsc -p ./tsconfig-build.json && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "build-preview": "rm -rf dist && tsc -p ./tsconfig-preview.json && vite build -c ./vite.preview.ts",
-    "preview": "rm -rf dist && tsc -p ./tsconfig-preview.json && NODE_ENV=development vite build -c ./vite.preview.ts && vite preview"
+    "preview": "rm -rf dist && tsc -p ./tsconfig-preview.json && NODE_ENV=development vite build -c ./vite.preview.ts && vite preview",
+    "publish": "gh-pages -d dist"
   },
   "peerDependencies": {
     "bootstrap": "^5.3.2",
@@ -41,6 +43,7 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "gh-pages": "^6.3.0",
     "react-live": "^4.1.8",
     "typescript": "^5.2.2",
     "vite": "^6.3.2",

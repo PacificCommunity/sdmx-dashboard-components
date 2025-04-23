@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Form, Nav, Row } from 'react-bootstrap';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import Dashboard from './components/Dashboard';
 import Line from './components/Line';
 import 'bootstrap/dist/css/bootstrap.css';
@@ -66,7 +66,7 @@ const App = () => {
       <Nav variant="tabs" defaultActiveKey={active_tab || 'dashboard'}>
         {Object.keys(tabs).map((tab) => (
           <Nav.Item key={tab}>
-            <Nav.Link eventKey={tab} href={`/${tab}`}>{tabs[tab as keyof typeof tabs].title}</Nav.Link>
+            <Nav.Link as={Link} to={`/${tab}`}>{tabs[tab as keyof typeof tabs].title}</Nav.Link>
           </Nav.Item>
         ))}
       </Nav>

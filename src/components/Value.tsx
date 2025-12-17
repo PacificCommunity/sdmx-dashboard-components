@@ -6,14 +6,14 @@ import { Tab, Tabs } from "react-bootstrap"
 const Value = () => {
     const content = [{
         id: "SH_STA_MALR",
-        code: `<SDMXValue 
+        code: `<SDMXValue
             config={{
             id: "SH_STA_MALR",
             type: "value",
             xAxisConcept: "GEO_PICT",
-            data: ["count(https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SH_STA_MALR.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions !== 0)"],
+            data: ["count(https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SH_STA_MALR.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions !== 0)"],
             unit: {
-                text: "countries", 
+                text: "countries",
                 location: "under"
             },
             adaptiveTextSize: true,

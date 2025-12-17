@@ -8,16 +8,17 @@ const Lollipop = () => {
         id: "SG_DSR_LEGREG",
         code: `<SDMXChart
             config={{
-            data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.SG_DSR_LEGREG.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+            data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SG_DSR_LEGREG.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
             id: "SG_DSR_LEGREG",
             type: "lollipop",
-            xAxisConcept: "GEO_PICT", 
+            xAxisConcept: "GEO_PICT",
             legend: {
                 concept: "INDICATOR", location: "none"
-            }, 
+            },
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
                 colors: ["#726f5c"],
+                chart: { styledMode: true },
                 credits: {
                 enabled: false},
                 yAxis: {
@@ -28,7 +29,7 @@ const Lollipop = () => {
                 tooltip: {
                     valueSuffix: " Boolean or binary measure"
                 }
-                }, 
+                },
             }}
             language='en'
         />`

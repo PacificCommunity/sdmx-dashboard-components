@@ -6,19 +6,19 @@ import { LiveEditor, LivePreview, LiveProvider } from "react-live"
 const Line = () => {
     const content = [{
         id: "DC_TRF_TOTL",
-        code: `<SDMXChart 
+        code: `<SDMXChart
             config={{
             subtitle: {
-                text: "<a href='https://stats-staging.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
-            }, data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"], 
+                text: "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU._T._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"
+            }, data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.DC_TRF_TOTL.CK+FJ+FM+KI+MH+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
             id: "DC_TRF_TOTL",
             type: "line",
             xAxisConcept: "TIME_PERIOD",
             legend: {
-                concept: "GEO_PICT", 
+                concept: "GEO_PICT",
                 location: "right"
             },
-            yAxisConcept: "OBS_VALUE", 
+            yAxisConcept: "OBS_VALUE",
             colorPalette: {
                 "GEO_PICT": {
                 "CK": 0,
@@ -45,17 +45,17 @@ const Line = () => {
                 },
                 credits: {
                 enabled: false
-                }, 
+                },
                 yAxis: {
                 title: {
                     text: "USD"
                 }
-                }, 
+                },
                 tooltip: {
                 valueSuffix: " USD"
                 }
             }
-            }} 
+            }}
             language='en' />`
     }]
     const scope = {SDMXChart}

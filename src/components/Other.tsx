@@ -7,14 +7,14 @@ const Other = () => {
     const content = [{
         id: "EN_MAR_BEALITSQ",
         code: `<SDMXChart config={{
-              data: ["https://stats-sdmx-disseminate-staging.pacificdata.org/rest/data/DF_BP50/A.EN_MAR_BEALITSQ.FJ+FM+KI+MH+NC+PF+PW+SB+TO+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+              data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.EN_MAR_BEALITSQ.FJ+FM+KI+MH+NC+PF+PW+SB+TO+VU+WS._T._T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
               id: "EN_MAR_BEALITSQ",
               type: "treemap",
-              xAxisConcept: "GEO_PICT", 
+              xAxisConcept: "GEO_PICT",
               legend: {
-                concept: "INDICATOR", 
+                concept: "INDICATOR",
                 location: "none"
-              }, 
+              },
               yAxisConcept: "OBS_VALUE",
               colorPalette: {
                 "GEO_PICT": {
@@ -87,6 +87,9 @@ const Other = () => {
               legend: {
                 concept: "INDICATOR", location: "none"
               },
+              extraOptions: {
+                chart: { styledMode: true },
+              },
               yAxisConcept: "OBS_VALUE",
             }} language='en'/>`
     }, {
@@ -101,6 +104,9 @@ const Other = () => {
               },
               legend: {
                 concept: "MEASURE", location: "none"
+              },
+              extraOptions: {
+                chart: { styledMode: true },
               },
               yAxisConcept: "OBS_VALUE",
             }} language='en'/>`

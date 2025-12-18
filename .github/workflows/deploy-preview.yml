@@ -7,9 +7,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    env:
-        USER_NAME: thhomas
-        USER_EMAIL: thomas.tilak@gmail.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4

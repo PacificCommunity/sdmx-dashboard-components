@@ -7,6 +7,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+        USER_NAME: thhomas
+        USER_EMAIL: thomas.tilak@gmail.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,4 +27,8 @@ jobs:
         run: npm run build-preview
 
       - name: Deploy to GitHub Pages
-        run: npm run publish
+        run: |
+         git config --global user.name $USER_NAME
+         git config --global user.email $USER_EMAIL
+         git remote set-url origin https://$USER_NAME:${{ secrets.GH_SECRET }}@github.com/PacificCommunity/sdmx-dashboard-components.git
+         npm run publish

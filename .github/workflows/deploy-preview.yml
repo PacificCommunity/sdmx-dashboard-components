@@ -28,7 +28,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         run: |
-         git config --global user.name $USER_NAME
-         git config --global user.email $USER_EMAIL
-         git remote set-url origin https://$USER_NAME:${{ secrets.GH_SECRET }}@github.com/PacificCommunity/sdmx-dashboard-components.git
-         npm run publish
+         git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+         npm run publish -- -u "github-actions-bot <support+actions@github.com>"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_SECRETS }}

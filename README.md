@@ -139,11 +139,19 @@ The vite preview mode can also be used to test the built library in the demo app
 npm run preview
 ```
 
+To deploy the demo app under a subfolder only in production, set `VITE_DEMO_BASE_PATH`.
+
+```bash
+# Example: deploy demo to /sdmx-dashboard-components/
+VITE_DEMO_BASE_PATH=sdmx-dashboard-components npm run build-preview
+```
+
+When `VITE_DEMO_BASE_PATH` is empty (default), the demo is built for root (`/`).
+
 
 ## Build
 
 ```bash
 npm run build
 ```
-
 

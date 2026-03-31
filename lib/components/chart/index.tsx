@@ -566,7 +566,7 @@ const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps
                         dataLabels: {
                             enabled: true,
                             formatter: function (this: any) {
-                                if (config?.unit?.text === '%') {
+                                if (config?.unit?.text === '%' && this.point.percentage !== undefined) {
                                     if (chartType === "pie") {
                                         return `${this.point?.name}: ${this.point?.percentage.toFixed(config.decimals)} %`
                                     } else {

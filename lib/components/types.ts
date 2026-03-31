@@ -41,7 +41,6 @@ export type SDMXVisualConfig = {
 }
 
 export type SDMXChartConfig = {
-    yAxisConcept: string, // SDMX concept of the y-axis
     legend?: {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend

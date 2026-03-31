@@ -22,6 +22,10 @@ const Dashboard = () => {
         <Row>
             <SDMXDashboard url={process.env.NODE_ENV === 'production' ? '/sdmx-dashboard-components/ExampleCLNew.json' : '/ExampleCLNew.json'} lang={language}/>
         </Row>
+        <Row>
+          <SDMXDashboard url={process.env.NODE_ENV === 'production' ? '/sdmx-dashboard-components/pacific-economies-the-iran-oil-shock.json' : '/pacific-economies-the-iran-oil-shock.json'} lang={language}/>
+        </Row>
+
     </Container>
   )
 }

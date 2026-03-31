@@ -11,6 +11,7 @@ import Pie from './components/Pie';
 import Value from './components/Value';
 import Lollipop from './components/Lollipop';
 import Other from './components/Other';
+import Maps from './components/Maps';
 
 const App = () => {
   const { active_tab } = useParams();
@@ -45,6 +46,10 @@ const App = () => {
     lollipop: {
       title: 'Lollipop charts',
       component: <Lollipop />,
+    },
+    maps: {
+      title: 'Maps',
+      component: <Maps />,
     },
     other: {
       title: 'Other',

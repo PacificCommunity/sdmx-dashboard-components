@@ -9,11 +9,15 @@
   "license": "CC-BY-4.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p ./tsconfig-build.json && vite build",
+    "build": "vite build && tsc -p ./tsconfig-types.json",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "build-preview": "rm -rf dist && tsc -p ./tsconfig-preview.json && vite build -c ./vite.preview.ts",
     "preview": "rm -rf dist && tsc -p ./tsconfig-preview.json && NODE_ENV=development vite build -c ./vite.preview.ts && vite preview",
     "publish": "gh-pages -d dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PacificCommunity/sdmx-dashboard-components.git"
   },
   "peerDependencies": {
     "d3-scale-chromatic": "^3.0.0",
@@ -36,8 +40,8 @@
     "@types/proj4": "^2.5.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "@typescript-eslint/eslint-plugin": "^6.14.0",
-    "@typescript-eslint/parser": "^6.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "@vitejs/plugin-react": "^4.4.1",
     "bootstrap": "^5.3.2",
     "eslint": "^8.55.0",
@@ -48,7 +52,6 @@
     "react-router": "^7.1.5",
     "typescript": "^5.2.2",
     "vite": "^6.3.2",
-    "vite-plugin-dts": "^4.5.3",
     "vite-plugin-lib-inject-css": "^2.2.0"
   },
   "files": [

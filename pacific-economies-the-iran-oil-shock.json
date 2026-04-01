@@ -1,0 +1,243 @@
+{
+  "id": "pacific-fuel-shock",
+  "colCount": 3,
+  "header": {
+    "title": {
+      "text": "Pacific Economies & the Iran Oil Shock"
+    },
+    "subtitle": {
+      "text": "Assessing fuel dependency, energy vulnerability, and fiscal exposure across Pacific Island Countries and Territories"
+    }
+  },
+  "rows": [
+    {
+      "columns": [
+        {
+          "id": "context-note",
+          "type": "note",
+          "colSize": 3,
+          "title": {
+            "text": "⚠️ Why this matters"
+          },
+          "note": {
+            "text": "Pacific Island Countries and Territories (PICTs) are almost entirely dependent on imported petroleum fuels — for electricity generation, transport, fishing, and government operations. A spike in global diesel and petrol prices (e.g. triggered by conflict near the Strait of Hormuz) has an outsized impact on these small, isolated, import-dependent economies. The indicators below reveal the channels of vulnerability: fiscal strain, trade balance deterioration, high retail fuel costs, low renewable energy buffers, and expensive electricity for households and businesses."
+          }
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "fuel-pct-gdp",
+          "type": "bar",
+          "colSize": 2,
+          "title": {
+            "text": "🛢️ Total Fuel Imports (% of GDP)"
+          },
+          "subtitle": {
+            "text": "How much of each economy is consumed by fuel imports"
+          },
+          "note": {
+            "text": "A higher share means a larger macro hit when fuel prices rise. Countries above 10% of GDP face severe economic stress."
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_011?dimensionAtObservation=AllDimensions&lastNObservations=1",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "none"
+          },
+          "labels": true,
+          "sortByValue": "desc",
+          "unit": {
+            "text": "% of GDP",
+            "location": "suffix"
+          }
+        },
+        {
+          "id": "fuel-pct-imports",
+          "type": "bar",
+          "colSize": 1,
+          "title": {
+            "text": "⚖️ Fuel as % of Total Imports"
+          },
+          "subtitle": {
+            "text": "Trade balance vulnerability (2019)"
+          },
+          "note": {
+            "text": "When fuel prices rise, countries with high fuel import shares face worsening trade deficits and currency pressure."
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_018?dimensionAtObservation=AllDimensions&endPeriod=2019",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "none"
+          },
+          "labels": true,
+          "sortByValue": "desc",
+          "unit": {
+            "text": "%",
+            "location": "suffix"
+          }
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "renewable-share",
+          "type": "bar",
+          "colSize": 1,
+          "title": {
+            "text": "🌿 Renewable Energy Share (% of total energy)"
+          },
+          "subtitle": {
+            "text": "The buffer against fossil fuel price shocks (2018)"
+          },
+          "note": {
+            "text": "Countries with near-zero renewable share are almost entirely diesel-dependent — the most exposed to a price shock."
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_016?dimensionAtObservation=AllDimensions&startPeriod=2018&endPeriod=2018",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "none"
+          },
+          "labels": true,
+          "sortByValue": "desc",
+          "unit": {
+            "text": "%",
+            "location": "suffix"
+          }
+        },
+        {
+          "id": "diesel-wholesale-price",
+          "type": "bar",
+          "colSize": 1,
+          "title": {
+            "text": "⛽ Diesel Wholesale Price (USD/litre)"
+          },
+          "subtitle": {
+            "text": "Baseline diesel cost before the shock"
+          },
+          "note": {
+            "text": "Countries already paying above USD 1.20/L are starting from a high base — even a 30–50% price spike would be devastating."
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_027?dimensionAtObservation=AllDimensions&lastNObservations=1",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "none"
+          },
+          "labels": true,
+          "sortByValue": "desc",
+          "unit": {
+            "text": "USD/L",
+            "location": "suffix"
+          }
+        },
+        {
+          "id": "petrol-retail-price",
+          "type": "bar",
+          "colSize": 1,
+          "title": {
+            "text": "🚗 Petrol Retail Price (USD/litre)"
+          },
+          "subtitle": {
+            "text": "Household and transport cost baseline"
+          },
+          "note": {
+            "text": "Already elevated retail prices mean households spend a high share of income on fuel and transport."
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_032?dimensionAtObservation=AllDimensions&lastNObservations=1",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "none"
+          },
+          "labels": true,
+          "sortByValue": "desc",
+          "unit": {
+            "text": "USD/L",
+            "location": "suffix"
+          }
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "govt-revenue-gdp",
+          "type": "line",
+          "colSize": 2,
+          "title": {
+            "text": "🏛️ Government Revenue (% of GDP)"
+          },
+          "subtitle": {
+            "text": "Fiscal space available to absorb or subsidise a fuel price shock"
+          },
+          "note": {
+            "text": "Governments with thin revenue bases have little capacity to subsidise fuel, protect the poor, or invest in energy alternatives when a price shock hits."
+          },
+          "download": true,
+          "xAxisConcept": "TIME_PERIOD",
+          "yAxisConcept": "OBS_VALUE",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_GFS/A..AMTGDP.1?dimensionAtObservation=AllDimensions",
+          "legend": {
+            "concept": "GEO_PICT",
+            "location": "bottom"
+          },
+          "unit": {
+            "text": "% of GDP",
+            "location": "suffix"
+          }
+        },
+        {
+          "id": "impact-note",
+          "type": "note",
+          "colSize": 1,
+          "title": {
+            "text": "📋 Key Transmission Channels"
+          },
+          "note": {
+            "text": "**1. Electricity costs surge** — Most PICTs generate power from diesel. Higher diesel = higher power tariffs for households, businesses, hospitals, schools.\n\n**2. Food prices rise** — Fishing (outboard motors), agriculture (irrigation pumps), and food transport all run on diesel.\n\n**3. Trade deficits widen** — Fuel is 15–20% of imports for many PICTs. A price spike deepens deficits and drains foreign reserves.\n\n**4. Government budgets strained** — Revenue-to-GDP is thin in most PICTs. Fuel subsidies or direct transfers are costly.\n\n**5. Tourism disrupted** — Aviation fuel costs affect air travel prices, reducing arrivals to tourism-dependent economies like Fiji, Palau, and FSM."
+          }
+        }
+      ]
+    },
+    {
+      "columns": [
+        {
+          "id": "fuel-imports-map",
+          "type": "map",
+          "colSize": 3,
+          "title": {
+            "text": "🗺️ Fuel Import Dependency Across the Pacific"
+          },
+          "subtitle": {
+            "text": "Total fuel imports as % of GDP — geographic vulnerability map"
+          },
+          "note": {
+            "text": "Darker shading = higher fuel import dependency = greater vulnerability to price shocks."
+          },
+          "legend": {
+            "concept": "INDICATOR"
+          },
+          "download": true,
+          "xAxisConcept": "GEO_PICT",
+          "colorScheme": "Oranges",
+          "data": "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_011?dimensionAtObservation=AllDimensions&lastNObservations=1, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Aglobal_eez_200nm_split@EPSG%3A3857@pbf/{z}/{x}/{-y}.pbf, EPSG:3857, {iso_ter1}"
+        }
+      ]
+    }
+  ]
+}

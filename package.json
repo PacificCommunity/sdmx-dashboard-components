@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "module": "dist/index.js",
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
@@ -13,7 +13,7 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "build-preview": "rm -rf dist && vite build -c ./vite.preview.ts",
     "preview": "rm -rf dist && NODE_ENV=development vite build -c ./vite.preview.ts && vite preview",
-    "publish": "gh-pages -d dist"
+    "publish-pages": "gh-pages -d dist"
   },
   "repository": {
     "type": "git",

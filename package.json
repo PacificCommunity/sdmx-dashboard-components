@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "0.4.6",
+  "version": "0.5.0",
   "type": "module",
   "main": "dist/sdmx-dashboard-components.js",
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
@@ -31,7 +31,7 @@
     "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^19.1.0",
     "react-error-boundary": "^4.0.12",
-    "sdmx-json-parser": "^0.3.0",
+    "sdmx-json-parser": "^0.4.0",
     "ts-deepmerge": "^7.0.1"
   },
   "devDependencies": {
@@ -42,7 +42,7 @@
     "@types/react-dom": "^19.1.2",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.0",
-    "@vitejs/plugin-react": "^4.4.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "bootstrap": "^5.3.2",
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -51,7 +51,7 @@
     "react-live": "^4.1.8",
     "react-router": "^7.1.5",
     "typescript": "^5.2.2",
-    "vite": "^6.3.2",
+    "vite": "^8.0.0",
     "vite-plugin-lib-inject-css": "^2.2.0"
   },
   "files": [

@@ -1,7 +1,13 @@
 "use client"
 
-export { default as SDMXDashboard } from './components/dashboard';
-export { default as SDMXChart } from './components/chart';
-export { default as SDMXMap } from './components/map';
-export { default as SDMXValue } from './components/value';
+import SDMXDashboard from './components/dashboard';
+import SDMXChart from './components/chart';
+import SDMXMap from './components/map';
+import SDMXValue from './components/value';
 
+export {
+    SDMXDashboard,
+    SDMXChart,
+    SDMXMap,
+    SDMXValue
+}

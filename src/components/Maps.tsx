@@ -24,7 +24,7 @@ const Maps = () => {
               },
               xAxisConcept: "GEO_PICT",
               colorScheme: "Oranges",
-              data: "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_011?dimensionAtObservation=AllDimensions&lastNObservations=1, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Aglobal_eez_200nm_split@EPSG%3A3857@pbf/{z}/{x}/{-y}.pbf, EPSG:3857, {iso_ter1}"
+              data: "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_011?dimensionAtObservation=AllDimensions&lastNObservations=1, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Aglobal_eez_200nm_split@EPSG%3A3832@pbf/{z}/{x}/{-y}.pbf, EPSG:3832, {iso_ter1}"
             }}
             language='en' />`
     }, {
@@ -76,7 +76,7 @@ const Maps = () => {
                 concept: "INDICATOR"
               },
               colorScheme: "Blues",
-              data: "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A.AS+CK+FJ+PF+GU+KI+MH+FM+NR+NC+NU+MP+PW+PG+PN+WS+SB+TK+TO+TV+VU+WF.MIDYEARPOPEST._T._T?startPeriod=2023&endPeriod=2023&dimensionAtObservation=AllDimensions, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Apacific_coastlines@EPSG%3A3857@pbf/{z}/{x}/{-y}.pbf, EPSG:3857, {iso_ter1_2}"
+              data: "https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_POP_PROJ,3.0/A.AS+CK+FJ+PF+GU+KI+MH+FM+NR+NC+NU+MP+PW+PG+PN+WS+SB+TK+TO+TV+VU+WF.MIDYEARPOPEST._T._T?startPeriod=2023&endPeriod=2023&dimensionAtObservation=AllDimensions, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Apacific_coastlines@EPSG%3A3832@pbf/{z}/{x}/{-y}.pbf, EPSG:3832, {iso_ter1_2}"
             }}
             language='en' />`
     }]

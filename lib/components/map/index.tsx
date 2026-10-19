@@ -34,6 +34,7 @@ import { SDMXMapConfig } from '../types';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
+import TileGrid from 'ol/tilegrid/TileGrid';
 
 type MapDataLayer = VectorLayer<VectorSource> | VectorTileLayer
 
@@ -173,12 +174,24 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
     };
   }
 
-  const createInitialFeaturesLayer = (geojsonUrl: string) => {
+  const createInitialFeaturesLayer = (geojsonUrl: string, projection: string | null) => {
     let initialLayer: MapDataLayer;
     if (isVectorTileUrl(geojsonUrl)) {
+      // handle special case for EPSG:3832 used with a vector tile source - need to create custom tile grid and set it on the source for tiles to load correctly
+      let customTileGrid: TileGrid | undefined = undefined;
+      if (projection == "EPSG:3832") {
+        // create custom tilegrid
+        customTileGrid = new TileGrid({
+          extent: [-19628687.512850948, -8362698.548500745, 15807367.692644844, 10023392.492023032],
+          resolutions: [71820.668127046, 35910.334063523, 17955.167031761, 8977.5835158805, 4488.7917579403, 2244.3958789701, 1122.1979394851, 561.09896974255, 280.54948487127, 140.27474243563, 70.13737121782, 35.06868560891, 17.534342804455, 8.767171402227, 4.3835857011135, 2.1917928505567, 1.0958964252784, 0.5479482126392],
+          tileSize: 256
+        });
+      }
       const vectorTileSource = new VectorTileSource({
         format: new MVT(),
         url: geojsonUrl,
+        projection: projection || 'EPSG:3857',
+        tileGrid: customTileGrid
       });
       initialLayer = new VectorTileLayer({
         source: vectorTileSource,
@@ -251,7 +264,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
         mapRef.current.removeLayer(dataLayerRef.current)
       }
 
-      const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl)
+      const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl, dataObj.geojsonProjection)
 
       setFeaturesLayer(initalFeaturesLayer)
       dataLayerRef.current = initalFeaturesLayer

@@ -262,6 +262,7 @@ export const buildChartOption = async (
             legendSerieData.push({
               value: legendSerieDataValue['value'],
               name: xAxisDimensionValue.name,
+              [xAxisConcept as string]: xAxisDimensionValue.name,
               drilldownId,
               itemStyle: pointColor ? { color: pointColor } : undefined,
             });

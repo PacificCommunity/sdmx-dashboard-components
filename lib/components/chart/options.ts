@@ -277,18 +277,39 @@ export const buildChartOption = async (
       categories = sorted.map((item: any) => item.name);
     }
 
-    columnSeriesByName.forEach((seriesEntry: any) => {
-      const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
-      if (yAxisValue.some((point: any) => point !== null)) {
-        const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
-        seriesData.push({
-          type: 'bar',
-          name: seriesEntry.name,
-          data: yAxisValue,
-          itemStyle: color ? { color } : undefined,
+    if (chartType === 'treemap') {
+      // A treemap is a single flat series; each accumulated category point is
+      // one tile, with any per-item palette color already stored on the point.
+      const treemapData: any[] = [];
+      categories.forEach((category: any) => {
+        columnSeriesByName.forEach((seriesEntry: any) => {
+          const point = seriesEntry.valueByName.get(category);
+          if (point) {
+            treemapData.push({
+              name: point.name,
+              value: point.value,
+              itemStyle: point.itemStyle,
+            });
+          }
         });
+      });
+      if (treemapData.length > 0) {
+        seriesData.push({ type: 'treemap', data: treemapData });
       }
-    });
+    } else {
+      columnSeriesByName.forEach((seriesEntry: any) => {
+        const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
+        if (yAxisValue.some((point: any) => point !== null)) {
+          const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
+          seriesData.push({
+            type: 'bar',
+            name: seriesEntry.name,
+            data: yAxisValue,
+            itemStyle: color ? { color } : undefined,
+          });
+        }
+      });
+    }
 
     xAxisValue = categories;
     xAxis = { type: 'category', data: xAxisValue };
@@ -300,13 +321,39 @@ export const buildChartOption = async (
     }
   }
 
+  if (chartType === 'lollipop') {
+    const stems: any[] = [];
+    (seriesData as any[]).forEach((s: any) => {
+      stems.push({ ...s, barWidth: 2, silent: true, z: 1 });
+      stems.push({
+        ...s,
+        type: 'scatter',
+        symbolSize: 10,
+        name: '',
+        z: 2,
+      });
+    });
+    seriesData = stems;
+  }
+
+  if (chartType === 'treemap') {
+    tooltipTrigger = 'item';
+    xAxis = undefined;
+    yAxis = undefined;
+  }
+
   const option: EChartsOption = {
     tooltip: { trigger: tooltipTrigger },
     legend: legendPosition(config.legend?.location),
     series: seriesData,
   };
 
-  if (chartType !== 'pie') {
+  if (chartType === 'lollipop') {
+    const names = (seriesData as any[]).filter((s: any) => s.type === 'bar').map((s: any) => s.name);
+    option.legend = { ...(option.legend as any), data: names };
+  }
+
+  if (chartType !== 'pie' && chartType !== 'treemap') {
     option.grid = { containLabel: true };
     option.xAxis = xAxis;
     option.yAxis = yAxis;

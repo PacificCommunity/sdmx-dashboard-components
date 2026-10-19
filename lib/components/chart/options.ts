@@ -146,14 +146,16 @@ export const buildChartOption = async (
       legendConcept = legendConcept || dimensions.find((d: any) => d.id !== xAxisConcept)['id'];
       if (!legendConcept) throw new Error(`No other dimension than ${xAxisConcept} found`);
       const serieDimensions = dimensions.find((d: any) => d.id === legendConcept);
-      if (xAxisConcept === 'TIME_PERIOD') {
+      const isTimeAxis = xAxisConcept === 'TIME_PERIOD';
+      if (isTimeAxis) {
         const freqDimension = dimensions.find((d: any) => d.id === 'FREQ');
         let dateFormat = '{yyyy}';
         if (freqDimension.values[0].id === 'A') dateFormat = '{yyyy}';
         else if (freqDimension.values[0].id === 'Q' || freqDimension.values[0].id === 'M') dateFormat = '{MMM} {yyyy}';
         xAxis = { type: 'time', axisLabel: { formatter: dateFormat } };
       } else {
-        xAxis = { type: 'category', data: data.map((val: any) => val[xAxisConcept]) };
+        const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
+        xAxis = { type: 'category', data: categories };
       }
       serieDimensions.values
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
@@ -161,7 +163,11 @@ export const buildChartOption = async (
           const serieData = data.filter((val: any) => val[legendConcept] === serieDimension.name);
           if (serieData.length === 0) return;
           const sortedData = sortByDimension(serieData, xAxisConcept);
-          const points = sortedData.map((val: any) => [parseDate(val[xAxisConcept]) ?? val[xAxisConcept], val['value']]);
+          const points = sortedData.map((val: any) =>
+            isTimeAxis
+              ? [parseDate(val[xAxisConcept]) ?? val[xAxisConcept], val['value']]
+              : [val[xAxisConcept], val['value']]
+          );
           const color = paletteColor(config, legendConcept, serieDimension.id);
           seriesData.push({
             type: 'line',
@@ -180,16 +186,27 @@ export const buildChartOption = async (
         legendDimension = dimensions.find((d: any) => d.id === legendConcept);
       }
       const xAxisDimension = activeDimensions.find((d: any) => d.id === xAxisConcept);
+
+      // Build one canonical category order for this dataset, then place every
+      // series onto it by name: ECharts maps category series by index.
+      const categories: any[] = [];
+      const categoryValues = new Map<any, number>();
+      const seriesPoints: any[] = [];
       legendDimension.values
+        .slice()
         .sort((a: any, b: any) => a.id.localeCompare(b.id))
         .forEach((legendDimensionValue: any) => {
           const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
-          let sortedData = sortByDimension(legendSerie, xAxisConcept);
-          if (config.sortByValue) sortedData = sortByValue(sortedData, config.sortByValue);
+          const sortedData = sortByDimension(legendSerie, xAxisConcept);
           const latestValues = getLatestValue(sortedData, xAxisConcept);
-          const yAxisValue = latestValues
+          const valueByName = new Map<any, any>();
+          latestValues
             .filter((val: any) => val.value !== null)
-            .map((val: any) => {
+            .forEach((val: any) => {
+              const category = val[xAxisConcept];
+              if (!categoryValues.has(category)) categories.push(category);
+              categoryValues.set(category, (categoryValues.get(category) ?? 0) + (Number(val.value) || 0));
+
               const colorByPoint = config.colorPalette?.[xAxisConcept] !== undefined;
               let itemStyle: any = undefined;
               if (colorByPoint) {
@@ -197,19 +214,35 @@ export const buildChartOption = async (
                 const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
                 if (c) itemStyle = { color: c };
               }
-              if (!xAxisValue.includes(val[xAxisConcept])) xAxisValue.push(val[xAxisConcept]);
-              return { value: val['value'], name: val[xAxisConcept], itemStyle };
+              valueByName.set(category, { value: val['value'], name: val[xAxisConcept], itemStyle });
             });
-          if (yAxisValue.length > 0) {
-            const color = paletteColor(config, legendConcept, legendDimensionValue.id);
-            seriesData.push({
-              type: 'bar',
-              name: legendDimensionValue.name,
-              data: yAxisValue,
-              itemStyle: color ? { color } : undefined,
-            });
-          }
+          seriesPoints.push({ name: legendDimensionValue.name, id: legendDimensionValue.id, valueByName });
         });
+
+      // sortByValue reorders the shared category list, not each series
+      if (config.sortByValue) {
+        const sorted = sortByValue(
+          categories.map((name: any) => ({ name, value: categoryValues.get(name) ?? 0 })),
+          config.sortByValue
+        );
+        categories.length = 0;
+        sorted.forEach((item: any) => categories.push(item.name));
+      }
+
+      seriesPoints.forEach(({ name, id, valueByName }) => {
+        const yAxisValue = categories.map((category: any) => valueByName.get(category) ?? null);
+        if (yAxisValue.some((point: any) => point !== null)) {
+          const color = paletteColor(config, legendConcept, id);
+          seriesData.push({
+            type: 'bar',
+            name,
+            data: yAxisValue,
+            itemStyle: color ? { color } : undefined,
+          });
+        }
+      });
+
+      xAxisValue = categories;
       xAxis = { type: 'category', data: xAxisValue };
       yAxis = { type: 'value' };
       if (chartType === 'bar') {
@@ -229,11 +262,15 @@ export const buildChartOption = async (
         yAxisValue = yAxisValue.sort((a: any, b: any) => b.binValue - a.binValue);
       }
       tooltipTrigger = 'item';
-      seriesData = [{
-        type: 'pie',
-        name: titleText || dimensions.find((dim: any) => dim.id === config.legend?.concept)?.values[0]?.name,
-        data: yAxisValue,
-      }];
+      if (seriesData.length === 0) {
+        seriesData = [{
+          type: 'pie',
+          name: titleText || dimensions.find((dim: any) => dim.id === config.legend?.concept)?.values[0]?.name,
+          data: yAxisValue,
+        }];
+      } else {
+        (seriesData[0] as any).data.push(...yAxisValue);
+      }
       if (config.legend && chartType === 'pie') {
         (seriesData[0] as any).legendHoverLink = true;
       }
@@ -243,22 +280,33 @@ export const buildChartOption = async (
   const option: EChartsOption = {
     tooltip: { trigger: tooltipTrigger },
     legend: legendPosition(config.legend?.location),
-    grid: { containLabel: true },
-    xAxis,
-    yAxis,
     series: seriesData,
   };
+
+  if (chartType !== 'pie') {
+    option.grid = { containLabel: true };
+    option.xAxis = xAxis;
+    option.yAxis = yAxis;
+  }
 
   if (config.labels) {
     option.series = (seriesData as any[]).map((s: any) => ({
       ...s,
       label: {
         show: true,
-        formatter: (params: any) =>
-          config?.unit?.text === '%' && params.percent !== undefined
+        formatter: (params: any) => {
+          const v = Array.isArray(params.value) ? params.value[1] : params.value;
+          return config?.unit?.text === '%' && params.percent !== undefined
             ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
-            : `${Number(params.value).toLocaleString(language)}`,
+            : `${Number(v).toLocaleString(language)}`;
+        },
       },
+    }));
+  } else if (chartType === 'pie') {
+    option.series = (seriesData as any[]).map((s: any) => ({
+      ...s,
+      label: { show: false },
+      labelLine: { show: false },
     }));
   }
 

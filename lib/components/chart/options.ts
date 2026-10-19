@@ -110,6 +110,7 @@ export const buildChartOption = async (
   let xAxis: any = { type: 'category', data: xAxisValue };
   let yAxis: any = { type: 'value' };
   let tooltipTrigger: 'axis' | 'item' = 'axis';
+  const drilldownOptions: Record<string, EChartsOption> = {};
 
   // Column/bar category state is shared across all datasets so series from
   // earlier datasets stay aligned with the final category axis.
@@ -232,6 +233,82 @@ export const buildChartOption = async (
               seriesEntry.valueByName.set(category, { value: val['value'], name: val[xAxisConcept], itemStyle });
             });
         });
+    } else if (chartType === 'drilldown') {
+      const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
+      if (!drilldownXAxisConcept) throw new Error('No drilldown xAxis concept found');
+      if (!legendConcept) throw new Error('No legend concept found');
+      const xAxisDimension = dimensions.find((d: any) => d.id === xAxisConcept);
+      const legendDimension = dimensions.find((d: any) => d.id === legendConcept);
+      const drilldownXAxisDimension = dimensions.find((d: any) => d.id === drilldownXAxisConcept);
+
+      legendDimension.values
+        .sort((a: any, b: any) => a.id.localeCompare(b.id))
+        .forEach((legendDimensionValue: any) => {
+          const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
+          const legendSerieData: any[] = [];
+          xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
+            let tmpArr = legendSerie.filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name);
+            tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
+            let legendSerieDataValue = tmpArr.find((val: any) => val[drilldownXAxisConcept] === 'Total');
+            if (drilldownXAxisConcept === 'TIME_PERIOD') {
+              legendSerieDataValue = tmpArr[tmpArr.length - 1];
+            } else {
+              tmpArr = tmpArr.filter((val: any) => val[drilldownXAxisConcept] !== 'Total');
+            }
+            if (tmpArr.length === 0) return;
+
+            const drilldownId = `${xAxisDimensionValue.name}-${legendDimensionValue.name}`;
+            const pointColor = paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
+            legendSerieData.push({
+              value: legendSerieDataValue['value'],
+              name: xAxisDimensionValue.name,
+              drilldownId,
+              itemStyle: pointColor ? { color: pointColor } : undefined,
+            });
+
+            const childData = tmpArr.map((value: any) => {
+              const dimId = drilldownXAxisDimension.values.find((v: any) => v.name === value[drilldownXAxisConcept])?.id;
+              const c = dimId ? paletteColor(config, drilldownXAxisConcept, dimId) : undefined;
+              return {
+                name: value[drilldownXAxisConcept],
+                value: value['value'],
+                itemStyle: c ? { color: c } : undefined,
+              };
+            });
+            const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
+            drilldownOptions[drilldownId] = {
+              tooltip: { trigger: isTime ? 'axis' : 'item' },
+              grid: { containLabel: true },
+              xAxis: isTime
+                ? { type: 'category', data: childData.map((d: any) => d.name) }
+                : { type: 'category', data: childData.map((d: any) => d.name) },
+              yAxis: { type: 'value' },
+              series: [{
+                type: isTime ? 'line' : 'bar',
+                name: legendDimensionValue.name,
+                data: childData,
+                itemStyle: paletteColor(config, legendConcept, legendDimensionValue.id)
+                  ? { color: paletteColor(config, legendConcept, legendDimensionValue.id) }
+                  : undefined,
+              }],
+            };
+          });
+
+          if (legendSerieData.length !== 0) {
+            let sorted = sortByDimension(legendSerieData, xAxisDimension.id);
+            if (config.sortByValue) sorted = sortByValue(sorted, config.sortByValue);
+            const color = paletteColor(config, legendConcept, legendDimensionValue.id);
+            seriesData.push({
+              type: 'bar',
+              name: legendDimensionValue.name,
+              data: sorted,
+              itemStyle: color ? { color } : undefined,
+            });
+          }
+        });
+      seriesData.sort((a: any, b: any) => b.data.length - a.data.length);
+      xAxis = { type: 'category', data: xAxisDimension.values.map((v: any) => v.name) };
+      yAxis = { type: 'value' };
     } else if (chartType === 'pie') {
       const sortedData = sortByDimension(data, xAxisConcept);
       xAxisValue = sortedData.map((val: any) => val[xAxisConcept]);
@@ -379,5 +456,7 @@ export const buildChartOption = async (
     }));
   }
 
-  return { option, titleText, subtitleText };
+  const result: BuiltChart = { option, titleText, subtitleText };
+  if (chartType === 'drilldown') result.drilldown = { options: drilldownOptions };
+  return result;
 };

@@ -329,7 +329,6 @@ export const buildChartOption = async (
         ...s,
         type: 'scatter',
         symbolSize: 10,
-        name: '',
         z: 2,
       });
     });

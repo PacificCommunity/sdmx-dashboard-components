@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "type": "module",
   "module": "dist/index.js",
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
@@ -21,8 +21,7 @@
   },
   "peerDependencies": {
     "d3-scale-chromatic": "^3.0.0",
-    "highcharts": "^11.4.6",
-    "highcharts-react-official": "^3.2.1",
+    "echarts": "^5.5.1",
     "html-react-parser": "^5.2.10",
     "ol": "^8.2.0",
     "proj4": "^2.9.2",

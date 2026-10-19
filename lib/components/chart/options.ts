@@ -111,6 +111,12 @@ export const buildChartOption = async (
   let yAxis: any = { type: 'value' };
   let tooltipTrigger: 'axis' | 'item' = 'axis';
 
+  // Column/bar category state is shared across all datasets so series from
+  // earlier datasets stay aligned with the final category axis.
+  const columnCategoryOrder: any[] = [];
+  const columnCategorySeen = new Set<any>();
+  const columnSeriesByName = new Map<string, any>();
+
   sdmxObjs.forEach((sdmxObj) => {
     const data = sdmxObj[0];
     const dimensions = sdmxObj[1];
@@ -187,11 +193,6 @@ export const buildChartOption = async (
       }
       const xAxisDimension = activeDimensions.find((d: any) => d.id === xAxisConcept);
 
-      // Build one canonical category order for this dataset, then place every
-      // series onto it by name: ECharts maps category series by index.
-      const categories: any[] = [];
-      const categoryValues = new Map<any, number>();
-      const seriesPoints: any[] = [];
       legendDimension.values
         .slice()
         .sort((a: any, b: any) => a.id.localeCompare(b.id))
@@ -199,13 +200,27 @@ export const buildChartOption = async (
           const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
           const sortedData = sortByDimension(legendSerie, xAxisConcept);
           const latestValues = getLatestValue(sortedData, xAxisConcept);
-          const valueByName = new Map<any, any>();
+
+          let seriesEntry = columnSeriesByName.get(legendDimensionValue.name);
+          if (!seriesEntry) {
+            seriesEntry = {
+              name: legendDimensionValue.name,
+              id: legendDimensionValue.id,
+              legendConcept,
+              valueByName: new Map<any, any>(),
+            };
+            columnSeriesByName.set(legendDimensionValue.name, seriesEntry);
+          }
+
           latestValues
             .filter((val: any) => val.value !== null)
             .forEach((val: any) => {
               const category = val[xAxisConcept];
-              if (!categoryValues.has(category)) categories.push(category);
-              categoryValues.set(category, (categoryValues.get(category) ?? 0) + (Number(val.value) || 0));
+              if (!columnCategorySeen.has(category)) {
+                columnCategorySeen.add(category);
+                columnCategoryOrder.push(category);
+              }
+              if (seriesEntry.valueByName.has(category)) return;
 
               const colorByPoint = config.colorPalette?.[xAxisConcept] !== undefined;
               let itemStyle: any = undefined;
@@ -214,42 +229,9 @@ export const buildChartOption = async (
                 const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
                 if (c) itemStyle = { color: c };
               }
-              valueByName.set(category, { value: val['value'], name: val[xAxisConcept], itemStyle });
+              seriesEntry.valueByName.set(category, { value: val['value'], name: val[xAxisConcept], itemStyle });
             });
-          seriesPoints.push({ name: legendDimensionValue.name, id: legendDimensionValue.id, valueByName });
         });
-
-      // sortByValue reorders the shared category list, not each series
-      if (config.sortByValue) {
-        const sorted = sortByValue(
-          categories.map((name: any) => ({ name, value: categoryValues.get(name) ?? 0 })),
-          config.sortByValue
-        );
-        categories.length = 0;
-        sorted.forEach((item: any) => categories.push(item.name));
-      }
-
-      seriesPoints.forEach(({ name, id, valueByName }) => {
-        const yAxisValue = categories.map((category: any) => valueByName.get(category) ?? null);
-        if (yAxisValue.some((point: any) => point !== null)) {
-          const color = paletteColor(config, legendConcept, id);
-          seriesData.push({
-            type: 'bar',
-            name,
-            data: yAxisValue,
-            itemStyle: color ? { color } : undefined,
-          });
-        }
-      });
-
-      xAxisValue = categories;
-      xAxis = { type: 'category', data: xAxisValue };
-      yAxis = { type: 'value' };
-      if (chartType === 'bar') {
-        const tmp = xAxis;
-        xAxis = { type: 'value' };
-        yAxis = { ...tmp, type: 'category' };
-      }
     } else if (chartType === 'pie') {
       const sortedData = sortByDimension(data, xAxisConcept);
       xAxisValue = sortedData.map((val: any) => val[xAxisConcept]);
@@ -276,6 +258,47 @@ export const buildChartOption = async (
       }
     }
   });
+
+  if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop' || chartType === 'treemap') {
+    // Emit column/bar series once all datasets are known, mapping every series
+    // onto the shared category list so multi-dataset axes stay aligned.
+    let categories = columnCategoryOrder;
+    if (config.sortByValue) {
+      const totals = new Map<any, number>();
+      columnSeriesByName.forEach((seriesEntry: any) => {
+        seriesEntry.valueByName.forEach((point: any, category: any) => {
+          totals.set(category, (totals.get(category) ?? 0) + (Number(point.value) || 0));
+        });
+      });
+      const sorted = sortByValue(
+        columnCategoryOrder.map((name: any) => ({ name, value: totals.get(name) ?? 0 })),
+        config.sortByValue
+      );
+      categories = sorted.map((item: any) => item.name);
+    }
+
+    columnSeriesByName.forEach((seriesEntry: any) => {
+      const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
+      if (yAxisValue.some((point: any) => point !== null)) {
+        const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
+        seriesData.push({
+          type: 'bar',
+          name: seriesEntry.name,
+          data: yAxisValue,
+          itemStyle: color ? { color } : undefined,
+        });
+      }
+    });
+
+    xAxisValue = categories;
+    xAxis = { type: 'category', data: xAxisValue };
+    yAxis = { type: 'value' };
+    if (chartType === 'bar') {
+      const tmp = xAxis;
+      xAxis = { type: 'value' };
+      yAxis = { ...tmp, type: 'category' };
+    }
+  }
 
   const option: EChartsOption = {
     tooltip: { trigger: tooltipTrigger },

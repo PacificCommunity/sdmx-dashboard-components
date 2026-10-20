@@ -24,33 +24,14 @@ const Column = () => {
                 }
             },
             "yAxisConcept": "OBS_VALUE",
+            "labels": true,
             "extraOptions": {
-                "credits": {
-                    "enabled": false
-                },
-                "chart": {
-                    "styledMode": true
-                },
                 "yAxis": {
-                    "title": {
-                        "text": "ratio to total population"
-                    },
+                    "name": "ratio to total population",
                     "max": 100
                 },
                 "tooltip": {
-                    "valueSuffix": " ratio to total population"
-                },
-                "plotOptions": {
-                    "column": {
-                        "dataLabels": {
-                            "enabled": true,
-                            "style": {
-                                "color": "contrast",
-                                "textOutline": "0px",
-                                "fontWeight": "normal"
-                            }
-                        }
-                    }
+                    "valueFormatter": (v) => \`\${Number(v).toLocaleString('en')} ratio to total population\`
                 }
             },
             "subtitle": {
@@ -72,34 +53,16 @@ const Column = () => {
                 "location": "bottom"
             },
             "yAxisConcept": "OBS_VALUE",
+            "labels": true,
             "extraOptions": {
-                "chart": {
-                    "styledMode": true
-                },
-                "credits": {
-                    "enabled": false
-                },
                 "yAxis": {
-                    "title": {
-                        "text": "percent"
-                    },
+                    "name": "percent",
                     "max": 100
                 },
                 "tooltip": {
-                    "valueSuffix": " %",
-                    "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"
-                },
-                "plotOptions": {
-                    "column": {
-                        "dataLabels": {
-                            "enabled": true,
-                            "allowOverlap": true,
-                            "style": {
-                                "color": "contrast",
-                                "textOutline": "0px",
-                                "fontWeight": "normal"
-                            }
-                        }
+                    "formatter": (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 }
             },
@@ -108,9 +71,9 @@ const Column = () => {
             },
             "colorPalette": {
                 "COMPOSITE_BREAKDOWN": {
-                    "SECONDARY_LOWER": 0,
-                    "PRIMARY_ALL": 1,
-                    "SECONDARY_UPPER": 2
+                    "SECONDARY_LOWER": "#E16A86",
+                    "PRIMARY_ALL": "#50A315",
+                    "SECONDARY_UPPER": "#009ADE"
                 }
             }
         }}
@@ -129,38 +92,21 @@ const Column = () => {
                 location: "bottom"
             },
             yAxisConcept: "OBS_VALUE",
+            labels: true,
             colorPalette: {
                 SEX: {
-                    M: 0,
-                    F: 1
+                    M: "#fecba1",
+                    F: "#c5b3e6"
                 }
             },
             extraOptions: {
-                chart: {
-                    styledMode: true
-                },
-                credits: {
-                    enabled: false
-                },
                 yAxis: {
-                    title: {
-                        text: "per 100,000 population"
-                    }
+                    name: "per 100,000 population"
                 },
                 tooltip: {
-                    valueSuffix: " per 100,000 population",
-                    pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
-                },
-                plotOptions: {
-                    column: {
-                        dataLabels: {
-                        enabled: true,
-                        style: {
-                            color: "contrast",
-                            textOutline: "0px",
-                            fontWeight: "normal"
-                        }
-                        }
+                    formatter: (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 100,000 population\`).join("<br/>");
                     }
                 }
             }
@@ -171,7 +117,7 @@ const Column = () => {
     const scope = {SDMXChart}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

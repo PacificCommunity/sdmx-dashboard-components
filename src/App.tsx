@@ -61,7 +61,7 @@ const App = () => {
     <Form>
       <Form.Check type='switch' id='theme-switch' label='Dark theme' onChange={() => setIsDarkTheme(!isDarkTheme)} />
     </Form>
-    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'} className={isDarkTheme ? 'highcharts-dark' : 'highcharts-light'}>
+    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'}>
       <Row>
         <h1>SDMX Visual Components Library</h1>
         <p>On this page, some examples of charts generated using the sdmx-dashboard-react library.</p>

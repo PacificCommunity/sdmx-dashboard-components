@@ -20,31 +20,21 @@ const Pie = () => {
             },
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
-                chart: { styledMode: true },
-                plotOptions: {
-                    pie: {
-                        dataLabels: {
-                            enabled: false
-                        },
-                        startAngle: -90,
-                        endAngle: 90,
-                        center: ['50%', '65%'],
-                        size: '140%',
-                        innerSize: '50%'
-                    }
+                series: {
+                    label: { show: false },
+                    startAngle: 180,
+                    endAngle: 0,
+                    center: ['50%', '88%'],
+                    radius: ['88%', '176%']
                 },
-                tooltip: {
-                    pointFormatter: function(point) {
-                        return ${'`'}\${this.binValue === 1 ? "Yes" : "No"}${'`'}
-                    }
-                }
+                tooltip: { formatter: (p) => \`\${p.data.binValue === 1 ? 'Yes' : 'No'}\` }
             }
         }} language='en'/>`
     }]
     const scope = {SDMXChart}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

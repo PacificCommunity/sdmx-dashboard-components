@@ -3,6 +3,20 @@
   overflow-x: hidden;
 }
 
+.chartSubtitle a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.chartDark {
+  background-color: #100c2a;
+}
+
+.chartDarkHeader {
+  padding: 0.5rem 0;
+}
+
 button.menu-button {
   position: fixed;
   top: .5em;

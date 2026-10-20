@@ -5,11 +5,12 @@ import type { EChartsOption, SeriesOption } from 'echarts';
 import type { EChartsType, ECElementEvent } from 'echarts/core';
 import { echarts } from './register';
 import { buildChartOption, BuiltChart } from './options';
-import { InfoCircle } from 'react-bootstrap-icons';
+import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
 import { SDMXChartConfig } from '../types';
 import { merge } from 'ts-deepmerge';
 import parse from 'html-react-parser';
+import styles from '../../global.module.css';
 
 interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
   config: SDMXChartConfig;
@@ -45,6 +46,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
   const [titleText, setTitleText] = useState('');
   const [subtitleText, setSubtitleText] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+  const [drilldownLabel, setDrilldownLabel] = useState('');
+  const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
@@ -52,10 +55,33 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
   const baseOptionRef = useRef<EChartsOption | null>(null);
   const stackRef = useRef<EChartsOption[]>([]);
   const callbackRef = useRef(callback);
+  const activeThemeRef = useRef<string | undefined>(theme);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
+
+  useEffect(() => {
+    const resolveTheme = () => {
+      if (theme) {
+        activeThemeRef.current = theme;
+        setActiveTheme(theme);
+        return;
+      }
+      const darkContainer = containerRef.current?.closest('[data-bs-theme="dark"]');
+      const nextTheme = darkContainer ? 'dark' : undefined;
+      activeThemeRef.current = nextTheme;
+      setActiveTheme(nextTheme);
+    };
+    resolveTheme();
+    const observer = new MutationObserver(resolveTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-bs-theme'],
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [theme]);
 
   const goBack = useCallback(() => {
     const chart = chartRef.current;
@@ -64,7 +90,22 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     const previous = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
     if (previous) chart.setOption(previous, { notMerge: true });
     setCanGoBack(stackRef.current.length > 1);
+    setDrilldownLabel('');
   }, []);
+
+  const attachDrilldownHandler = useCallback((chart: EChartsType) => {
+    chart.on('click', (params: ECElementEvent) => {
+      const data = params.data as unknown as { drilldownId?: string } | undefined;
+      const id = data?.drilldownId;
+      const child = id ? drilldownRef.current?.options?.[id] : undefined;
+      if (!child) return;
+      const mergedChild = mergeExtraOptions(child, config.extraOptions);
+      stackRef.current.push(mergedChild);
+      chart.setOption(mergedChild, { notMerge: true });
+      setCanGoBack(stackRef.current.length > 1);
+      setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
+    });
+  }, [config]);
 
   useEffect(() => {
     let disposed = false;
@@ -75,6 +116,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     baseOptionRef.current = null;
     drilldownRef.current = undefined;
     setCanGoBack(false);
+    setDrilldownLabel('');
 
     buildChartOption(config, language).then((built) => {
       if (disposed || !containerRef.current) return;
@@ -85,18 +127,9 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       stackRef.current = [merged];
 
       const existingChart = chartRef.current;
-      const chart = existingChart ?? echarts.init(containerRef.current, theme);
+      const chart = existingChart ?? echarts.init(containerRef.current, activeThemeRef.current);
       if (!existingChart) {
-        chart.on('click', (params: ECElementEvent) => {
-          const data = params.data as unknown as { drilldownId?: string } | undefined;
-          const id = data?.drilldownId;
-          const child = id ? drilldownRef.current?.options?.[id] : undefined;
-          if (!child) return;
-          const mergedChild = mergeExtraOptions(child, config.extraOptions);
-          stackRef.current.push(mergedChild);
-          chart.setOption(mergedChild, { notMerge: true });
-          setCanGoBack(stackRef.current.length > 1);
-        });
+        attachDrilldownHandler(chart);
         chartRef.current = chart;
       }
 
@@ -121,7 +154,24 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       chartRef.current?.dispose();
       chartRef.current = null;
     };
-  }, [config, language, theme]);
+  }, [config, language, attachDrilldownHandler]);
+
+  useEffect(() => {
+    activeThemeRef.current = activeTheme;
+    const container = containerRef.current;
+    const chart = chartRef.current;
+    if (!container || !chart) return;
+    const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+    chart.dispose();
+    const nextChart = echarts.init(container, activeTheme);
+    attachDrilldownHandler(nextChart);
+    chartRef.current = nextChart;
+    if (current) nextChart.setOption(current, { notMerge: true });
+    if (callbackRef.current) callbackRef.current(nextChart);
+  }, [activeTheme, attachDrilldownHandler]);
+
+  const isDarkTheme = activeTheme === 'dark';
+  const hasHeader = !isLoading && !error && Boolean(config.title || config.subtitle || canGoBack);
 
   const chartNode: React.ReactNode = (
     <div
@@ -132,12 +182,12 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     />
   );
 
-  return (
+  const content = (
     <>
       {!isLoading && !error && config.title && (
         <h2
           className={`${config.title.weight ? 'fw-' + config.title.weight : ''} ${config.title.style ? 'fst-' + config.title.style : ''} ${alignClass(config.title.align)}`}
-          style={{ fontSize: config.title.size, color: config.title.color }}
+          style={{ fontSize: config.title.size, color: config.title.color ?? (isDarkTheme ? '#EEF1FA' : undefined) }}
         >
           {parse(titleText)}
           {config.metadataLink && (
@@ -155,17 +205,31 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
         </div>
       )}
       {!isLoading && !error && config.subtitle && (
-        <h4
-          className={`${config.subtitle.weight ? 'fw-' + config.subtitle.weight : ''} ${config.subtitle.style ? 'fst-' + config.subtitle.style : ''} ${alignClass(config.subtitle.align)}`}
-          style={{ fontSize: config.subtitle.size, color: config.subtitle.color, textAlign: config.subtitle.align }}
+        <div
+          className={`${styles.chartSubtitle} ${config.subtitle.weight ? 'fw-' + config.subtitle.weight : ''} ${config.subtitle.style ? 'fst-' + config.subtitle.style : ''} ${alignClass(config.subtitle.align ?? 'center')}`}
+          style={{
+            fontSize: config.subtitle.size ?? '0.8em',
+            color: config.subtitle.color ?? (isDarkTheme ? '#B9B8CE' : '#666666'),
+            fontFamily: config.subtitle.font ?? 'Helvetica, Arial, sans-serif',
+            textAlign: config.subtitle.align ?? 'center',
+          }}
         >
           {parse(subtitleText)}
-        </h4>
+        </div>
       )}
       {!isLoading && !error && canGoBack && (
-        <button type="button" className="btn btn-link p-0" onClick={goBack}>
-          ◀ Back
-        </button>
+        <div className="d-flex align-items-center justify-content-start gap-2 mb-2" style={{ textAlign: 'left', fontSize: '0.8em' }}>
+          <button
+            type="button"
+            className="btn btn-link p-0 text-secondary text-decoration-none d-inline-flex align-items-center"
+            style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+            onClick={goBack}
+          >
+            <ChevronLeft className="me-1" />
+            Back
+          </button>
+          {drilldownLabel && <span className="fw-semibold">{drilldownLabel}</span>}
+        </div>
       )}
       <div style={{ position: 'relative' }}>
         {config.dataLink ? (
@@ -192,6 +256,10 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       </div>
     </>
   );
+
+  return isDarkTheme ? (
+    <div className={`${styles.chartDark} ${hasHeader ? styles.chartDarkHeader : ''}`}>{content}</div>
+  ) : content;
 };
 
 export default Chart;

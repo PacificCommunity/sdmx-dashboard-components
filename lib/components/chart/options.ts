@@ -461,7 +461,7 @@ export const buildChartOption = async (
             const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id);
             drilldownOptions[drilldownId] = {
               tooltip: { trigger: 'item', formatter: buildTooltipFormatter(config, language) },
-              grid: { containLabel: true },
+              grid: { containLabel: true, top: 30 },
               xAxis: {
                 type: 'category',
                 data: childData.map((d: any) => d.name),
@@ -640,6 +640,10 @@ export const buildChartOption = async (
   xAxis = withValueAxisFormatter(xAxis);
   yAxis = withValueAxisFormatter(yAxis);
   xAxis = withCategoryXAxisRotation(xAxis);
+
+  if (chartType === 'lollipop' && xAxis.type === 'category') {
+    xAxis = { ...xAxis, axisTick: { show: false } };
+  }
 
   if (chartType === 'lollipop') {
     const stems: any[] = [];

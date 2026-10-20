@@ -16,6 +16,12 @@ The single components are only configured via props, while the dashboard compone
 
 More information on the syntax of the configuration can be found [here](https://github.com/PacificCommunity/sdmx-dashboard-demo/blob/main/public/doc.md)
 
+> **1.0.0 breaking change:** the chart component now renders with Apache ECharts.
+> `config.extraOptions` is a native ECharts option (options from the previous
+> charting library are no longer supported), `colorPalette` accepts hex colors only
+> (numeric color indexes / styled mode removed), and the `callback` prop receives
+> an `echarts.ECharts` instance.
+
 ```bash
 npm install sdmx-dashboard-components
 ```
@@ -56,11 +62,16 @@ const App = () => {
 };
 ```
 
-### Highcharts Styled Mode
+The `config` object is independent of the charting library; any chart-specific
+tuning belongs in `extraOptions` (see below).
 
-The user can also make use of all the Highcharts options passing them as props to the components with the `extraOptions` parameter of the config object.
+### Theming and native ECharts options
 
-For instance, the Highcharts `styledMode` option can be used to apply CSS styles to the chart's elements and also leverage the dark theme. In this case, the `colorPalette` parameter passed to the component must be an object that specify a colorIndex and not a color code. The integrating application has to include in its CSS the highcharts classes for the indexes. 
+Charts are rendered with [Apache ECharts](https://echarts.apache.org/). Use the
+`theme` prop to select an ECharts theme registered with `echarts.registerTheme`,
+or pass native ECharts options through `config.extraOptions`. `extraOptions` is
+deep-merged last, on top of the options built from the config, so it can
+override any built option.
 
 ```javascript
 <SDMXChart
@@ -69,46 +80,32 @@ For instance, the Highcharts `styledMode` option can be used to apply CSS styles
     title: {
       text: "World Bank Worldwide Governance Indicator",
     },
+    xAxisConcept: "GEO_PICT",
+    yAxisConcept: "OBS_VALUE",
     colorPalette: {
       "GEO_PICT": {
-        "CK": 0,
-        "FJ": 1,
-        "FM": 2,
-        "KI": 3,
-        "MH": 4,
-        "NC": 5,
-        "PF": 8,
-        "PW": 10,
-        "SB": 11,
-        "TO": 12,
-        "VU": 14,
-        "WF": 15
+        "CK": "#E16A86",
+        "FJ": "#D7765B",
+        "FM": "#C7821C"
       }
     },
     extraOptions: {
-      chart: {
-        styledMode: true
+      yAxis: {
+        name: "Value"
+      },
+      tooltip: {
+        valueFormatter: (value) => `${value}`
       }
     }
   }}
+  language="en"
 />
 ```
 
-```css
-.highcharts-color-0 {
-  fill: #E16A86;
-  stroke: #E16A86;
-}
-.highcharts-color-1 {
-  fill: #D7765B;
-  stroke: #D7765B;
-}
-.highcharts-color-2 {
-  fill: #C7821C;
-  stroke: #C7821C;
-}
-...
-```
+`colorPalette` values must be hex color strings. The `callback` prop receives
+the `echarts/core` `EChartsType` instance, so the ECharts API can be used
+directly. A plain-object `extraOptions.series` is applied as defaults to every
+built series.
 
 ### Sorting data by value
 

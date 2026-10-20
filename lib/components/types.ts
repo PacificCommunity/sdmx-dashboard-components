@@ -1,3 +1,5 @@
+import type { EChartsOption } from 'echarts';
+
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property
@@ -12,7 +14,7 @@ export type SDMXTextConfig = {
 
 export type SDMXColorPalette = {
     [keyof: string]: { // SDMX dimension concept
-        [keyof: string]: string | number // key value of dimension and value can be either a HEX color code or a colorIndex in case of use of styledMode
+        [keyof: string]: string // key value of dimension and value is a HEX color code
     }
 }
 
@@ -53,7 +55,7 @@ export type SDMXChartConfig = {
         },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
-    extraOptions?: any // extra options for the visualization
+    extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
 
 export type SDMXMapConfig = {

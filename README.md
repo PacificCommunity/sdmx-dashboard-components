@@ -20,7 +20,7 @@ More information on the syntax of the configuration can be found [here](https://
 > `config.extraOptions` is a native ECharts option (options from the previous
 > charting library are no longer supported), `colorPalette` accepts hex colors only
 > (numeric color indexes / styled mode removed), and the `callback` prop receives
-> an `echarts.ECharts` instance.
+> an `echarts/core` `EChartsType` instance.
 
 ```bash
 npm install sdmx-dashboard-components
@@ -62,7 +62,7 @@ const App = () => {
 };
 ```
 
-The `config` object is independent of the charting library; any chart-specific
+The core `config` fields are independent of the charting library; chart-specific
 tuning belongs in `extraOptions` (see below).
 
 ### Theming and native ECharts options
@@ -70,8 +70,9 @@ tuning belongs in `extraOptions` (see below).
 Charts are rendered with [Apache ECharts](https://echarts.apache.org/). Use the
 `theme` prop to select an ECharts theme registered with `echarts.registerTheme`,
 or pass native ECharts options through `config.extraOptions`. `extraOptions` is
-deep-merged last, on top of the options built from the config, so it can
-override any built option.
+merged last, on top of the options built from the config, so scalar and object
+options override their built counterparts (with the `series` exception described
+below).
 
 ```javascript
 <SDMXChart
@@ -104,8 +105,9 @@ override any built option.
 
 `colorPalette` values must be hex color strings. The `callback` prop receives
 the `echarts/core` `EChartsType` instance, so the ECharts API can be used
-directly. A plain-object `extraOptions.series` is applied as defaults to every
-built series.
+directly. An object-valued `extraOptions.series` supplies per-series defaults
+merged into every built series; an array-valued `series` replaces the built
+series.
 
 ### Sorting data by value
 

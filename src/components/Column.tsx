@@ -25,31 +25,18 @@ const Column = () => {
             },
             "yAxisConcept": "OBS_VALUE",
             "extraOptions": {
-                "credits": {
-                    "enabled": false
-                },
-                "chart": {
-                    "styledMode": true
-                },
                 "yAxis": {
-                    "title": {
-                        "text": "ratio to total population"
-                    },
+                    "name": "ratio to total population",
                     "max": 100
                 },
                 "tooltip": {
-                    "valueSuffix": " ratio to total population"
+                    "valueFormatter": (v) => \`\${v} ratio to total population\`
                 },
-                "plotOptions": {
-                    "column": {
-                        "dataLabels": {
-                            "enabled": true,
-                            "style": {
-                                "color": "contrast",
-                                "textOutline": "0px",
-                                "fontWeight": "normal"
-                            }
-                        }
+                "series": {
+                    "label": {
+                        "show": true,
+                        "color": "inherit",
+                        "textBorderWidth": 0
                     }
                 }
             },
@@ -73,33 +60,22 @@ const Column = () => {
             },
             "yAxisConcept": "OBS_VALUE",
             "extraOptions": {
-                "chart": {
-                    "styledMode": true
-                },
-                "credits": {
-                    "enabled": false
-                },
                 "yAxis": {
-                    "title": {
-                        "text": "percent"
-                    },
+                    "name": "percent",
                     "max": 100
                 },
                 "tooltip": {
-                    "valueSuffix": " %",
-                    "pointFormat": "{series.name}: {point.y} in {point.TIME_PERIOD}"
+                    "valueFormatter": (v) => \`\${v} %\`,
+                    "formatter": (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return pts.map((x: any) => \`\${x.seriesName}: \${x.value} %\`).join("<br/>");
+                    }
                 },
-                "plotOptions": {
-                    "column": {
-                        "dataLabels": {
-                            "enabled": true,
-                            "allowOverlap": true,
-                            "style": {
-                                "color": "contrast",
-                                "textOutline": "0px",
-                                "fontWeight": "normal"
-                            }
-                        }
+                "series": {
+                    "label": {
+                        "show": true,
+                        "color": "inherit",
+                        "textBorderWidth": 0
                     }
                 }
             },
@@ -136,31 +112,21 @@ const Column = () => {
                 }
             },
             extraOptions: {
-                chart: {
-                    styledMode: true
-                },
-                credits: {
-                    enabled: false
-                },
                 yAxis: {
-                    title: {
-                        text: "per 100,000 population"
-                    }
+                    name: "per 100,000 population"
                 },
                 tooltip: {
-                    valueSuffix: " per 100,000 population",
-                    pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
+                    valueFormatter: (v) => \`\${v} per 100,000 population\`,
+                    formatter: (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return pts.map((x: any) => \`\${x.seriesName}: \${x.value} per 100,000 population\`).join("<br/>");
+                    }
                 },
-                plotOptions: {
-                    column: {
-                        dataLabels: {
-                        enabled: true,
-                        style: {
-                            color: "contrast",
-                            textOutline: "0px",
-                            fontWeight: "normal"
-                        }
-                        }
+                series: {
+                    label: {
+                        show: true,
+                        color: "inherit",
+                        textBorderWidth: 0
                     }
                 }
             }

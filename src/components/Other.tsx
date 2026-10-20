@@ -36,19 +36,7 @@ const Other = () => {
                   "WF": 15
                 }
               },
-              extraOptions: {
-                chart: {
-                  styledMode: true,
-                },
-                credits: {
-                  enabled: false
-                },
-                plotOptions: {
-                  treemap: {
-                    colorByPoint: true
-                  }
-                }
-              }
+              extraOptions: {}
             }} language='en'/>`
     }, {
         id: "PGMS_tot",
@@ -87,9 +75,6 @@ const Other = () => {
               legend: {
                 concept: "INDICATOR", location: "none"
               },
-              extraOptions: {
-                chart: { styledMode: true },
-              },
               yAxisConcept: "OBS_VALUE",
             }} language='en'/>`
     }, {
@@ -104,9 +89,6 @@ const Other = () => {
               },
               legend: {
                 concept: "MEASURE", location: "none"
-              },
-              extraOptions: {
-                chart: { styledMode: true },
               },
               yAxisConcept: "OBS_VALUE",
             }} language='en'/>`

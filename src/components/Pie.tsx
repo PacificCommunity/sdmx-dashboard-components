@@ -20,24 +20,13 @@ const Pie = () => {
             },
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
-                chart: { styledMode: true },
-                plotOptions: {
-                    pie: {
-                        dataLabels: {
-                            enabled: false
-                        },
-                        startAngle: -90,
-                        endAngle: 90,
-                        center: ['50%', '65%'],
-                        size: '140%',
-                        innerSize: '50%'
-                    }
+                series: {
+                    label: { show: false },
+                    startAngle: 180,
+                    center: ['50%', '65%'],
+                    radius: ['0%', '140%']
                 },
-                tooltip: {
-                    pointFormatter: function(point) {
-                        return ${'`'}\${this.binValue === 1 ? "Yes" : "No"}${'`'}
-                    }
-                }
+                tooltip: { formatter: (p) => \`\${p.data.binValue === 1 ? 'Yes' : 'No'}\` }
             }
         }} language='en'/>`
     }]

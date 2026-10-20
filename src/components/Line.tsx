@@ -40,20 +40,8 @@ const Line = () => {
                 }
             },
             extraOptions: {
-                chart: {
-                styledMode: true
-                },
-                credits: {
-                enabled: false
-                },
-                yAxis: {
-                title: {
-                    text: "USD"
-                }
-                },
-                tooltip: {
-                valueSuffix: " USD"
-                }
+                yAxis: { name: "USD" },
+                tooltip: { valueFormatter: (v) => \`\${v} USD\` }
             }
             }}
             language='en' />`

@@ -1,10 +1,11 @@
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, TreemapChart, ScatterChart } from 'echarts/charts';
 import {
+  AriaComponent,
   GridComponent,
+  ToolboxComponent,
   TooltipComponent,
   LegendComponent,
-  MarkLineComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -14,10 +15,11 @@ echarts.use([
   PieChart,
   TreemapChart,
   ScatterChart,
+  AriaComponent,
   GridComponent,
+  ToolboxComponent,
   TooltipComponent,
   LegendComponent,
-  MarkLineComponent,
   CanvasRenderer,
 ]);
 

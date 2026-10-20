@@ -147,6 +147,13 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           )}
         </h2>
       )}
+      {!isLoading && !error && !config.title && config.metadataLink && (
+        <div className="d-inline-block">
+          <Button variant="link" onClick={() => window.open(config.metadataLink, '_blank')}>
+            <InfoCircle />
+          </Button>
+        </div>
+      )}
       {!isLoading && !error && config.subtitle && (
         <h4
           className={`${config.subtitle.weight ? 'fw-' + config.subtitle.weight : ''} ${config.subtitle.style ? 'fst-' + config.subtitle.style : ''} ${alignClass(config.subtitle.align)}`}

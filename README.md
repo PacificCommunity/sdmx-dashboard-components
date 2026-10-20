@@ -20,7 +20,7 @@ More information on the syntax of the configuration can be found [here](https://
 > `config.extraOptions` is a native ECharts option (options from the previous
 > charting library are no longer supported), `colorPalette` accepts hex colors only
 > (numeric color indexes / styled mode removed), and the `callback` prop receives
-> an `echarts/core` `EChartsType` instance.
+> an `echarts/core` `EChartsType` instance (the `EChartsType` type is exported).
 
 ```bash
 npm install sdmx-dashboard-components
@@ -72,8 +72,10 @@ Charts are rendered with [Apache ECharts](https://echarts.apache.org/). Use the
 or pass native ECharts options through `config.extraOptions`. `extraOptions` is
 merged last onto the options built from the config: object and scalar values are
 merged in, and array values (including an array-valued `series`) are
-concatenated. `series` is special-cased: an object-valued `series` is merged
-into each built series, with matching keys overridden.
+concatenated and deduplicated (via `ts-deepmerge`'s `uniqueArrayItems`).
+`series` is special-cased: an object-valued `series` is merged into each built
+series — including drilldown child series — with matching keys overridden; an
+array-valued `series` is concatenated onto the built series.
 
 ```javascript
 <SDMXChart
@@ -106,9 +108,25 @@ into each built series, with matching keys overridden.
 
 `colorPalette` values must be hex color strings. The `callback` prop receives
 the `echarts/core` `EChartsType` instance, so the ECharts API can be used
-directly. An object-valued `extraOptions.series` is merged into every built
-series, with matching keys overridden; an array-valued `series` is concatenated
-onto the built series.
+directly; the `EChartsType` type is exported by this package for annotating the
+callback. An object-valued `extraOptions.series` is merged into every built
+series — including drilldown child series — with matching keys overridden; an
+array-valued `series` is concatenated and deduplicated onto the built series.
+
+### Accessibility, export, and registered components
+
+Accessibility (`aria.enabled`) and image export
+(`toolbox.feature.saveAsImage`) are enabled by default. Both can be overridden
+or disabled through `extraOptions`, for example `aria: { enabled: false }` or
+`toolbox: { show: false }`. CSV/data export is **not** provided because ECharts
+has no equivalent; `saveAsImage` exports the rendered chart image only.
+
+The library registers the chart types it uses (`LineChart`, `BarChart`,
+`PieChart`, `TreemapChart`, `ScatterChart`) plus `AriaComponent`,
+`GridComponent`, `ToolboxComponent`, `TooltipComponent`, `LegendComponent`, and
+`CanvasRenderer`. If you enable other ECharts features through `extraOptions`
+(for example `dataZoom` or `title`), register the corresponding component from
+`echarts/components` in your application before rendering the chart.
 
 ### Sorting data by value
 

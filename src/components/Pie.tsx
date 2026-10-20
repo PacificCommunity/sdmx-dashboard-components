@@ -24,7 +24,7 @@ const Pie = () => {
                     label: { show: false },
                     startAngle: 180,
                     center: ['50%', '65%'],
-                    radius: ['0%', '140%']
+                    radius: ['50%', '140%']
                 },
                 tooltip: { formatter: (p) => \`\${p.data.binValue === 1 ? 'Yes' : 'No'}\` }
             }
@@ -33,7 +33,7 @@ const Pie = () => {
     const scope = {SDMXChart}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

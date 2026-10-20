@@ -25,3 +25,5 @@ export {
   SDMXColorPalette,
   SDMXDashboardConfig,
 };
+
+export type { EChartsType } from 'echarts/core';

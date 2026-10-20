@@ -57,7 +57,6 @@ const Drilldown = () => {
                         name: "per 1,000 live births"
                     },
                     tooltip: {
-                        valueFormatter: (v) => \`\${v} per 1,000 live births\`,
                         formatter: (p: any) => {
                             const pts = Array.isArray(p) ? p : [p];
                             return pts.map((x: any) => \`\${x.seriesName}: \${x.value} per 1,000 live births\`).join("<br/>");
@@ -107,7 +106,7 @@ const Drilldown = () => {
             xAxisConcept: "GEO_PICT",
             legend: {concept: "INDICATOR", location: "none"},
             drilldown: {xAxisConcept: "TIME_PERIOD"},
-            colorPalette: {GEO_PICT: {CK: 0, FJ: 1, FM: 2, KI: 3, MH: 4, NC: 5, NR: 6, NU: 7, PF: 8, PG: 9, PW: 10, SB: 11, TO: 12, TV: 13, VU: 14, WF: 15}},
+            colorPalette: {GEO_PICT: {CK: "#E16A86", FJ: "#D7765B", FM: "#C7821C", KI: "#AF8E00", MH: "#909800", NC: "#65A100", NR: "#00A846", NU: "#00AC74", PF: "#00AD9A", PG: "#00AABA", PW: "#00A2D3", SB: "#4495E2", TO: "#9183E6", TV: "#BD72DD", VU: "#D766C9", WF: "#E264AB"}},
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
                 yAxis: {
@@ -116,7 +115,6 @@ const Drilldown = () => {
                     max: 50,
                 },
                 tooltip: {
-                    valueFormatter: (v) => \`\${v} %\`,
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
                         return pts.map((x: any) => \`\${x.value} %\`).join("<br/>");
@@ -132,7 +130,7 @@ const Drilldown = () => {
     const scope = {SDMXChart}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

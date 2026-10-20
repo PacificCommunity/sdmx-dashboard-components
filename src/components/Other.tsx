@@ -18,22 +18,22 @@ const Other = () => {
               yAxisConcept: "OBS_VALUE",
               colorPalette: {
                 "GEO_PICT": {
-                  "CK": 0,
-                  "FJ": 1,
-                  "FM": 2,
-                  "KI": 3,
-                  "MH": 4,
-                  "NC": 5,
-                  "NR": 6,
-                  "NU": 7,
-                  "PF": 8,
-                  "PG": 9,
-                  "PW": 10,
-                  "SB": 11,
-                  "TO": 12,
-                  "TV": 13,
-                  "VU": 14,
-                  "WF": 15
+                  "CK": "#E16A86",
+                  "FJ": "#D7765B",
+                  "FM": "#C7821C",
+                  "KI": "#AF8E00",
+                  "MH": "#909800",
+                  "NC": "#65A100",
+                  "NR": "#00A846",
+                  "NU": "#00AC74",
+                  "PF": "#00AD9A",
+                  "PG": "#00AABA",
+                  "PW": "#00A2D3",
+                  "SB": "#4495E2",
+                  "TO": "#9183E6",
+                  "TV": "#BD72DD",
+                  "VU": "#D766C9",
+                  "WF": "#E264AB"
                 }
               },
               extraOptions: {}
@@ -96,7 +96,7 @@ const Other = () => {
     const scope = {SDMXChart, SDMXValue}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

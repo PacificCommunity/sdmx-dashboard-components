@@ -20,8 +20,46 @@ export type BuiltChart = {
 
 const paletteColor = (config: SDMXChartConfig, concept: string, code: string): string | undefined => {
   const p = config.colorPalette?.[concept];
-  if (p && typeof p[code] === 'string') return p[code] as string;
+  if (!p) return undefined;
+  const value: unknown = p[code];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && typeof console !== 'undefined') {
+    console.warn(
+      `[SDMXChart] colorPalette.${concept}.${code} must be a hex color string; numeric color indexes are no longer supported.`
+    );
+  }
   return undefined;
+};
+
+const resolveSeriesNames = (entries: any[]): Map<any, string> => {
+  if (entries.length === 0) return new Map();
+
+  const baseCounts = new Map<string, number>();
+  entries.forEach((entry) => {
+    const base = entry.baseName ?? entry.name;
+    baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
+  });
+
+  const preferred = entries.map((entry) => {
+    const base = entry.baseName ?? entry.name;
+    if ((baseCounts.get(base) ?? 0) > 1 && entry.alternateLabel) {
+      return String(entry.alternateLabel);
+    }
+    return base;
+  });
+
+  const preferredCounts = new Map<string, number>();
+  preferred.forEach((name) => preferredCounts.set(name, (preferredCounts.get(name) ?? 0) + 1));
+
+  return new Map(
+    entries.map((entry, index) => {
+      let name = preferred[index];
+      if ((preferredCounts.get(name) ?? 0) > 1) {
+        name = `${name} (dataset ${entry.datasetIndex + 1})`;
+      }
+      return [entry, name];
+    })
+  );
 };
 
 const legendPosition = (location?: string): EChartsOption['legend'] => {
@@ -118,7 +156,15 @@ export const buildChartOption = async (
   const columnCategorySeen = new Set<any>();
   const columnSeriesByName = new Map<string, any>();
 
-  sdmxObjs.forEach((sdmxObj) => {
+  // Drilldown root state follows the same model: one canonical category list
+  // shared by every series, with values looked up by category name.
+  const drilldownCategoryOrder: any[] = [];
+  const drilldownCategorySeen = new Set<any>();
+  const drilldownSeriesByKey = new Map<string, any>();
+  let drilldownCategorySortId: string | undefined;
+  let drilldownRootConcept: string | undefined;
+
+  sdmxObjs.forEach((sdmxObj, datasetIndex) => {
     const data = sdmxObj[0];
     const dimensions = sdmxObj[1];
     const activeDimensions = sdmxObj[2];
@@ -164,7 +210,7 @@ export const buildChartOption = async (
         const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
         xAxis = { type: 'category', data: categories };
       }
-      serieDimensions.values
+      [...serieDimensions.values]
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
         .forEach((serieDimension: any) => {
           const serieData = data.filter((val: any) => val[legendConcept] === serieDimension.name);
@@ -194,23 +240,27 @@ export const buildChartOption = async (
       }
       const xAxisDimension = activeDimensions.find((d: any) => d.id === xAxisConcept);
 
-      legendDimension.values
-        .slice()
+      const alternateLabel = dataObjs[datasetIndex]?.alternateLabel;
+      [...legendDimension.values]
         .sort((a: any, b: any) => a.id.localeCompare(b.id))
         .forEach((legendDimensionValue: any) => {
           const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
           const sortedData = sortByDimension(legendSerie, xAxisConcept);
           const latestValues = getLatestValue(sortedData, xAxisConcept);
 
-          let seriesEntry = columnSeriesByName.get(legendDimensionValue.name);
+          const seriesKey = `${datasetIndex}:${legendDimensionValue.name}`;
+          let seriesEntry = columnSeriesByName.get(seriesKey);
           if (!seriesEntry) {
             seriesEntry = {
               name: legendDimensionValue.name,
+              baseName: legendDimensionValue.name,
+              alternateLabel,
+              datasetIndex,
               id: legendDimensionValue.id,
               legendConcept,
               valueByName: new Map<any, any>(),
             };
-            columnSeriesByName.set(legendDimensionValue.name, seriesEntry);
+            columnSeriesByName.set(seriesKey, seriesEntry);
           }
 
           latestValues
@@ -240,12 +290,39 @@ export const buildChartOption = async (
       const xAxisDimension = dimensions.find((d: any) => d.id === xAxisConcept);
       const legendDimension = dimensions.find((d: any) => d.id === legendConcept);
       const drilldownXAxisDimension = dimensions.find((d: any) => d.id === drilldownXAxisConcept);
+      const alternateLabel = dataObjs[datasetIndex]?.alternateLabel;
+      drilldownRootConcept = xAxisConcept;
 
-      legendDimension.values
+      if (drilldownCategorySortId === undefined) drilldownCategorySortId = xAxisDimension.id;
+      xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
+        if (!drilldownCategorySeen.has(xAxisDimensionValue.name)) {
+          drilldownCategorySeen.add(xAxisDimensionValue.name);
+          drilldownCategoryOrder.push(xAxisDimensionValue.name);
+        }
+      });
+
+      [...legendDimension.values]
         .sort((a: any, b: any) => a.id.localeCompare(b.id))
         .forEach((legendDimensionValue: any) => {
           const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
-          const legendSerieData: any[] = [];
+
+          const seriesKey = `${datasetIndex}:${legendDimensionValue.name}`;
+          let seriesEntry = drilldownSeriesByKey.get(seriesKey);
+          if (!seriesEntry) {
+            seriesEntry = {
+              name: legendDimensionValue.name,
+              baseName: legendDimensionValue.name,
+              alternateLabel,
+              datasetIndex,
+              id: legendDimensionValue.id,
+              legendConcept,
+              valueByName: new Map<any, any>(),
+              drilldownIdByName: new Map<any, string>(),
+              itemStyleByName: new Map<any, any>(),
+            };
+            drilldownSeriesByKey.set(seriesKey, seriesEntry);
+          }
+
           xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
             let tmpArr = legendSerie.filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name);
             tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
@@ -255,17 +332,17 @@ export const buildChartOption = async (
             } else {
               tmpArr = tmpArr.filter((val: any) => val[drilldownXAxisConcept] !== 'Total');
             }
+            if (!legendSerieDataValue) return;
             if (tmpArr.length === 0) return;
 
-            const drilldownId = `${xAxisDimensionValue.name}-${legendDimensionValue.name}`;
-            const pointColor = paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
-            legendSerieData.push({
-              value: legendSerieDataValue['value'],
-              name: xAxisDimensionValue.name,
-              [xAxisConcept as string]: xAxisDimensionValue.name,
-              drilldownId,
-              itemStyle: pointColor ? { color: pointColor } : undefined,
-            });
+            const category = xAxisDimensionValue.name;
+            const drilldownId = `${datasetIndex}:${category}:${legendDimensionValue.name}`;
+            if (!seriesEntry.valueByName.has(category)) {
+              const pointColor = paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
+              seriesEntry.valueByName.set(category, legendSerieDataValue['value']);
+              seriesEntry.drilldownIdByName.set(category, drilldownId);
+              seriesEntry.itemStyleByName.set(category, pointColor ? { color: pointColor } : undefined);
+            }
 
             const childData = tmpArr.map((value: any) => {
               const dimId = drilldownXAxisDimension.values.find((v: any) => v.name === value[drilldownXAxisConcept])?.id;
@@ -280,9 +357,7 @@ export const buildChartOption = async (
             drilldownOptions[drilldownId] = {
               tooltip: { trigger: isTime ? 'axis' : 'item' },
               grid: { containLabel: true },
-              xAxis: isTime
-                ? { type: 'category', data: childData.map((d: any) => d.name) }
-                : { type: 'category', data: childData.map((d: any) => d.name) },
+              xAxis: { type: 'category', data: childData.map((d: any) => d.name) },
               yAxis: { type: 'value' },
               series: [{
                 type: isTime ? 'line' : 'bar',
@@ -294,24 +369,9 @@ export const buildChartOption = async (
               }],
             };
           });
-
-          if (legendSerieData.length !== 0) {
-            let sorted = sortByDimension(legendSerieData, xAxisDimension.id);
-            if (config.sortByValue) sorted = sortByValue(sorted, config.sortByValue);
-            const color = paletteColor(config, legendConcept, legendDimensionValue.id);
-            seriesData.push({
-              type: 'bar',
-              name: legendDimensionValue.name,
-              data: sorted,
-              itemStyle: color ? { color } : undefined,
-            });
-          }
         });
-      seriesData.sort((a: any, b: any) => b.data.length - a.data.length);
-      xAxis = { type: 'category', data: xAxisDimension.values.map((v: any) => v.name) };
-      yAxis = { type: 'value' };
     } else if (chartType === 'pie') {
-      const sortedData = sortByDimension(data, xAxisConcept);
+      const sortedData = sortByDimension([...data], xAxisConcept);
       xAxisValue = sortedData.map((val: any) => val[xAxisConcept]);
       let yAxisValue = sortedData.map((val: any) => ({
         value: val['value'],
@@ -337,6 +397,62 @@ export const buildChartOption = async (
     }
   });
 
+  if (chartType === 'drilldown') {
+    // Emit the root series once all datasets are known. The category list is
+    // sorted as a whole, then every series is mapped onto it by name so bars
+    // always sit under their own tick.
+    const sortId = drilldownCategorySortId ?? 'name';
+    const sortedCategories = sortByDimension(
+      drilldownCategoryOrder.map((name: any) => ({ name, [sortId]: name })),
+      sortId
+    );
+    let categories = sortedCategories.map((item: any) => item.name);
+
+    if (config.sortByValue) {
+      const totals = new Map<any, number>();
+      drilldownSeriesByKey.forEach((seriesEntry: any) => {
+        seriesEntry.valueByName.forEach((value: any, category: any) => {
+          totals.set(category, (totals.get(category) ?? 0) + (Number(value) || 0));
+        });
+      });
+      categories = sortByValue(
+        categories.map((name: any) => ({ name, value: totals.get(name) ?? 0 })),
+        config.sortByValue
+      ).map((item: any) => item.name);
+    }
+
+    const entries = Array.from(drilldownSeriesByKey.values());
+    const resolvedNames = resolveSeriesNames(entries);
+    entries.forEach((seriesEntry: any) => {
+      const seriesValues = categories.map((category: any) => {
+        const value = seriesEntry.valueByName.get(category);
+        if (value == null) return null;
+        return {
+          value,
+          name: category,
+          ...(drilldownRootConcept ? { [drilldownRootConcept]: category } : {}),
+          drilldownId: seriesEntry.drilldownIdByName.get(category),
+          itemStyle: seriesEntry.itemStyleByName.get(category),
+        };
+      });
+      const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
+      seriesData.push({
+        type: 'bar',
+        name: resolvedNames.get(seriesEntry) ?? seriesEntry.name,
+        data: seriesValues,
+        itemStyle: color ? { color } : undefined,
+      });
+    });
+    seriesData.sort(
+      (a: any, b: any) =>
+        b.data.filter((point: any) => point !== null).length -
+        a.data.filter((point: any) => point !== null).length
+    );
+    xAxisValue = categories;
+    xAxis = { type: 'category', data: xAxisValue };
+    yAxis = { type: 'value' };
+  }
+
   if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop' || chartType === 'treemap') {
     // Emit column/bar series once all datasets are known, mapping every series
     // onto the shared category list so multi-dataset axes stay aligned.
@@ -355,12 +471,15 @@ export const buildChartOption = async (
       categories = sorted.map((item: any) => item.name);
     }
 
+    const columnEntries = Array.from(columnSeriesByName.values());
+    const resolvedColumnNames = resolveSeriesNames(columnEntries);
+
     if (chartType === 'treemap') {
       // A treemap is a single flat series; each accumulated category point is
       // one tile, with any per-item palette color already stored on the point.
       const treemapData: any[] = [];
       categories.forEach((category: any) => {
-        columnSeriesByName.forEach((seriesEntry: any) => {
+        columnEntries.forEach((seriesEntry: any) => {
           const point = seriesEntry.valueByName.get(category);
           if (point) {
             treemapData.push({
@@ -375,13 +494,13 @@ export const buildChartOption = async (
         seriesData.push({ type: 'treemap', data: treemapData });
       }
     } else {
-      columnSeriesByName.forEach((seriesEntry: any) => {
+      columnEntries.forEach((seriesEntry: any) => {
         const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
         if (yAxisValue.some((point: any) => point !== null)) {
           const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
           seriesData.push({
             type: 'bar',
-            name: seriesEntry.name,
+            name: resolvedColumnNames.get(seriesEntry) ?? seriesEntry.name,
             data: yAxisValue,
             itemStyle: color ? { color } : undefined,
           });
@@ -420,6 +539,8 @@ export const buildChartOption = async (
   }
 
   const option: EChartsOption = {
+    aria: { enabled: true },
+    toolbox: { feature: { saveAsImage: {} } },
     tooltip: { trigger: tooltipTrigger },
     legend: legendPosition(config.legend?.location),
     series: seriesData,
@@ -437,18 +558,21 @@ export const buildChartOption = async (
   }
 
   if (config.labels) {
-    option.series = (seriesData as any[]).map((s: any) => ({
-      ...s,
-      label: {
-        show: true,
-        formatter: (params: any) => {
-          const v = Array.isArray(params.value) ? params.value[1] : params.value;
-          return config?.unit?.text === '%' && params.percent !== undefined
-            ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
-            : `${Number(v).toLocaleString(language)}`;
+    option.series = (seriesData as any[]).map((s: any) => {
+      if (chartType === 'lollipop' && s.type !== 'scatter') return { ...s };
+      return {
+        ...s,
+        label: {
+          show: true,
+          formatter: (params: any) => {
+            const v = Array.isArray(params.value) ? params.value[1] : params.value;
+            return config?.unit?.text === '%' && params.percent !== undefined
+              ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
+              : `${Number(v).toLocaleString(language)}`;
+          },
         },
-      },
-    }));
+      };
+    });
   } else if (chartType === 'pie') {
     option.series = (seriesData as any[]).map((s: any) => ({
       ...s,

@@ -59,7 +59,7 @@ const Drilldown = () => {
                     tooltip: {
                         formatter: (p: any) => {
                             const pts = Array.isArray(p) ? p : [p];
-                            return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
+                            return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
                         }
                     }
                 }
@@ -91,7 +91,7 @@ const Drilldown = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
                     }
                 },
             }
@@ -117,7 +117,7 @@ const Drilldown = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 },
                 xAxis: {axisLabel: {rotate: 20}}

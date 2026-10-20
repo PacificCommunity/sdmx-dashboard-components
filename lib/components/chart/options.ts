@@ -146,6 +146,40 @@ const labelFormatter = (config: SDMXChartConfig, language: string, chartType: st
   };
 };
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatTimeValue = (timestamp: number, format?: string): string => {
+  const date = new Date(Number(timestamp));
+  if (Number.isNaN(date.getTime())) return String(timestamp);
+  return format && format.includes('MMM')
+    ? `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
+    : `${date.getUTCFullYear()}`;
+};
+
+const buildTooltipFormatter = (config: SDMXChartConfig, language: string, timeFormat?: string) => {
+  const customValueFormatter = (config.extraOptions as any)?.tooltip?.valueFormatter;
+  return (params: any) => {
+    const list = Array.isArray(params) ? params : [params];
+    if (list.length === 0 || !list[0]) return '';
+    const first = list[0];
+    const xValue = first.axisValueLabel
+      ?? (first.name
+        ? String(first.name)
+        : Array.isArray(first.value) && typeof first.value[0] === 'number'
+          ? formatTimeValue(first.value[0], timeFormat)
+          : '');
+    const lines = list.map((point: any) => {
+      const rawValue = Array.isArray(point.value) ? point.value[1] : point.value;
+      const formatted = typeof customValueFormatter === 'function'
+        ? String(customValueFormatter(rawValue, point.dataIndex))
+        : formatTooltipValue(rawValue, language);
+      const series = point.seriesName ? `${point.seriesName}: ` : '';
+      return `${point.marker || ''}${series}${formatted}`;
+    });
+    return `${xValue ? `${xValue}<br/>` : ''}${lines.join('<br/>')}`;
+  };
+};
+
 export const buildChartOption = async (
   config: SDMXChartConfig,
   language: string
@@ -216,6 +250,7 @@ export const buildChartOption = async (
   let xAxis: any = { type: 'category', data: xAxisValue };
   let yAxis: any = { type: 'value' };
   let tooltipTrigger: 'axis' | 'item' = 'item';
+  let timeAxisFormat: string | undefined;
   const drilldownOptions: Record<string, EChartsOption> = {};
 
   // Column/bar category state is shared across all datasets so series from
@@ -273,6 +308,7 @@ export const buildChartOption = async (
         let dateFormat = '{yyyy}';
         if (freqDimension.values[0].id === 'A') dateFormat = '{yyyy}';
         else if (freqDimension.values[0].id === 'Q' || freqDimension.values[0].id === 'M') dateFormat = '{MMM} {yyyy}';
+        timeAxisFormat = dateFormat;
         xAxis = { type: 'time', axisLabel: { formatter: dateFormat } };
       } else {
         const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
@@ -424,7 +460,7 @@ export const buildChartOption = async (
             const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
             const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id);
             drilldownOptions[drilldownId] = {
-              tooltip: { trigger: 'item', valueFormatter: (value: unknown) => formatTooltipValue(value, language) },
+              tooltip: { trigger: 'item', formatter: buildTooltipFormatter(config, language) },
               grid: { containLabel: true },
               xAxis: {
                 type: 'category',
@@ -637,7 +673,9 @@ export const buildChartOption = async (
   const option: EChartsOption = {
     aria: { enabled: true },
     toolbox: { feature: { saveAsImage: {} } },
-    tooltip: { trigger: tooltipTrigger, valueFormatter: (value: unknown) => formatTooltipValue(value, language) },
+    tooltip: chartType === 'pie' || chartType === 'treemap'
+      ? { trigger: tooltipTrigger, valueFormatter: (value: unknown) => formatTooltipValue(value, language) }
+      : { trigger: tooltipTrigger, formatter: buildTooltipFormatter(config, language, timeAxisFormat) },
     legend: legendPosition(config.legend?.location),
     series: seriesData,
   };

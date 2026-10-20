@@ -62,7 +62,7 @@ const Column = () => {
                 "tooltip": {
                     "formatter": (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 }
             },
@@ -106,7 +106,7 @@ const Column = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 100,000 population\`).join("<br/>");
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 100,000 population\`).join("<br/>");
                     }
                 }
             }

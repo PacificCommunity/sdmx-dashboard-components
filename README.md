@@ -120,6 +120,8 @@ cartesian charts and to drilldown child charts; category and time axes are not
 affected. Override the format with `extraOptions.yAxis.axisLabel.formatter`
 (or `xAxis` for a horizontal `bar`). Tooltip values are shown in full with the
 locale's thousands separators (e.g. `1,500,000 USD`), rather than abbreviated.
+Tooltips also show the x-axis value (category, or a formatted date for time
+axes) on the first line.
 Category x-axis labels show every label (`axisLabel.interval: 0`) and are
 rotated 45° to reduce overlap; override with
 `extraOptions.xAxis.axisLabel.rotate`. Time/date axes keep ECharts' adaptive

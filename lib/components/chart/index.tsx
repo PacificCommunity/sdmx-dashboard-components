@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { EChartsOption } from 'echarts';
+import type { EChartsOption, SeriesOption } from 'echarts';
 import type { EChartsType, ECElementEvent } from 'echarts/core';
 import { echarts } from './register';
 import { buildChartOption, BuiltChart } from './options';
@@ -21,6 +21,23 @@ interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const alignClass = (align?: 'center' | 'left' | 'right') =>
   align === 'left' ? 'text-start' : align === 'right' ? 'text-end' : align === 'center' ? 'text-center' : '';
+
+const mergeExtraOptions = (option: EChartsOption, extra?: EChartsOption): EChartsOption => {
+  if (!extra) return option;
+  const { series: extraSeries, ...rest } = extra;
+  let merged = merge(option, rest) as EChartsOption;
+  if (extraSeries !== undefined) {
+    if (!Array.isArray(extraSeries) && Array.isArray(merged.series)) {
+      merged = {
+        ...merged,
+        series: (merged.series as SeriesOption[]).map((s) => merge(s, extraSeries) as SeriesOption),
+      };
+    } else {
+      merged = merge(merged, { series: extraSeries }) as EChartsOption;
+    }
+  }
+  return merged;
+};
 
 const Chart = ({ config, language, placeholder, callback, theme, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +79,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     buildChartOption(config, language).then((built) => {
       if (disposed || !containerRef.current) return;
 
-      const merged = merge(built.option, config.extraOptions || {}) as EChartsOption;
+      const merged = mergeExtraOptions(built.option, config.extraOptions);
       drilldownRef.current = built.drilldown;
       baseOptionRef.current = merged;
       stackRef.current = [merged];
@@ -75,7 +92,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           const id = data?.drilldownId;
           const child = id ? drilldownRef.current?.options?.[id] : undefined;
           if (!child) return;
-          const mergedChild = merge(child, config.extraOptions || {}) as EChartsOption;
+          const mergedChild = mergeExtraOptions(child, config.extraOptions);
           stackRef.current.push(mergedChild);
           chart.setOption(mergedChild, { notMerge: true });
           setCanGoBack(stackRef.current.length > 1);

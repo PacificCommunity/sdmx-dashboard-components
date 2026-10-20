@@ -70,9 +70,10 @@ tuning belongs in `extraOptions` (see below).
 Charts are rendered with [Apache ECharts](https://echarts.apache.org/). Use the
 `theme` prop to select an ECharts theme registered with `echarts.registerTheme`,
 or pass native ECharts options through `config.extraOptions`. `extraOptions` is
-merged last, on top of the options built from the config, so scalar and object
-options override their built counterparts (with the `series` exception described
-below).
+merged last onto the options built from the config: object and scalar values are
+merged in, and array values (including an array-valued `series`) are
+concatenated. `series` is special-cased: an object-valued `series` is merged
+into each built series, with matching keys overridden.
 
 ```javascript
 <SDMXChart
@@ -105,9 +106,9 @@ below).
 
 `colorPalette` values must be hex color strings. The `callback` prop receives
 the `echarts/core` `EChartsType` instance, so the ECharts API can be used
-directly. An object-valued `extraOptions.series` supplies per-series defaults
-merged into every built series; an array-valued `series` replaces the built
-series.
+directly. An object-valued `extraOptions.series` is merged into every built
+series, with matching keys overridden; an array-valued `series` is concatenated
+onto the built series.
 
 ### Sorting data by value
 

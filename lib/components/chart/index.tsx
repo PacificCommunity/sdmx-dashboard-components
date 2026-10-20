@@ -24,6 +24,7 @@ const alignClass = (align?: 'center' | 'left' | 'right') =>
 
 const Chart = ({ config, language, placeholder, callback, theme, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [titleText, setTitleText] = useState('');
   const [subtitleText, setSubtitleText] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
@@ -52,6 +53,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     let disposed = false;
 
     setIsLoading(true);
+    setError(null);
     stackRef.current = [];
     baseOptionRef.current = null;
     drilldownRef.current = undefined;
@@ -86,6 +88,11 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       setSubtitleText(built.subtitleText);
       setIsLoading(false);
       if (callbackRef.current) callbackRef.current(chart);
+    }).catch((err) => {
+      if (disposed) return;
+      console.error(err);
+      setError('Failed to load chart.');
+      setIsLoading(false);
     });
 
     const resizeObserver = new ResizeObserver(() => chartRef.current?.resize());
@@ -110,7 +117,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
 
   return (
     <>
-      {!isLoading && config.title && (
+      {!isLoading && !error && config.title && (
         <h2
           className={`${config.title.weight ? 'fw-' + config.title.weight : ''} ${config.title.style ? 'fst-' + config.title.style : ''} ${alignClass(config.title.align)}`}
           style={{ fontSize: config.title.size, color: config.title.color }}
@@ -123,7 +130,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           )}
         </h2>
       )}
-      {!isLoading && config.subtitle && (
+      {!isLoading && !error && config.subtitle && (
         <h4
           className={`${config.subtitle.weight ? 'fw-' + config.subtitle.weight : ''} ${config.subtitle.style ? 'fst-' + config.subtitle.style : ''} ${alignClass(config.subtitle.align)}`}
           style={{ fontSize: config.subtitle.size, color: config.subtitle.color, textAlign: config.subtitle.align }}
@@ -131,7 +138,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           {parse(subtitleText)}
         </h4>
       )}
-      {!isLoading && canGoBack && (
+      {!isLoading && !error && canGoBack && (
         <button type="button" className="btn btn-link p-0" onClick={goBack}>
           ◀ Back
         </button>
@@ -151,6 +158,11 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
                 Loading...
               </div>
             )}
+          </div>
+        )}
+        {!isLoading && error && (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-danger">
+            Failed to load chart.
           </div>
         )}
       </div>

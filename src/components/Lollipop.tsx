@@ -19,7 +19,7 @@ const Lollipop = () => {
             extraOptions: {
                 color: ["#726f5c"],
                 yAxis: { name: "Boolean or binary measure" },
-                tooltip: { valueFormatter: (v) => \`\${v} Boolean or binary measure\` }
+                tooltip: { valueFormatter: (v) => \`\${Number(v).toLocaleString('en')} Boolean or binary measure\` }
                 },
             }}
             language='en'

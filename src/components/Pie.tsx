@@ -23,8 +23,9 @@ const Pie = () => {
                 series: {
                     label: { show: false },
                     startAngle: 180,
-                    center: ['50%', '65%'],
-                    radius: ['50%', '140%']
+                    endAngle: 0,
+                    center: ['50%', '88%'],
+                    radius: ['88%', '176%']
                 },
                 tooltip: { formatter: (p) => \`\${p.data.binValue === 1 ? 'Yes' : 'No'}\` }
             }

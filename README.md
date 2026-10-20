@@ -113,6 +113,18 @@ callback. An object-valued `extraOptions.series` is merged into every built
 series — including drilldown child series — with matching keys overridden; an
 array-valued `series` is concatenated and deduplicated onto the built series.
 
+Value axes abbreviate large numbers by default: `1,500` → `1.5k`,
+`1,500,000` → `1.5M`, `1,500,000,000` → `1.5B` (one decimal, trailing `.0`
+dropped; values under 1,000 are unchanged). This applies to the value axis of
+cartesian charts and to drilldown child charts; category and time axes are not
+affected. Override the format with `extraOptions.yAxis.axisLabel.formatter`
+(or `xAxis` for a horizontal `bar`). Tooltip values are shown in full with the
+locale's thousands separators (e.g. `1,500,000 USD`), rather than abbreviated.
+Category x-axis labels show every label (`axisLabel.interval: 0`) and are
+rotated 45° to reduce overlap; override with
+`extraOptions.xAxis.axisLabel.rotate`. Time/date axes keep ECharts' adaptive
+tick interval.
+
 ### Accessibility, export, and registered components
 
 Accessibility (`aria.enabled`) and image export

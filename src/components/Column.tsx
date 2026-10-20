@@ -24,20 +24,14 @@ const Column = () => {
                 }
             },
             "yAxisConcept": "OBS_VALUE",
+            "labels": true,
             "extraOptions": {
                 "yAxis": {
                     "name": "ratio to total population",
                     "max": 100
                 },
                 "tooltip": {
-                    "valueFormatter": (v) => \`\${v} ratio to total population\`
-                },
-                "series": {
-                    "label": {
-                        "show": true,
-                        "color": "inherit",
-                        "textBorderWidth": 0
-                    }
+                    "valueFormatter": (v) => \`\${Number(v).toLocaleString('en')} ratio to total population\`
                 }
             },
             "subtitle": {
@@ -59,6 +53,7 @@ const Column = () => {
                 "location": "bottom"
             },
             "yAxisConcept": "OBS_VALUE",
+            "labels": true,
             "extraOptions": {
                 "yAxis": {
                     "name": "percent",
@@ -67,14 +62,7 @@ const Column = () => {
                 "tooltip": {
                     "formatter": (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${x.value} %\`).join("<br/>");
-                    }
-                },
-                "series": {
-                    "label": {
-                        "show": true,
-                        "color": "inherit",
-                        "textBorderWidth": 0
+                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 }
             },
@@ -104,6 +92,7 @@ const Column = () => {
                 location: "bottom"
             },
             yAxisConcept: "OBS_VALUE",
+            labels: true,
             colorPalette: {
                 SEX: {
                     M: "#fecba1",
@@ -117,14 +106,7 @@ const Column = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${x.value} per 100,000 population\`).join("<br/>");
-                    }
-                },
-                series: {
-                    label: {
-                        show: true,
-                        color: "inherit",
-                        textBorderWidth: 0
+                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 100,000 population\`).join("<br/>");
                     }
                 }
             }

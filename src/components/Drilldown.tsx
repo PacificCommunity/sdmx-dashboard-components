@@ -17,10 +17,10 @@ const Drilldown = () => {
             drilldown: {"xAxisConcept": "TIME_PERIOD"},
             colorPalette: {"GEO_PICT": {"CK": "#E16A86", "FJ": "#D7765B", "FM": "#C7821C", "KI": "#AF8E00", "MH": "#909800", "NC": "#65A100", "NR": "#00A846", "NU": "#00AC74", "PF": "#00AD9A", "PG": "#00AABA", "PW": "#00A2D3", "SB": "#4495E2", "TO": "#9183E6", "TV": "#BD72DD", "VU": "#D766C9", "WF": "#E264AB"}},
             yAxisConcept: "OBS_VALUE",
+            labels: true,
             extraOptions: {
                 yAxis: {"name": "per 100,000 live births"},
-                tooltip: {"valueFormatter": (v) => \`\${v} per 100,000 live births\`},
-                series: {"label": {"show": true, "color": "inherit", "textBorderWidth": 0}}
+                tooltip: {"valueFormatter": (v) => \`\${Number(v).toLocaleString('en')} per 100,000 live births\`}
             }, "subtitle": {"text": "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
             language='en'
         />`
@@ -59,7 +59,7 @@ const Drilldown = () => {
                     tooltip: {
                         formatter: (p: any) => {
                             const pts = Array.isArray(p) ? p : [p];
-                            return pts.map((x: any) => \`\${x.seriesName}: \${x.value} per 1,000 live births\`).join("<br/>");
+                            return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
                         }
                     }
                 }
@@ -91,7 +91,7 @@ const Drilldown = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.seriesName}: \${x.value} per 1,000 live births\`).join("<br/>");
+                        return pts.map((x: any) => \`\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
                     }
                 },
             }
@@ -117,10 +117,9 @@ const Drilldown = () => {
                 tooltip: {
                     formatter: (p: any) => {
                         const pts = Array.isArray(p) ? p : [p];
-                        return pts.map((x: any) => \`\${x.value} %\`).join("<br/>");
+                        return pts.map((x: any) => \`\${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 },
-                series: {label: {show: true}},
                 xAxis: {axisLabel: {rotate: 20}}
             }
             }}

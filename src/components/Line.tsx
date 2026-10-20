@@ -16,7 +16,7 @@ const Line = () => {
             xAxisConcept: "TIME_PERIOD",
             legend: {
                 concept: "GEO_PICT",
-                location: "right"
+                location: "bottom"
             },
             yAxisConcept: "OBS_VALUE",
             colorPalette: {
@@ -41,7 +41,7 @@ const Line = () => {
             },
             extraOptions: {
                 yAxis: { name: "USD" },
-                tooltip: { valueFormatter: (v) => \`\${v} USD\` }
+                tooltip: { valueFormatter: (v) => \`\${Number(v).toLocaleString('en')} USD\` }
             }
             }}
             language='en' />`

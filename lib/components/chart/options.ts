@@ -78,6 +78,74 @@ const legendPosition = (location?: string): EChartsOption['legend'] => {
   }
 };
 
+const legendGridInsets = (
+  location: string | undefined,
+  labels: string[] = []
+): { left?: number; right?: number; top?: number; bottom?: number } => {
+  const longestLabel = labels.reduce((max, label) => Math.max(max, String(label).length), 0);
+  const sideInset = Math.min(320, Math.max(140, longestLabel * 7 + 40));
+  const legendRows = Math.max(1, Math.ceil(labels.length / 6));
+  const verticalInset = 15 + legendRows * 18;
+  switch (location) {
+    case 'left':
+      return { left: sideInset };
+    case 'right':
+      return { right: sideInset };
+    case 'top':
+      return { top: verticalInset };
+    case 'bottom':
+      return { bottom: verticalInset };
+    case 'none':
+    default:
+      return {};
+  }
+};
+
+const abbreviateNumber = (value: number): string => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '';
+  const abs = Math.abs(numeric);
+  const sign = numeric < 0 ? '-' : '';
+  const format = (n: number) => {
+    const text = n.toFixed(1);
+    return text.endsWith('.0') ? text.slice(0, -2) : text;
+  };
+  if (abs >= 1e9) return `${sign}${format(abs / 1e9)}B`;
+  if (abs >= 1e6) return `${sign}${format(abs / 1e6)}M`;
+  if (abs >= 1e3) return `${sign}${format(abs / 1e3)}k`;
+  return String(numeric);
+};
+
+const withValueAxisFormatter = (axis: any) => {
+  if (axis && axis.type === 'value') {
+    axis.axisLabel = { ...(axis.axisLabel || {}), formatter: abbreviateNumber };
+  }
+  return axis;
+};
+
+const withCategoryXAxisRotation = (axis: any) => {
+  if (axis && axis.type === 'category') {
+    axis.axisLabel = { ...(axis.axisLabel || {}), rotate: 45 };
+  }
+  return axis;
+};
+
+const formatTooltipValue = (value: unknown, language: string): string => {
+  const raw = Array.isArray(value) ? value[value.length - 1] : value;
+  if (raw === null || raw === undefined || raw === '') return '-';
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) ? numeric.toLocaleString(language) : String(raw);
+};
+
+const labelFormatter = (config: SDMXChartConfig, language: string, chartType: string | undefined) => {
+  return (params: any) => {
+    const value = Array.isArray(params.value) ? params.value[1] : params.value;
+    return config?.unit?.text === '%' && params.percent !== undefined
+      ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
+      : `${Number(value).toLocaleString(language)}`;
+  };
+};
+
 export const buildChartOption = async (
   config: SDMXChartConfig,
   language: string
@@ -115,7 +183,7 @@ export const buildChartOption = async (
               histData.push(histItem);
             } else {
               histData[idx].value += 1;
-              histData[idx][config.xAxisConcept] = `${histData[idx][config.xAxisConcept]}<br/>${_dataItem[config.xAxisConcept]}`;
+              histData[idx][config.xAxisConcept] = `${histData[idx][config.xAxisConcept]}\n${_dataItem[config.xAxisConcept]}`;
             }
           });
           return [histData, parser.getDimensions()];
@@ -147,7 +215,7 @@ export const buildChartOption = async (
   let subtitleText = '';
   let xAxis: any = { type: 'category', data: xAxisValue };
   let yAxis: any = { type: 'value' };
-  let tooltipTrigger: 'axis' | 'item' = 'axis';
+  let tooltipTrigger: 'axis' | 'item' = 'item';
   const drilldownOptions: Record<string, EChartsOption> = {};
 
   // Column/bar category state is shared across all datasets so series from
@@ -208,7 +276,7 @@ export const buildChartOption = async (
         xAxis = { type: 'time', axisLabel: { formatter: dateFormat } };
       } else {
         const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
-        xAxis = { type: 'category', data: categories };
+        xAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
       }
       [...serieDimensions.values]
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
@@ -354,18 +422,33 @@ export const buildChartOption = async (
               };
             });
             const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
+            const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id);
             drilldownOptions[drilldownId] = {
-              tooltip: { trigger: isTime ? 'axis' : 'item' },
+              tooltip: { trigger: 'item', valueFormatter: (value: unknown) => formatTooltipValue(value, language) },
               grid: { containLabel: true },
-              xAxis: { type: 'category', data: childData.map((d: any) => d.name) },
-              yAxis: { type: 'value' },
+              xAxis: {
+                type: 'category',
+                data: childData.map((d: any) => d.name),
+                ...(isTime ? {} : { axisLabel: { interval: 0, rotate: 45 } }),
+              },
+              yAxis: withValueAxisFormatter({ type: 'value' }),
               series: [{
                 type: isTime ? 'line' : 'bar',
                 name: legendDimensionValue.name,
                 data: childData,
-                itemStyle: paletteColor(config, legendConcept, legendDimensionValue.id)
-                  ? { color: paletteColor(config, legendConcept, legendDimensionValue.id) }
-                  : undefined,
+                itemStyle: {
+                  ...(seriesColor ? { color: seriesColor } : {}),
+                  ...(isTime ? {} : { borderRadius: [3, 3, 0, 0] }),
+                },
+                ...(config.labels
+                  ? {
+                      label: {
+                        show: true,
+                        position: 'top',
+                        formatter: labelFormatter(config, language, isTime ? 'line' : 'column'),
+                      },
+                    }
+                  : {}),
               }],
             };
           });
@@ -449,7 +532,7 @@ export const buildChartOption = async (
         a.data.filter((point: any) => point !== null).length
     );
     xAxisValue = categories;
-    xAxis = { type: 'category', data: xAxisValue };
+    xAxis = { type: 'category', data: xAxisValue, axisLabel: { interval: 0 } };
     yAxis = { type: 'value' };
   }
 
@@ -509,7 +592,7 @@ export const buildChartOption = async (
     }
 
     xAxisValue = categories;
-    xAxis = { type: 'category', data: xAxisValue };
+    xAxis = { type: 'category', data: xAxisValue, axisLabel: { interval: 0 } };
     yAxis = { type: 'value' };
     if (chartType === 'bar') {
       const tmp = xAxis;
@@ -517,6 +600,10 @@ export const buildChartOption = async (
       yAxis = { ...tmp, type: 'category' };
     }
   }
+
+  xAxis = withValueAxisFormatter(xAxis);
+  yAxis = withValueAxisFormatter(yAxis);
+  xAxis = withCategoryXAxisRotation(xAxis);
 
   if (chartType === 'lollipop') {
     const stems: any[] = [];
@@ -538,10 +625,19 @@ export const buildChartOption = async (
     yAxis = undefined;
   }
 
+  if (chartType === 'column' || chartType === 'bar' || chartType === 'drilldown') {
+    const borderRadius = chartType === 'bar' ? [0, 3, 3, 0] : [3, 3, 0, 0];
+    seriesData = (seriesData as any[]).map((s: any) =>
+      s.type === 'bar'
+        ? { ...s, itemStyle: { ...(s.itemStyle || {}), borderRadius } }
+        : s
+    );
+  }
+
   const option: EChartsOption = {
     aria: { enabled: true },
     toolbox: { feature: { saveAsImage: {} } },
-    tooltip: { trigger: tooltipTrigger },
+    tooltip: { trigger: tooltipTrigger, valueFormatter: (value: unknown) => formatTooltipValue(value, language) },
     legend: legendPosition(config.legend?.location),
     series: seriesData,
   };
@@ -552,7 +648,10 @@ export const buildChartOption = async (
   }
 
   if (chartType !== 'pie' && chartType !== 'treemap') {
-    option.grid = { containLabel: true };
+    const legendLabels = Array.from(
+      new Set((seriesData as any[]).map((s: any) => s.name).filter(Boolean))
+    );
+    option.grid = { containLabel: true, ...legendGridInsets(config.legend?.location, legendLabels) };
     option.xAxis = xAxis;
     option.yAxis = yAxis;
   }
@@ -560,16 +659,15 @@ export const buildChartOption = async (
   if (config.labels) {
     option.series = (seriesData as any[]).map((s: any) => {
       if (chartType === 'lollipop' && s.type !== 'scatter') return { ...s };
+      const labelPosition = s.type === 'bar'
+        ? (chartType === 'bar' ? 'right' : 'top')
+        : (s.type === 'line' || s.type === 'scatter' ? 'top' : undefined);
       return {
         ...s,
         label: {
           show: true,
-          formatter: (params: any) => {
-            const v = Array.isArray(params.value) ? params.value[1] : params.value;
-            return config?.unit?.text === '%' && params.percent !== undefined
-              ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
-              : `${Number(v).toLocaleString(language)}`;
-          },
+          ...(labelPosition ? { position: labelPosition } : {}),
+          formatter: labelFormatter(config, language, chartType),
         },
       };
     });

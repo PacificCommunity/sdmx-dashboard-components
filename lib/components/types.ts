@@ -9,7 +9,9 @@ export type SDMXTextConfig = {
     style?: string, // style of the text as in font-style css property
     text: string | {
         [keyof: string]: string // translations of the text in different languages
-    }
+    },
+    link?: string, // optional link for the text
+    target?: "self" | "blank" // target for the link, defaults to "blank"
 }
 
 export type SDMXColorPalette = {

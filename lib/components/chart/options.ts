@@ -180,6 +180,43 @@ const buildTooltipFormatter = (config: SDMXChartConfig, language: string, timeFo
   };
 };
 
+const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): any => {
+  if (!config.title && !config.subtitle) return undefined;
+  const title: any = {};
+  if (titleText) title.text = titleText;
+  if (config.title?.link) {
+    title.link = config.title.link;
+    title.target = config.title.target ?? 'blank';
+  }
+  if (subtitleText) title.subtext = subtitleText;
+  if (config.subtitle?.link) {
+    title.sublink = config.subtitle.link;
+    title.subtarget = config.subtitle.target ?? 'blank';
+  }
+  const align = config.title?.align ?? config.subtitle?.align ?? 'center';
+  title.left = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
+  if (config.title) {
+    const textStyle: any = {};
+    if (config.title.size !== undefined) textStyle.fontSize = config.title.size;
+    if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight;
+    if (config.title.style !== undefined) textStyle.fontStyle = config.title.style;
+    if (config.title.color !== undefined) textStyle.color = config.title.color;
+    if (config.title.font !== undefined) textStyle.fontFamily = config.title.font;
+    if (Object.keys(textStyle).length > 0) title.textStyle = textStyle;
+  }
+  if (config.subtitle) {
+    const subtextStyle: any = {};
+    if (config.subtitle.size !== undefined) subtextStyle.fontSize = config.subtitle.size ?? '0.8em';
+    else subtextStyle.fontSize = '0.8em';
+    if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight;
+    if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style;
+    if (config.subtitle.color !== undefined) subtextStyle.color = config.subtitle.color;
+    subtextStyle.fontFamily = config.subtitle.font ?? 'Helvetica, Arial, sans-serif';
+    title.subtextStyle = subtextStyle;
+  }
+  return title;
+};
+
 export const buildChartOption = async (
   config: SDMXChartConfig,
   language: string
@@ -460,8 +497,9 @@ export const buildChartOption = async (
             const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
             const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id);
             drilldownOptions[drilldownId] = {
+              title: buildEchartsTitle(config, titleText, subtitleText),
               tooltip: { trigger: 'item', formatter: buildTooltipFormatter(config, language) },
-              grid: { containLabel: true, top: 30 },
+              grid: { containLabel: true, top: 60 },
               xAxis: {
                 type: 'category',
                 data: childData.map((d: any) => d.name),
@@ -676,6 +714,7 @@ export const buildChartOption = async (
 
   const option: EChartsOption = {
     aria: { enabled: true },
+    title: buildEchartsTitle(config, titleText, subtitleText),
     toolbox: { feature: { saveAsImage: {} } },
     tooltip: chartType === 'pie' || chartType === 'treemap'
       ? { trigger: tooltipTrigger, valueFormatter: (value: unknown) => formatTooltipValue(value, language) }

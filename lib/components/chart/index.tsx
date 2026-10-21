@@ -9,7 +9,6 @@ import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
 import { SDMXChartConfig } from '../types';
 import { merge } from 'ts-deepmerge';
-import parse from 'html-react-parser';
 import styles from '../../global.module.css';
 
 interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -20,8 +19,6 @@ interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
   theme?: string;
 }
 
-const alignClass = (align?: 'center' | 'left' | 'right') =>
-  align === 'left' ? 'text-start' : align === 'right' ? 'text-end' : align === 'center' ? 'text-center' : '';
 
 const mergeExtraOptions = (option: EChartsOption, extra?: EChartsOption): EChartsOption => {
   if (!extra) return option;
@@ -40,11 +37,87 @@ const mergeExtraOptions = (option: EChartsOption, extra?: EChartsOption): EChart
   return merged;
 };
 
+const TITLE_WIDTH_PADDING = 24;
+
+type TitleLike = {
+  textStyle?: {
+    width?: number;
+    overflow?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type GridLike = {
+  top?: number;
+  [key: string]: unknown;
+};
+
+type EChartsInternals = {
+  getModel: () => { getComponent: (type: string, index?: number) => unknown };
+  getViewOfComponentModel: (model: unknown) => {
+    group?: { getBoundingRect: () => { height: number } };
+  };
+};
+
+const getTitleEntries = (option: EChartsOption | null): TitleLike[] => {
+  const title = (option as unknown as { title?: TitleLike | TitleLike[] } | null)?.title;
+  if (!title) return [];
+  return Array.isArray(title) ? title : [title];
+};
+
+const applyTitleWidth = (option: EChartsOption | null, width: number) => {
+  if (!option || width <= 0) return;
+  const maxWidth = Math.max(0, width - TITLE_WIDTH_PADDING);
+  getTitleEntries(option).forEach((entry) => {
+    if (!entry) return;
+    entry.textStyle = { ...(entry.textStyle || {}), width: maxWidth, overflow: 'break' };
+  });
+};
+
+const hasExplicitTitleLayout = (config: SDMXChartConfig): boolean => {
+  const extraTitle = config.extraOptions?.title as unknown as TitleLike | TitleLike[] | undefined;
+  if (!extraTitle) return false;
+  const entries = Array.isArray(extraTitle) ? extraTitle : [extraTitle];
+  return entries.some((entry) => entry?.textStyle?.width !== undefined || entry?.textStyle?.overflow !== undefined);
+};
+
+const baseGridTop = new WeakMap<EChartsOption, number>();
+
+const reserveTitleSpace = (chart: EChartsType, option: EChartsOption) => {
+  const internals = chart as unknown as EChartsInternals;
+  const titleModel = internals.getModel()?.getComponent('title', 0);
+  if (!titleModel) return;
+  const titleView = internals.getViewOfComponentModel(titleModel);
+  const height = titleView?.group?.getBoundingRect()?.height ?? 0;
+  if (!height) return;
+  const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
+  if (!grid || Array.isArray(grid)) return;
+  if (!baseGridTop.has(option)) {
+    baseGridTop.set(option, typeof grid.top === 'number' ? grid.top : 0);
+  }
+  const top = Math.max(baseGridTop.get(option) ?? 0, Math.ceil(height + 20));
+  if (grid.top === top) return;
+  const nextGrid = { ...grid, top };
+  (option as unknown as { grid?: GridLike }).grid = nextGrid;
+  chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+const initChart = (container: HTMLDivElement, themeName?: string): EChartsType => {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  if (width > 0 && height > 0) return echarts.init(container, themeName);
+
+  const chart = echarts.init(container, themeName, { width: width || 600, height: height || 400 });
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => chart.resize());
+  }
+  return chart;
+};
+
 const Chart = ({ config, language, placeholder, callback, theme, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [titleText, setTitleText] = useState('');
-  const [subtitleText, setSubtitleText] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
   const [drilldownLabel, setDrilldownLabel] = useState('');
   const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
@@ -99,9 +172,11 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       const id = data?.drilldownId;
       const child = id ? drilldownRef.current?.options?.[id] : undefined;
       if (!child) return;
+      if (!hasExplicitTitleLayout(config)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
       const mergedChild = mergeExtraOptions(child, config.extraOptions);
       stackRef.current.push(mergedChild);
       chart.setOption(mergedChild, { notMerge: true });
+      reserveTitleSpace(chart, mergedChild);
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });
@@ -121,21 +196,21 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     buildChartOption(config, language).then((built) => {
       if (disposed || !containerRef.current) return;
 
+      if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, containerRef.current.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
       drilldownRef.current = built.drilldown;
       baseOptionRef.current = merged;
       stackRef.current = [merged];
 
       const existingChart = chartRef.current;
-      const chart = existingChart ?? echarts.init(containerRef.current, activeThemeRef.current);
+      const chart = existingChart ?? initChart(containerRef.current, activeThemeRef.current);
       if (!existingChart) {
         attachDrilldownHandler(chart);
         chartRef.current = chart;
       }
 
       chart.setOption(merged, { notMerge: true });
-      setTitleText(built.titleText);
-      setSubtitleText(built.subtitleText);
+      reserveTitleSpace(chart, merged);
       setIsLoading(false);
       if (callbackRef.current) callbackRef.current(chart);
     }).catch((err) => {
@@ -145,7 +220,19 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       setIsLoading(false);
     });
 
-    const resizeObserver = new ResizeObserver(() => chartRef.current?.resize());
+    const resizeObserver = new ResizeObserver(() => {
+      const chart = chartRef.current;
+      const container = containerRef.current;
+      if (!chart || !container) return;
+      chart.resize();
+      const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+      if (current && !hasExplicitTitleLayout(config)) {
+        applyTitleWidth(current, container.clientWidth);
+        const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
+        if (title) chart.setOption({ title } as unknown as EChartsOption);
+        reserveTitleSpace(chart, current);
+      }
+    });
     if (containerRef.current) resizeObserver.observe(containerRef.current);
 
     return () => {
@@ -162,16 +249,20 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     const chart = chartRef.current;
     if (!container || !chart) return;
     const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+    if (current && !hasExplicitTitleLayout(config)) applyTitleWidth(current, container.clientWidth);
     chart.dispose();
-    const nextChart = echarts.init(container, activeTheme);
+    const nextChart = initChart(container, activeTheme);
     attachDrilldownHandler(nextChart);
     chartRef.current = nextChart;
-    if (current) nextChart.setOption(current, { notMerge: true });
+    if (current) {
+      nextChart.setOption(current, { notMerge: true });
+      reserveTitleSpace(nextChart, current);
+    }
     if (callbackRef.current) callbackRef.current(nextChart);
-  }, [activeTheme, attachDrilldownHandler]);
+  }, [activeTheme, attachDrilldownHandler, config]);
 
   const isDarkTheme = activeTheme === 'dark';
-  const hasHeader = !isLoading && !error && Boolean(config.title || config.subtitle || canGoBack);
+  const hasHeader = !isLoading && !error && canGoBack;
 
   const chartNode: React.ReactNode = (
     <div
@@ -184,37 +275,11 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
 
   const content = (
     <>
-      {!isLoading && !error && config.title && (
-        <h2
-          className={`${config.title.weight ? 'fw-' + config.title.weight : ''} ${config.title.style ? 'fst-' + config.title.style : ''} ${alignClass(config.title.align)}`}
-          style={{ fontSize: config.title.size, color: config.title.color ?? (isDarkTheme ? '#EEF1FA' : undefined) }}
-        >
-          {parse(titleText)}
-          {config.metadataLink && (
-            <Button variant="link" onClick={() => window.open(config.metadataLink, '_blank')}>
-              <InfoCircle />
-            </Button>
-          )}
-        </h2>
-      )}
-      {!isLoading && !error && !config.title && config.metadataLink && (
-        <div className="d-inline-block">
+      {!isLoading && !error && config.metadataLink && (
+        <div className="d-inline-block mb-1">
           <Button variant="link" onClick={() => window.open(config.metadataLink, '_blank')}>
             <InfoCircle />
           </Button>
-        </div>
-      )}
-      {!isLoading && !error && config.subtitle && (
-        <div
-          className={`${styles.chartSubtitle} ${config.subtitle.weight ? 'fw-' + config.subtitle.weight : ''} ${config.subtitle.style ? 'fst-' + config.subtitle.style : ''} ${alignClass(config.subtitle.align ?? 'center')}`}
-          style={{
-            fontSize: config.subtitle.size ?? '0.8em',
-            color: config.subtitle.color ?? (isDarkTheme ? '#B9B8CE' : '#666666'),
-            fontFamily: config.subtitle.font ?? 'Helvetica, Arial, sans-serif',
-            textAlign: config.subtitle.align ?? 'center',
-          }}
-        >
-          {parse(subtitleText)}
         </div>
       )}
       {!isLoading && !error && canGoBack && (

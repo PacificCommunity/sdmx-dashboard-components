@@ -137,10 +137,11 @@ has no equivalent; `saveAsImage` exports the rendered chart image only.
 
 The library registers the chart types it uses (`LineChart`, `BarChart`,
 `PieChart`, `TreemapChart`, `ScatterChart`) plus `AriaComponent`,
-`GridComponent`, `ToolboxComponent`, `TooltipComponent`, `LegendComponent`, and
-`CanvasRenderer`. If you enable other ECharts features through `extraOptions`
-(for example `dataZoom` or `title`), register the corresponding component from
-`echarts/components` in your application before rendering the chart.
+`GridComponent`, `TitleComponent`, `ToolboxComponent`, `TooltipComponent`,
+`LegendComponent`, and `CanvasRenderer`. If you enable other ECharts features
+through `extraOptions` (for example `dataZoom`), register the corresponding
+component from `echarts/components` in your application before rendering the
+chart.
 
 ### Sorting data by value
 

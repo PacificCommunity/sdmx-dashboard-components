@@ -3,6 +3,7 @@ import { BarChart, LineChart, PieChart, TreemapChart, ScatterChart } from 'echar
 import {
   AriaComponent,
   GridComponent,
+  TitleComponent,
   ToolboxComponent,
   TooltipComponent,
   LegendComponent,
@@ -20,6 +21,7 @@ echarts.use([
   ToolboxComponent,
   TooltipComponent,
   LegendComponent,
+  TitleComponent,
   CanvasRenderer,
 ]);
 

@@ -127,6 +127,13 @@ rotated 45° to reduce overlap; override with
 `extraOptions.xAxis.axisLabel.rotate`. Time/date axes keep ECharts' adaptive
 tick interval.
 
+Pie slices show data labels outside the pie with leader lines, formatted as
+`Name: value` (or `Name: percentage %` when the unit is `%`). A pie legend is
+rendered only when `config.legend` is set, positioned by `legend.location`
+(`top`, `bottom`, `left`, `right`, or `none`). The pie radius adapts to the
+available cell size, including legend and label space, so they stay inside the
+chart; provide `extraOptions.series.radius` to size the pie yourself.
+
 ### Accessibility, export, and registered components
 
 Accessibility (`aria.enabled`) and image export

@@ -146,6 +146,18 @@ const labelFormatter = (config: SDMXChartConfig, language: string, chartType: st
   };
 };
 
+const pieLabelFormatter = (config: SDMXChartConfig, language: string) => {
+  return (params: any) => {
+    const value = Array.isArray(params.value) ? params.value[params.value.length - 1] : params.value;
+    const formatted = config?.unit?.text === '%' && params.percent !== undefined
+      ? `${params.percent.toFixed(Number(config.decimals) || 0)} %`
+      : Number.isFinite(Number(value))
+        ? Number(value).toLocaleString(language)
+        : String(value ?? '');
+    return `${params.name}: ${formatted}`;
+  };
+};
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const formatTimeValue = (timestamp: number, format?: string): string => {
@@ -719,7 +731,9 @@ export const buildChartOption = async (
     tooltip: chartType === 'pie' || chartType === 'treemap'
       ? { trigger: tooltipTrigger, valueFormatter: (value: unknown) => formatTooltipValue(value, language) }
       : { trigger: tooltipTrigger, formatter: buildTooltipFormatter(config, language, timeAxisFormat) },
-    legend: legendPosition(config.legend?.location),
+    legend: chartType === 'pie'
+      ? (config.legend ? legendPosition(config.legend.location) : { show: false })
+      : legendPosition(config.legend?.location),
     series: seriesData,
   };
 
@@ -752,11 +766,23 @@ export const buildChartOption = async (
         },
       };
     });
-  } else if (chartType === 'pie') {
+  }
+
+  if (chartType === 'pie') {
+    // Pie labels sit outside the slices with a leader line, showing the tag
+    // name and value (or percentage). No boxed background or border.
     option.series = (seriesData as any[]).map((s: any) => ({
       ...s,
-      label: { show: false },
-      labelLine: { show: false },
+      label: {
+        ...(config.labels ? (s.label || {}) : {}),
+        show: true,
+        position: 'outside',
+        formatter: pieLabelFormatter(config, language),
+        color: '#333',
+        fontWeight: 'bold',
+        overflow: 'break',
+      },
+      labelLine: { ...(s.labelLine || {}), show: true },
     }));
   }
 

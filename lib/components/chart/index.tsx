@@ -4,7 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { EChartsOption, SeriesOption } from 'echarts';
 import type { EChartsType, ECElementEvent } from 'echarts/core';
 import { echarts } from './register';
-import { buildChartOption, BuiltChart } from './options';
+import { buildChartOption } from './options';
+import { applyPieRadius } from './pie';
+import type { BuiltChart } from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
 import { SDMXChartConfig } from '../types';
@@ -103,152 +105,6 @@ const reserveTitleSpace = (chart: EChartsType, option: EChartsOption) => {
   chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
 };
 
-type PieLabelLike = {
-  fontSize?: number;
-  fontWeight?: string | number;
-  width?: number | string;
-  overflow?: string;
-  textStyle?: {
-    fontSize?: number;
-    fontWeight?: string | number;
-  };
-};
-
-type PieLegendLike = {
-  show?: boolean;
-  orient?: string;
-  textStyle?: {
-    fontSize?: number;
-  };
-};
-
-type PieSeriesLike = {
-  type?: string;
-  radius?: unknown;
-  label?: PieLabelLike;
-  data?: Array<{ name?: unknown }>;
-};
-
-const PIE_LABEL_LINE_LENGTH = 20;
-const PIE_LABEL_MARGIN = 8;
-const PIE_MIN_RADIUS = 20;
-const PIE_LABEL_MIN_WIDTH = 80;
-const PIE_LABEL_MAX_WIDTH = 180;
-const PIE_LABEL_WIDTH_RATIO = 0.28;
-
-let measureContext: CanvasRenderingContext2D | null | undefined;
-
-const getMeasureContext = (): CanvasRenderingContext2D | null => {
-  if (measureContext !== undefined) return measureContext;
-  measureContext = typeof document === 'undefined'
-    ? null
-    : document.createElement('canvas').getContext('2d');
-  return measureContext;
-};
-
-const measureLabelText = (text: string, font: string): number => {
-  const context = getMeasureContext();
-  if (!context) return text.length * 7;
-  context.font = font;
-  return context.measureText(text).width;
-};
-
-const getPieLegendInsets = (
-  legend: PieLegendLike | PieLegendLike[] | undefined,
-  labels: string[],
-  width: number
-): { horizontal: number; vertical: number } => {
-  const entry = Array.isArray(legend) ? legend[0] : legend;
-  if (!entry || entry.show === false) return { horizontal: 0, vertical: 0 };
-
-  const fontSize = Number(entry.textStyle?.fontSize ?? 12) || 12;
-  const font = `${fontSize}px sans-serif`;
-  const markerWidth = 20;
-  const itemGap = 12;
-  const padding = 16;
-  const labelWidths = labels.map((label) => measureLabelText(label, font));
-
-  if (entry.orient === 'vertical') {
-    const maxWidth = labelWidths.reduce((max, labelWidth) => Math.max(max, labelWidth), 0);
-    return { horizontal: maxWidth + markerWidth + itemGap + padding, vertical: 0 };
-  }
-
-  const totalWidth = labelWidths.reduce(
-    (total, labelWidth) => total + labelWidth + markerWidth + itemGap,
-    0
-  );
-  const rows = Math.max(1, Math.ceil(totalWidth / Math.max(1, width - padding)));
-  return { horizontal: 0, vertical: rows * (fontSize + 8) + padding };
-};
-
-const hasExplicitPieRadius = (config: SDMXChartConfig): boolean => {
-  const extraSeries = config.extraOptions?.series as unknown;
-  if (!extraSeries) return false;
-  if (Array.isArray(extraSeries)) {
-    return extraSeries.some((series) => {
-      const candidate = series as { type?: string; radius?: unknown } | undefined;
-      return candidate?.type === 'pie' && candidate.radius !== undefined;
-    });
-  }
-  return (extraSeries as { radius?: unknown }).radius !== undefined;
-};
-
-const applyPieRadius = (
-  option: EChartsOption,
-  width: number,
-  height: number,
-  config: SDMXChartConfig
-): boolean => {
-  if (width <= 0 || height <= 0 || hasExplicitPieRadius(config)) return false;
-  const optionLike = option as unknown as {
-    series?: PieSeriesLike | PieSeriesLike[];
-    legend?: PieLegendLike | PieLegendLike[];
-  };
-  const series = optionLike.series;
-  if (!Array.isArray(series)) return false;
-
-  let changed = false;
-  series.forEach((entry) => {
-    if (entry?.type !== 'pie' || !Array.isArray(entry.data)) return;
-    const fontSize = Number(entry.label?.fontSize ?? entry.label?.textStyle?.fontSize ?? 12) || 12;
-    const fontWeight = entry.label?.fontWeight ?? entry.label?.textStyle?.fontWeight ?? 'normal';
-    const font = `${fontWeight} ${fontSize}px sans-serif`;
-    const labelNames: string[] = [];
-    const valueSuffix = config.unit?.text === '%' ? ': 100 %' : ': 1,000,000';
-    const maxLabelWidth = entry.data.reduce((max, item) => {
-      if (item?.name === undefined || item.name === null) return max;
-      const name = String(item.name);
-      labelNames.push(name);
-      return Math.max(max, measureLabelText(`${name}${valueSuffix}`, font));
-    }, 0);
-    const legendInsets = getPieLegendInsets(optionLike.legend, labelNames, width);
-    const wrapWidth = Math.max(
-      PIE_LABEL_MIN_WIDTH,
-      Math.min(PIE_LABEL_MAX_WIDTH, width * PIE_LABEL_WIDTH_RATIO)
-    );
-    if (entry.label && entry.label.width !== wrapWidth) {
-      entry.label.width = wrapWidth;
-      entry.label.overflow = 'break';
-      changed = true;
-    }
-    const labelWidth = Math.min(maxLabelWidth, wrapWidth);
-    const labelLines = Math.max(1, Math.ceil(maxLabelWidth / wrapWidth));
-    const labelHeight = labelLines * fontSize * 1.2;
-    const radius = Math.max(
-      PIE_MIN_RADIUS,
-      Math.min(
-        width / 2 - PIE_LABEL_MARGIN - PIE_LABEL_LINE_LENGTH - labelWidth - legendInsets.horizontal,
-        height / 2 - PIE_LABEL_MARGIN - PIE_LABEL_LINE_LENGTH - labelHeight - legendInsets.vertical
-      )
-    );
-    if (entry.radius !== radius) {
-      entry.radius = radius;
-      changed = true;
-    }
-  });
-  return changed;
-};
-
 const initChart = (container: HTMLDivElement, themeName?: string): EChartsType => {
   const width = container.clientWidth;
   const height = container.clientHeight;
@@ -344,12 +200,14 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
 
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, containerRef.current.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
-      applyPieRadius(
-        merged,
-        containerRef.current.clientWidth,
-        containerRef.current.clientHeight,
-        config
-      );
+      if (config.type === 'pie') {
+        applyPieRadius(
+          merged,
+          containerRef.current.clientWidth,
+          containerRef.current.clientHeight,
+          config
+        );
+      }
       drilldownRef.current = built.drilldown;
       baseOptionRef.current = merged;
       stackRef.current = [merged];
@@ -379,8 +237,11 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       chart.resize();
       const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
       if (current) {
-        if (applyPieRadius(current, container.clientWidth, container.clientHeight, config)) {
-          const series = (current as unknown as { series?: PieSeriesLike | PieSeriesLike[] }).series;
+        if (
+          config.type === 'pie'
+          && applyPieRadius(current, container.clientWidth, container.clientHeight, config)
+        ) {
+          const series = (current as unknown as { series?: unknown }).series;
           if (series) chart.setOption({ series } as unknown as EChartsOption);
         }
         if (!hasExplicitTitleLayout(config)) {

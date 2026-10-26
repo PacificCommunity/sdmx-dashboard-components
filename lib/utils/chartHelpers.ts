@@ -621,6 +621,7 @@ export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
 
 export const buildCartesianTooltip = (config: SDMXChartConfig, language: string, timeFormat?: string) => ({
   trigger: 'item' as const,
+  position: 'top' as const,
   formatter: buildTooltipFormatter(config, language, timeFormat),
 });
 
@@ -655,6 +656,25 @@ export const applySeriesLabels = (
       },
     };
   });
+};
+
+export const applyBarLabelLayout = (option: any): boolean => {
+  if (!option) return false;
+  const series = Array.isArray(option.series) ? option.series : [option.series];
+  const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+  const yAxis = Array.isArray(option.yAxis) ? option.yAxis[0] : option.yAxis;
+  const horizontalBars = xAxis?.type === 'value' && yAxis?.type === 'category';
+  let changed = false;
+
+  series.forEach((entry: any) => {
+    if (!entry || entry.type !== 'bar') return;
+    if (!entry.label || entry.label.show !== true) return;
+    if (entry.label.position !== undefined) return;
+    entry.label = { ...entry.label, position: horizontalBars ? 'right' : 'top' };
+    changed = true;
+  });
+
+  return changed;
 };
 
 export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {

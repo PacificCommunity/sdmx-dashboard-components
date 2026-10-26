@@ -8,6 +8,7 @@ import { buildChartOption } from './options';
 import { applyPieRadius } from './pie';
 import type { BuiltChart } from '../../utils/chartHelpers';
 import {
+  applyBarLabelLayout,
   applyCategoryLabelLayout,
   applyYAxisTitleLayout,
 } from '../../utils/chartHelpers';
@@ -181,6 +182,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
       const mergedChild = mergeExtraOptions(child, config.extraOptions);
       applyYAxisTitleLayout(mergedChild, config.extraOptions);
+      applyBarLabelLayout(mergedChild);
       applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, config.extraOptions);
       stackRef.current.push(mergedChild);
       chart.setOption(mergedChild, { notMerge: true });
@@ -207,6 +209,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, containerRef.current.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
       applyYAxisTitleLayout(merged, config.extraOptions);
+      applyBarLabelLayout(merged);
       applyCategoryLabelLayout(merged, containerRef.current.clientWidth, config.extraOptions);
       if (config.type === 'pie') {
         applyPieRadius(

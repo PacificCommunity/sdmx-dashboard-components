@@ -7,6 +7,10 @@ import { echarts } from './register';
 import { buildChartOption } from './options';
 import { applyPieRadius } from './pie';
 import type { BuiltChart } from '../../utils/chartHelpers';
+import {
+  applyCategoryLabelLayout,
+  applyYAxisTitleLayout,
+} from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
 import { SDMXChartConfig } from '../types';
@@ -176,6 +180,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       if (!child) return;
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
       const mergedChild = mergeExtraOptions(child, config.extraOptions);
+      applyYAxisTitleLayout(mergedChild, config.extraOptions);
+      applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, config.extraOptions);
       stackRef.current.push(mergedChild);
       chart.setOption(mergedChild, { notMerge: true });
       reserveTitleSpace(chart, mergedChild);
@@ -200,6 +206,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
 
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, containerRef.current.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
+      applyYAxisTitleLayout(merged, config.extraOptions);
+      applyCategoryLabelLayout(merged, containerRef.current.clientWidth, config.extraOptions);
       if (config.type === 'pie') {
         applyPieRadius(
           merged,
@@ -243,6 +251,10 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
         ) {
           const series = (current as unknown as { series?: unknown }).series;
           if (series) chart.setOption({ series } as unknown as EChartsOption);
+        }
+        if (applyCategoryLabelLayout(current, container.clientWidth, config.extraOptions)) {
+          const xAxis = (current as unknown as { xAxis?: unknown }).xAxis;
+          if (xAxis) chart.setOption({ xAxis } as unknown as EChartsOption);
         }
         if (!hasExplicitTitleLayout(config)) {
           applyTitleWidth(current, container.clientWidth);

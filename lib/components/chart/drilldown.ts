@@ -8,6 +8,7 @@ import {
   buildCartesianTooltip,
   buildEchartsTitle,
   buildLegend,
+  CARTESIAN_GRID_INSETS,
   finalizeCartesianAxes,
   labelFormatter,
   paletteColor,
@@ -109,11 +110,11 @@ export const buildDrilldown: ChartBuilder = (context) => {
               dataset.subtitleText ?? subtitleText
             ),
             tooltip: buildCartesianTooltip(config, language),
-            grid: { containLabel: true, top: 60 },
+            grid: { containLabel: true, ...CARTESIAN_GRID_INSETS },
             xAxis: {
               type: 'category',
               data: childData.map((d: any) => d.name),
-              ...(isTime ? {} : { axisLabel: { interval: 0, rotate: 45 } }),
+              ...(isTime ? {} : { axisLabel: { interval: 0 } }),
             },
             yAxis: withValueAxisFormatter({ type: 'value' }),
             series: [{

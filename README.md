@@ -122,9 +122,11 @@ affected. Override the format with `extraOptions.yAxis.axisLabel.formatter`
 locale's thousands separators (e.g. `1,500,000 USD`), rather than abbreviated.
 Tooltips also show the x-axis value (category, or a formatted date for time
 axes) on the first line.
-Category x-axis labels show every label (`axisLabel.interval: 0`) and are
-rotated 45° to reduce overlap; override with
-`extraOptions.xAxis.axisLabel.rotate`. Time/date axes keep ECharts' adaptive
+Category x-axis labels show every label (`axisLabel.interval: 0`). When they
+do not fit, labels are wrapped onto multiple lines at word boundaries, and are
+rotated 45° only when a single word is too wide for the available space.
+Override with `extraOptions.xAxis.axisLabel.rotate` or
+`extraOptions.xAxis.axisLabel.formatter`. Time/date axes keep ECharts' adaptive
 tick interval.
 
 Pie slices show data labels outside the pie with leader lines, formatted as

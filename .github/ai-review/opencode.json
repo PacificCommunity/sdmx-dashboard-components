@@ -9,6 +9,7 @@
         { "action": "edit", "resource": "*", "effect": "deny" },
         { "action": "edit", "resource": ".ai-review/*", "effect": "allow" },
         { "action": "subagent", "resource": "*", "effect": "deny" },
+        { "action": "skill", "resource": "*", "effect": "deny" },
         { "action": "webfetch", "resource": "*", "effect": "deny" },
         { "action": "websearch", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "deny" },

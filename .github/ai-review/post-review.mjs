@@ -6,7 +6,7 @@ const EVENTS = {
   approve: { path: '/review', event: 'APPROVE' },
 };
 
-export async function postReview({ url, event, body, fetchImpl = fetch }) {
+export async function postReview({ url, event, body, fetchImpl = fetch, timeoutMs = 15000 }) {
   const target = EVENTS[event];
   if (!target) throw new Error('event must be comment or approve');
 
@@ -14,6 +14,7 @@ export async function postReview({ url, event, body, fetchImpl = fetch }) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ body, event: target.event }),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   const text = typeof response.text === 'function' ? await response.text() : '';

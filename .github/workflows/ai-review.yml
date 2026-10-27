@@ -117,20 +117,27 @@ jobs:
       - name: Sanitize PR tree
         run: |
           set -euo pipefail
-          rm -rf .opencode opencode.json opencode.jsonc .mcp.json AGENTS.md CLAUDE.md .github/ai-review
+          rm -rf .opencode opencode.json opencode.jsonc .mcp.json .claude .agents AGENTS.md CLAUDE.md .github/ai-review
+          rm -rf .ai-review
           mkdir -p .ai-review
           test ! -e .opencode
           test ! -e opencode.json
           test ! -e .mcp.json
+          test ! -e .claude
+          test ! -e .agents
           test ! -e .github/ai-review
+          test -d .ai-review
+          test ! -L .ai-review
 
       - name: Install OpenCode
         run: |
           set -euo pipefail
-          npm install --global @opencode/cli
+          cd "$RUNNER_TEMP"
+          npm install --global --ignore-scripts @opencode/cli@2.2.0
           opencode --version
 
       - name: Remove previous AI review
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -153,6 +160,12 @@ jobs:
           AI_REVIEW_BROKER_INFO: ${{ runner.temp }}/broker-url
         run: |
           set -euo pipefail
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs; do
+            if [ "$(git hash-object "$RUNNER_TEMP/ai-review/$f")" != "$(git rev-parse "$BASE_SHA:.github/ai-review/$f")" ]; then
+              echo "::error::$f changed after extraction; refusing to start the broker"
+              exit 1
+            fi
+          done
           node "$RUNNER_TEMP/ai-review/post-server.mjs" > "$RUNNER_TEMP/broker.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/broker.pid"
           for _ in $(seq 1 60); do

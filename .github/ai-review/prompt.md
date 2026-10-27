@@ -106,7 +106,7 @@ node $RUNNER_TEMP/ai-review/post-review.mjs --event comment --body-file .ai-revi
 Use `--event approve` only when the verdict is `approve` and there are no P0, P1, or P2 findings.
 Otherwise use `--event comment`.
 
-`gh` is not available and no GitHub token exists in this sandbox. The broker is the only way to
-reach the PR. Post at most once. If the command fails, read its error, correct the file if the
-error is about the body, and try once more. If it fails again, stop and report the error as your
-final message.
+`gh` is not permitted here and no GitHub token exists in this sandbox. The broker is the only
+way to reach the PR. Post at most once. If the command fails, read its error, correct the file if
+the error is about the body, and try once more. If it fails again, stop and report the error as
+your final message.

@@ -135,11 +135,11 @@ export const legendGridInsets = (
       return { right: sideInset };
     case 'top':
       return { top: verticalInset };
-    case 'bottom':
-      return { bottom: verticalInset };
     case 'none':
-    default:
       return {};
+    case 'bottom':
+    default:
+      return { bottom: verticalInset };
   }
 };
 

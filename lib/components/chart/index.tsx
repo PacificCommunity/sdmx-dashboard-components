@@ -57,13 +57,14 @@ type TitleLike = {
 
 type GridLike = {
   top?: number;
+  bottom?: number;
   [key: string]: unknown;
 };
 
 type EChartsInternals = {
   getModel: () => { getComponent: (type: string, index?: number) => unknown };
   getViewOfComponentModel: (model: unknown) => {
-    group?: { getBoundingRect: () => { height: number } };
+    group?: { y?: number; getBoundingRect: () => { y: number; height: number } };
   };
 };
 
@@ -91,21 +92,70 @@ const hasExplicitTitleLayout = (config: SDMXChartConfig): boolean => {
 
 const baseGridTop = new WeakMap<EChartsOption, number>();
 
-const reserveTitleSpace = (chart: EChartsType, option: EChartsOption) => {
+const TITLE_GRID_GAP = 20;
+const TOOLBOX_GRID_GAP = 8;
+
+type ChartComponent = 'title' | 'toolbox';
+
+const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   const internals = chart as unknown as EChartsInternals;
-  const titleModel = internals.getModel()?.getComponent('title', 0);
-  if (!titleModel) return;
-  const titleView = internals.getViewOfComponentModel(titleModel);
-  const height = titleView?.group?.getBoundingRect()?.height ?? 0;
-  if (!height) return;
+  const model = internals.getModel()?.getComponent(type, 0);
+  if (!model) return 0;
+  const view = internals.getViewOfComponentModel(model);
+  const rect = view?.group?.getBoundingRect();
+  if (!rect?.height) return 0;
+  const viewTop = (typeof view?.group?.y === 'number' ? view.group.y : 0) + (rect.y ?? 0);
+  if (type === 'toolbox' && viewTop > chart.getHeight() / 2) return 0;
+  return viewTop + rect.height;
+};
+
+const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
+  const titleBottom = componentBottom(chart, 'title');
+  const toolboxBottom = componentBottom(chart, 'toolbox');
+  const required = Math.max(
+    titleBottom > 0 ? titleBottom + TITLE_GRID_GAP : 0,
+    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0
+  );
+  if (required <= 0) return;
   const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
   if (!grid || Array.isArray(grid)) return;
   if (!baseGridTop.has(option)) {
     baseGridTop.set(option, typeof grid.top === 'number' ? grid.top : 0);
   }
-  const top = Math.max(baseGridTop.get(option) ?? 0, Math.ceil(height + 20));
+  const top = Math.max(baseGridTop.get(option) ?? 0, Math.ceil(required));
   if (grid.top === top) return;
   const nextGrid = { ...grid, top };
+  (option as unknown as { grid?: GridLike }).grid = nextGrid;
+  chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+const LEGEND_GRID_GAP = 8;
+const baseGridBottom = new WeakMap<EChartsOption, number>();
+
+const reserveLegendSpace = (chart: EChartsType, option: EChartsOption) => {
+  const internals = chart as unknown as EChartsInternals;
+  const legendModel = internals.getModel()?.getComponent('legend', 0);
+  if (!legendModel) return;
+  const legendView = internals.getViewOfComponentModel(legendModel);
+  const legendRect = legendView?.group?.getBoundingRect();
+  if (!legendRect?.height) return;
+  const legendOption = (chart.getOption().legend as Array<{ show?: boolean; bottom?: unknown }> | undefined)?.[0];
+  if (!legendOption || legendOption.show === false || legendOption.bottom == null) return;
+  const chartHeight = chart.getHeight();
+  if (chartHeight <= 0) return;
+  const legendTop = (typeof legendView?.group?.y === 'number' ? legendView.group.y : 0)
+    + (legendRect.y ?? 0);
+  const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
+  if (!grid || Array.isArray(grid)) return;
+  if (!baseGridBottom.has(option)) {
+    baseGridBottom.set(option, typeof grid.bottom === 'number' ? grid.bottom : 0);
+  }
+  const bottom = Math.max(
+    baseGridBottom.get(option) ?? 0,
+    Math.ceil(chartHeight - legendTop + LEGEND_GRID_GAP)
+  );
+  if (grid.bottom === bottom) return;
+  const nextGrid = { ...grid, bottom };
   (option as unknown as { grid?: GridLike }).grid = nextGrid;
   chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
 };
@@ -219,7 +269,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
       stackRef.current.push(mergedChild);
       chart.setOption(mergedChild, { notMerge: true });
-      reserveTitleSpace(chart, mergedChild);
+      reserveTopSpace(chart, mergedChild);
+      reserveLegendSpace(chart, mergedChild);
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });
@@ -260,8 +311,9 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           applyTitleWidth(current, container.clientWidth);
           const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
           if (title) chart.setOption({ title } as unknown as EChartsOption);
-          reserveTitleSpace(chart, current);
         }
+        reserveTopSpace(chart, current);
+        reserveLegendSpace(chart, current);
       }
     });
     resizeObserver.observe(container);
@@ -289,7 +341,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       }
 
       chart.setOption(merged, { notMerge: true });
-      reserveTitleSpace(chart, merged);
+      reserveTopSpace(chart, merged);
+      reserveLegendSpace(chart, merged);
       setIsLoading(false);
       if (callbackRef.current) callbackRef.current(chart);
     } catch (err) {
@@ -322,7 +375,8 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     chartRef.current = nextChart;
     if (current) {
       nextChart.setOption(current, { notMerge: true });
-      reserveTitleSpace(nextChart, current);
+      reserveTopSpace(nextChart, current);
+      reserveLegendSpace(nextChart, current);
     }
     if (callbackRef.current) callbackRef.current(nextChart);
   }, [activeTheme, attachDrilldownHandler]);

@@ -67,12 +67,13 @@ tuning belongs in `extraOptions` (see below).
 
 ### Theming and native ECharts options
 
-Charts are rendered with [Apache ECharts](https://echarts.apache.org/). Use the
+Charts are rendered with [Apache ECharts](https://echarts.apache.org/) 6
+(`echarts@^6.1.0` is a peer dependency). Use the
 `theme` prop to select an ECharts theme registered with `echarts.registerTheme`,
 or pass native ECharts options through `config.extraOptions`. `extraOptions` is
 merged last onto the options built from the config: object and scalar values are
 merged in, and array values (including an array-valued `series`) are
-concatenated and deduplicated (via `ts-deepmerge`'s `uniqueArrayItems`).
+concatenated and deduplicated.
 `series` is special-cased: an object-valued `series` is merged into each built
 series — including drilldown child series — with matching keys overridden; an
 array-valued `series` is concatenated onto the built series.

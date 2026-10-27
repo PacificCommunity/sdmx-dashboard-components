@@ -4,5 +4,8 @@ export default defineConfig({
   entry: ['./lib/index.ts'],
   platform: 'browser',
   outDir: 'dist',
-  dts: true
+  dts: true,
+  deps: {
+    alwaysBundle: ['ts-deepmerge'],
+  },
 })

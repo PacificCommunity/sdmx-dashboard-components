@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { startBroker, MARKER } from './post-server.mjs';
+import { startBroker, MARKER, defaultExec } from './post-server.mjs';
 import { postReview } from './post-review.mjs';
+import http from 'node:http';
 
 const calls = () => {
   const seen = [];
@@ -107,4 +108,51 @@ test('postReview sends comments to the comment endpoint', async () => {
   await postReview({ url: 'http://broker', event: 'comment', body: 'note', fetchImpl });
   assert.equal(seen[0].url, 'http://broker/comment');
   assert.deepEqual(JSON.parse(seen[0].init.body), { body: 'note', event: 'COMMENT' });
+});
+
+test('defaultExec writes input to the child and reports the exit status', { timeout: 5000 }, async () => {
+  const result = await defaultExec(process.execPath, ['-e', 'process.stdin.pipe(process.stdout)'], {
+    input: 'hello',
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout, 'hello');
+});
+
+test('defaultExec reports a non-zero exit status', { timeout: 5000 }, async () => {
+  const result = await defaultExec(process.execPath, ['-e', 'process.exit(3)']);
+  assert.equal(result.status, 3);
+});
+
+test('concurrent posts cannot exceed the cap', async () => {
+  const releases = [];
+  const exec = async () => {
+    await new Promise((resolve) => releases.push(resolve));
+    return { status: 0, stdout: '', stderr: '' };
+  };
+  const broker = await startBroker({ pr: 1, repo: 'o/r', exec, maxPosts: 1 });
+  const first = post(broker.url, '/comment', { body: 'a' });
+  const second = post(broker.url, '/comment', { body: 'b' });
+  const deadline = Date.now() + 1000;
+  while (releases.length < 2 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  releases.forEach((release) => release());
+  const statuses = [(await first).status, (await second).status].sort();
+  assert.deepEqual(statuses, [201, 429]);
+  await broker.close();
+});
+
+test('postReview times out when the broker never responds', { timeout: 5000 }, async () => {
+  const hanging = http.createServer(() => {});
+  await new Promise((resolve) => hanging.listen(0, '127.0.0.1', resolve));
+  const { port } = hanging.address();
+  try {
+    await assert.rejects(
+      postReview({ url: `http://127.0.0.1:${port}`, event: 'comment', body: 'x', timeoutMs: 50 }),
+      /abort|timeout/i
+    );
+  } finally {
+    hanging.closeAllConnections();
+    await new Promise((resolve) => hanging.close(resolve));
+  }
 });

@@ -1,6 +1,5 @@
 import http from 'node:http';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -12,24 +11,26 @@ const REVIEW_EVENTS = new Set(['COMMENT', 'APPROVE']);
 
 export const formatBody = (body) => `${MARKER}\n\n${body}`;
 
-const run = promisify(execFile);
-
-export const defaultExec = async (file, args, opts = {}) => {
-  try {
-    const { stdout, stderr } = await run(file, args, {
-      input: opts.input,
-      env: process.env,
-      maxBuffer: 10 * 1024 * 1024,
+export const defaultExec = (file, args, opts = {}) =>
+  new Promise((resolve) => {
+    const child = spawn(file, args, { stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
     });
-    return { status: 0, stdout: stdout ?? '', stderr: stderr ?? '' };
-  } catch (error) {
-    return {
-      status: typeof error.code === 'number' ? error.code : 1,
-      stdout: error.stdout ?? '',
-      stderr: error.stderr ?? String(error),
-    };
-  }
-};
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => resolve({ status: 1, stdout, stderr: String(error) }));
+    child.on('close', (code) =>
+      resolve({ status: typeof code === 'number' ? code : 1, stdout, stderr })
+    );
+    if (opts.input != null) child.stdin.end(opts.input);
+    else child.stdin.end();
+  });
 
 const readJson = (req) =>
   new Promise((resolve, reject) => {
@@ -70,6 +71,7 @@ export async function startBroker({
   }
 
   let posts = 0;
+  const limit = Number.isInteger(maxPosts) && maxPosts > 0 ? maxPosts : 5;
 
   const server = http.createServer(async (req, res) => {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
@@ -114,8 +116,8 @@ export async function startBroker({
       return;
     }
 
-    if (posts >= maxPosts) {
-      send(429, { error: `post limit of ${maxPosts} reached` });
+    if (posts >= limit) {
+      send(429, { error: `post limit of ${limit} reached` });
       return;
     }
 
@@ -125,6 +127,8 @@ export async function startBroker({
       send(200, { ok: true, dryRun: true });
       return;
     }
+
+    posts += 1;
 
     const result = isReview
       ? await exec('gh', [
@@ -140,11 +144,11 @@ export async function startBroker({
       : await exec('gh', ['pr', 'comment', String(pr), '--body-file', '-'], { input: fullBody });
 
     if (result.status !== 0) {
+      posts -= 1;
       send(502, { error: result.stderr || 'gh failed' });
       return;
     }
 
-    posts += 1;
     send(201, { ok: true });
   });
 

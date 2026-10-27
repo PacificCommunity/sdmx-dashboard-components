@@ -61,10 +61,20 @@ type GridLike = {
   [key: string]: unknown;
 };
 
+type ComponentChild = {
+  type?: string;
+  ignore?: boolean;
+  getBoundingRect: () => { y: number; height: number };
+};
+
 type EChartsInternals = {
   getModel: () => { getComponent: (type: string, index?: number) => unknown };
   getViewOfComponentModel: (model: unknown) => {
-    group?: { y?: number; getBoundingRect: () => { y: number; height: number } };
+    group?: {
+      y?: number;
+      getBoundingRect: () => { y: number; height: number };
+      children?: () => ComponentChild[];
+    };
   };
 };
 
@@ -101,12 +111,23 @@ const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   const internals = chart as unknown as EChartsInternals;
   const model = internals.getModel()?.getComponent(type, 0);
   if (!model) return 0;
-  const view = internals.getViewOfComponentModel(model);
-  const rect = view?.group?.getBoundingRect();
-  if (!rect?.height) return 0;
-  const viewTop = (typeof view?.group?.y === 'number' ? view.group.y : 0) + (rect.y ?? 0);
+  const group = internals.getViewOfComponentModel(model)?.group;
+  const rect = group?.getBoundingRect();
+  if (!group || !rect?.height) return 0;
+  const groupY = typeof group.y === 'number' ? group.y : 0;
+  const viewTop = groupY + (rect.y ?? 0);
   if (type === 'toolbox' && viewTop > chart.getHeight() / 2) return 0;
-  return viewTop + rect.height;
+  let bottom = viewTop + rect.height;
+  if (type === 'toolbox' && typeof group.children === 'function') {
+    let iconBottom = 0;
+    group.children().forEach((child) => {
+      if (child?.ignore || child?.type !== 'path') return;
+      const childRect = child.getBoundingRect();
+      iconBottom = Math.max(iconBottom, groupY + (childRect.y ?? 0) + childRect.height);
+    });
+    if (iconBottom > 0) bottom = iconBottom;
+  }
+  return bottom;
 };
 
 const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {

@@ -548,6 +548,7 @@ export const buildTooltipFormatter = (config: SDMXChartConfig, language: string,
 export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): any => {
   if (!config.title && !config.subtitle) return undefined;
   const title: any = {};
+  title.top = 0;
   if (titleText) title.text = titleText;
   if (config.title?.link) {
     title.link = config.title.link;

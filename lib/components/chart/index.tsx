@@ -4,9 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { EChartsOption, SeriesOption } from 'echarts';
 import type { EChartsType, ECElementEvent } from 'echarts/core';
 import { echarts } from './register';
-import { buildChartOption } from './options';
+import { buildChartOptionFromDatasets, loadDatasets } from './options';
 import { applyPieRadius } from './pie';
-import type { BuiltChart } from '../../utils/chartHelpers';
+import type { BuiltChart, ParsedDataset } from '../../utils/chartHelpers';
 import {
   applyBarLabelLayout,
   applyCategoryLabelLayout,
@@ -136,10 +136,42 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
   const stackRef = useRef<EChartsOption[]>([]);
   const callbackRef = useRef(callback);
   const activeThemeRef = useRef<string | undefined>(theme);
+  const configRef = useRef(config);
+  const [loadedData, setLoadedData] = useState<{
+    key: string;
+    datasets: ParsedDataset[];
+  } | null>(null);
+
+  const dataKey = JSON.stringify(config.data);
+  const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
+
+  useEffect(() => {
+    configRef.current = config;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const { data, xAxisConcept } = configRef.current;
+    setError(null);
+    loadDatasets(data, xAxisConcept, language)
+      .then((datasets) => {
+        if (cancelled) return;
+        setLoadedData({ key: loadKey, datasets });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setError('Failed to load chart.');
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadKey, language]);
 
   useEffect(() => {
     const resolveTheme = () => {
@@ -179,67 +211,32 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       const id = data?.drilldownId;
       const child = id ? drilldownRef.current?.options?.[id] : undefined;
       if (!child) return;
-      if (!hasExplicitTitleLayout(config)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
-      const mergedChild = mergeExtraOptions(child, config.extraOptions);
-      applyYAxisTitleLayout(mergedChild, config.extraOptions);
+      const currentConfig = configRef.current;
+      if (!hasExplicitTitleLayout(currentConfig)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
+      const mergedChild = mergeExtraOptions(child, currentConfig.extraOptions);
+      applyYAxisTitleLayout(mergedChild, currentConfig.extraOptions);
       applyBarLabelLayout(mergedChild);
-      applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, config.extraOptions);
+      applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
       stackRef.current.push(mergedChild);
       chart.setOption(mergedChild, { notMerge: true });
       reserveTitleSpace(chart, mergedChild);
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });
-  }, [config]);
+  }, []);
 
   useEffect(() => {
-    let disposed = false;
+    if (!loadedData || loadedData.key !== loadKey) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    setIsLoading(true);
+    setIsLoading(chartRef.current === null);
     setError(null);
     stackRef.current = [];
     baseOptionRef.current = null;
     drilldownRef.current = undefined;
     setCanGoBack(false);
     setDrilldownLabel('');
-
-    buildChartOption(config, language).then((built) => {
-      if (disposed || !containerRef.current) return;
-
-      if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, containerRef.current.clientWidth);
-      const merged = mergeExtraOptions(built.option, config.extraOptions);
-      applyYAxisTitleLayout(merged, config.extraOptions);
-      applyBarLabelLayout(merged);
-      applyCategoryLabelLayout(merged, containerRef.current.clientWidth, config.extraOptions);
-      if (config.type === 'pie') {
-        applyPieRadius(
-          merged,
-          containerRef.current.clientWidth,
-          containerRef.current.clientHeight,
-          config
-        );
-      }
-      drilldownRef.current = built.drilldown;
-      baseOptionRef.current = merged;
-      stackRef.current = [merged];
-
-      const existingChart = chartRef.current;
-      const chart = existingChart ?? initChart(containerRef.current, activeThemeRef.current);
-      if (!existingChart) {
-        attachDrilldownHandler(chart);
-        chartRef.current = chart;
-      }
-
-      chart.setOption(merged, { notMerge: true });
-      reserveTitleSpace(chart, merged);
-      setIsLoading(false);
-      if (callbackRef.current) callbackRef.current(chart);
-    }).catch((err) => {
-      if (disposed) return;
-      console.error(err);
-      setError('Failed to load chart.');
-      setIsLoading(false);
-    });
 
     const resizeObserver = new ResizeObserver(() => {
       const chart = chartRef.current;
@@ -267,23 +264,58 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
         }
       }
     });
-    if (containerRef.current) resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(container);
+
+    try {
+      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets);
+
+      if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, container.clientWidth);
+      const merged = mergeExtraOptions(built.option, config.extraOptions);
+      applyYAxisTitleLayout(merged, config.extraOptions);
+      applyBarLabelLayout(merged);
+      applyCategoryLabelLayout(merged, container.clientWidth, config.extraOptions);
+      if (config.type === 'pie') {
+        applyPieRadius(merged, container.clientWidth, container.clientHeight, config);
+      }
+      drilldownRef.current = built.drilldown;
+      baseOptionRef.current = merged;
+      stackRef.current = [merged];
+
+      const existingChart = chartRef.current;
+      const chart = existingChart ?? initChart(container, activeThemeRef.current);
+      if (!existingChart) {
+        attachDrilldownHandler(chart);
+        chartRef.current = chart;
+      }
+
+      chart.setOption(merged, { notMerge: true });
+      reserveTitleSpace(chart, merged);
+      setIsLoading(false);
+      if (callbackRef.current) callbackRef.current(chart);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load chart.');
+      setIsLoading(false);
+    }
 
     return () => {
-      disposed = true;
       resizeObserver.disconnect();
-      chartRef.current?.dispose();
-      chartRef.current = null;
     };
-  }, [config, language, attachDrilldownHandler]);
+  }, [config, language, loadKey, loadedData, attachDrilldownHandler]);
+
+  useEffect(() => () => {
+    chartRef.current?.dispose();
+    chartRef.current = null;
+  }, []);
 
   useEffect(() => {
     activeThemeRef.current = activeTheme;
     const container = containerRef.current;
     const chart = chartRef.current;
     if (!container || !chart) return;
+    const currentConfig = configRef.current;
     const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
-    if (current && !hasExplicitTitleLayout(config)) applyTitleWidth(current, container.clientWidth);
+    if (current && !hasExplicitTitleLayout(currentConfig)) applyTitleWidth(current, container.clientWidth);
     chart.dispose();
     const nextChart = initChart(container, activeTheme);
     attachDrilldownHandler(nextChart);
@@ -293,7 +325,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       reserveTitleSpace(nextChart, current);
     }
     if (callbackRef.current) callbackRef.current(nextChart);
-  }, [activeTheme, attachDrilldownHandler, config]);
+  }, [activeTheme, attachDrilldownHandler]);
 
   const isDarkTheme = activeTheme === 'dark';
   const hasHeader = !isLoading && !error && canGoBack;

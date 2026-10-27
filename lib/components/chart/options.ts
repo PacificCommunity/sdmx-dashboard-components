@@ -37,8 +37,12 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
   return '';
 };
 
-const loadDatasets = async (config: SDMXChartConfig, language: string): Promise<ParsedDataset[]> => {
-  const dataObjs = parseDataExpr(config.data);
+export const loadDatasets = async (
+  dataExpression: SDMXChartConfig['data'],
+  xAxisConcept: SDMXChartConfig['xAxisConcept'],
+  language: string
+): Promise<ParsedDataset[]> => {
+  const dataObjs = parseDataExpr(dataExpression);
   const dataPromises = dataObjs.map((dataObj, datasetIndex) => {
     const parser = new SDMXParser();
     return parser
@@ -53,7 +57,7 @@ const loadDatasets = async (config: SDMXChartConfig, language: string): Promise<
         const attributes = parser.getAttributes();
         if (dataObj.alternateLabel) {
           data.forEach((_item: any, index: number, data: any[]) => {
-            data[index][config.xAxisConcept] = dataObj.alternateLabel;
+            data[index][xAxisConcept as string] = dataObj.alternateLabel;
           });
         }
         if (dataObj.operator === 'hist') {
@@ -62,13 +66,13 @@ const loadDatasets = async (config: SDMXChartConfig, language: string): Promise<
             const idx = histData.findIndex((item) => item.binValue === _dataItem.value);
             if (idx === -1) {
               const histItem: any = {};
-              histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept];
+              histItem[xAxisConcept as string] = _dataItem[xAxisConcept as string];
               histItem.value = 1;
               histItem.binValue = _dataItem.value;
               histData.push(histItem);
             } else {
               histData[idx].value += 1;
-              histData[idx][config.xAxisConcept] = `${histData[idx][config.xAxisConcept]}\n${_dataItem[config.xAxisConcept]}`;
+              histData[idx][xAxisConcept as string] = `${histData[idx][xAxisConcept as string]}\n${_dataItem[xAxisConcept as string]}`;
             }
           });
           return {
@@ -112,20 +116,20 @@ const loadDatasets = async (config: SDMXChartConfig, language: string): Promise<
   return Promise.all(dataPromises);
 };
 
-const loadChartContext = async (
+const createChartContext = (
   config: SDMXChartConfig,
-  language: string
-): Promise<ChartContext> => {
-  const datasets = await loadDatasets(config, language);
+  language: string,
+  sourceDatasets: ParsedDataset[]
+): ChartContext => {
   let titleText = '';
   let subtitleText = '';
 
-  datasets.forEach((dataset) => {
+  const datasets = sourceDatasets.map((dataset) => {
     const { dimensions } = dataset;
-    dataset.titleText = resolveText(config.title, dimensions, language);
-    dataset.subtitleText = resolveText(config.subtitle, dimensions, language);
-    titleText = dataset.titleText;
-    subtitleText = dataset.subtitleText;
+    const datasetTitleText = resolveText(config.title, dimensions, language);
+    const datasetSubtitleText = resolveText(config.subtitle, dimensions, language);
+    titleText = datasetTitleText;
+    subtitleText = datasetSubtitleText;
 
     if (config.xAxisConcept && config.xAxisConcept !== 'MULTI') {
       if (!dimensions.find((d: any) => d.id === config.xAxisConcept)) {
@@ -138,6 +142,8 @@ const loadChartContext = async (
         throw new Error(`legendConcept ${legendConcept} not found in dataflow`);
       }
     }
+
+    return { ...dataset, titleText: datasetTitleText, subtitleText: datasetSubtitleText };
   });
 
   return { config, language, datasets, titleText, subtitleText };
@@ -179,16 +185,17 @@ const assembleOption = (
   return option;
 };
 
-export const buildChartOption = async (
+export const buildChartOptionFromDatasets = (
   config: SDMXChartConfig,
-  language: string
-): Promise<BuiltChart> => {
+  language: string,
+  datasets: ParsedDataset[]
+): BuiltChart => {
   const chartType = config.type;
   if (!chartType) throw new Error('Chart type not defined');
   const builder = builders[chartType as ChartType];
   if (!builder) throw new Error(`Unsupported chart type: ${chartType}`);
 
-  const context = await loadChartContext(config, language);
+  const context = createChartContext(config, language, datasets);
   const parts = builder(context);
 
   return {
@@ -197,4 +204,12 @@ export const buildChartOption = async (
     subtitleText: context.subtitleText,
     drilldown: parts.drilldown,
   };
+};
+
+export const buildChartOption = async (
+  config: SDMXChartConfig,
+  language: string
+): Promise<BuiltChart> => {
+  const datasets = await loadDatasets(config.data, config.xAxisConcept, language);
+  return buildChartOptionFromDatasets(config, language, datasets);
 };

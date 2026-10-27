@@ -1,7 +1,8 @@
 name: AI PR Review
 
-# Manual, on-demand review. A maintainer picks a PR from the Actions tab once human reviewers
-# are unavailable. Everything the reviewer trusts (prompt, OpenCode config, broker) is read from
+# Manual, on-demand review. A maintainer starts it either from the Actions tab
+# (workflow_dispatch) or by commenting `/ai-review` on any PR in any branch
+# (issue_comment). Everything the reviewer trusts (prompt, OpenCode config, broker) is read from
 # the base revision; the PR worktree is sanitized before the agent starts.
 #
 # Required repository secret: OPENCODE_API_KEY (OpenCode Go).
@@ -23,22 +24,34 @@ on:
         required: false
         default: false
         type: boolean
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
   pull-requests: write
 
 concurrency:
-  group: ai-review-${{ inputs.pr }}
+  group: ai-review-${{ inputs.pr || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
   review:
+    # issue_comment runs for every comment in the repo, so gate it to maintainers asking for a
+    # review on a pull request. Bot comments never trigger it.
+    if: |
+      github.event_name == 'workflow_dispatch'
+      || (
+        github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+        && startsWith(github.event.comment.body, '/ai-review')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PR: ${{ inputs.pr }}
-      MODEL: ${{ inputs.model }}
+      PR: ${{ inputs.pr || github.event.issue.number }}
+      MODEL: ${{ inputs.model || 'opencode-go/kimi-k3.1-pro' }}
       REPO: ${{ github.repository }}
     steps:
       - name: Validate inputs
@@ -58,7 +71,7 @@ jobs:
       - name: Checkout PR
         uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ inputs.pr }}/head
+          ref: refs/pull/${{ inputs.pr || github.event.issue.number }}/head
           fetch-depth: 0
           persist-credentials: false
 
@@ -154,7 +167,7 @@ jobs:
       - name: Start broker
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AI_REVIEW_PR: ${{ inputs.pr }}
+          AI_REVIEW_PR: ${{ inputs.pr || github.event.issue.number }}
           AI_REVIEW_REPO: ${{ github.repository }}
           AI_REVIEW_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
           AI_REVIEW_BROKER_INFO: ${{ runner.temp }}/broker-url

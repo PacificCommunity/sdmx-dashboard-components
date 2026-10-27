@@ -139,10 +139,12 @@ chart; provide `extraOptions.series.radius` to size the pie yourself.
 ### Accessibility, export, and registered components
 
 Accessibility (`aria.enabled`) and image export
-(`toolbox.feature.saveAsImage`) are enabled by default. Both can be overridden
-or disabled through `extraOptions`, for example `aria: { enabled: false }` or
-`toolbox: { show: false }`. CSV/data export is **not** provided because ECharts
-has no equivalent; `saveAsImage` exports the rendered chart image only.
+(`toolbox.feature.saveAsImage`) are enabled by default. Hovering the download
+button shows a "Save chart as image" tooltip above the icon. Both features can
+be overridden or disabled through `extraOptions`, for example
+`aria: { enabled: false }` or `toolbox: { show: false }`. CSV/data export is
+**not** provided because ECharts has no equivalent; `saveAsImage` exports the
+rendered chart image only.
 
 The library registers the chart types it uses (`LineChart`, `BarChart`,
 `PieChart`, `TreemapChart`, `ScatterChart`) plus `AriaComponent`,

@@ -143,6 +143,13 @@ const loadChartContext = async (
   return { config, language, datasets, titleText, subtitleText };
 };
 
+const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
+  saveAsImage: 'Save chart as image',
+};
+
+const toolboxTooltipFormatter = (params: any): string =>
+  TOOLBOX_FEATURE_LABELS[params?.name] ?? params?.title ?? '';
+
 const assembleOption = (
   config: SDMXChartConfig,
   context: ChartContext,
@@ -151,7 +158,15 @@ const assembleOption = (
   const option: EChartsOption = {
     aria: { enabled: true },
     title: buildEchartsTitle(config, context.titleText, context.subtitleText),
-    toolbox: { feature: { saveAsImage: {} } },
+    toolbox: {
+      showTitle: false,
+      tooltip: {
+        show: true,
+        position: 'top',
+        formatter: toolboxTooltipFormatter,
+      },
+      feature: { saveAsImage: {} },
+    },
     tooltip: parts.tooltip,
     legend: parts.legend,
     series: parts.series,

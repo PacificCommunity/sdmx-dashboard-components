@@ -142,6 +142,15 @@ test('concurrent posts cannot exceed the cap', async () => {
   await broker.close();
 });
 
+test('falls back to five posts when maxPosts is not a number', async () => {
+  const broker = await startBroker({ pr: 1, repo: 'o/r', exec: calls().exec, maxPosts: NaN });
+  for (let i = 0; i < 5; i += 1) {
+    assert.equal((await post(broker.url, '/comment', { body: `post ${i}` })).status, 201);
+  }
+  assert.equal((await post(broker.url, '/comment', { body: 'sixth' })).status, 429);
+  await broker.close();
+});
+
 test('postReview times out when the broker never responds', { timeout: 5000 }, async () => {
   const hanging = http.createServer(() => {});
   await new Promise((resolve) => hanging.listen(0, '127.0.0.1', resolve));

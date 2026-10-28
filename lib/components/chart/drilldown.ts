@@ -27,6 +27,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
   const drilldownSeriesByKey = new Map<string, any>();
   const categoryOrder: any[] = [];
   const categorySeen = new Set<any>();
+  const categoriesWithData = new Set<any>();
   let categorySortId: string | undefined;
   let rootConcept: string | undefined;
 
@@ -91,6 +92,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
             seriesEntry.valueByName.set(category, legendSerieDataValue['value']);
             seriesEntry.drilldownIdByName.set(category, drilldownId);
             seriesEntry.itemStyleByName.set(category, pointColor ? { color: pointColor } : undefined);
+            categoriesWithData.add(category);
             if (drilldownXAxisConcept === 'TIME_PERIOD') {
               seriesEntry.periodByName.set(category, legendSerieDataValue[drilldownXAxisConcept]);
             }
@@ -147,7 +149,9 @@ export const buildDrilldown: ChartBuilder = (context) => {
 
   const sortId = categorySortId ?? 'name';
   const sortedCategories = sortByDimension(
-    categoryOrder.map((name: any) => ({ name, [sortId]: name })),
+    categoryOrder
+      .filter((name: any) => categoriesWithData.has(name))
+      .map((name: any) => ({ name, [sortId]: name })),
     sortId
   );
   let categories = sortedCategories.map((item: any) => item.name);

@@ -288,10 +288,16 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       applyYAxisTitleLayout(mergedChild, currentConfig.extraOptions);
       applyBarLabelLayout(mergedChild);
       applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
-      stackRef.current.push(mergedChild);
-      chart.setOption(mergedChild, { notMerge: true });
-      reserveTopSpace(chart, mergedChild);
-      reserveLegendSpace(chart, mergedChild);
+      // Child options are built without the shared chrome; carry it over so drilldowns keep
+      // accessibility output and the save-as-image control.
+      const baseOption = baseOptionRef.current;
+      const withChrome = baseOption
+        ? { ...mergedChild, aria: baseOption.aria, toolbox: baseOption.toolbox }
+        : mergedChild;
+      stackRef.current.push(withChrome);
+      chart.setOption(withChrome, { notMerge: true });
+      reserveTopSpace(chart, withChrome);
+      reserveLegendSpace(chart, withChrome);
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });

@@ -541,9 +541,16 @@ export const toFontSize = (value: string | number | undefined, fallback: number)
 export const formatTimeValue = (timestamp: number, format?: string): string => {
   const date = new Date(Number(timestamp));
   if (Number.isNaN(date.getTime())) return String(timestamp);
+  const year = date.getUTCFullYear();
+  const monthIndex = date.getUTCMonth();
+  if (format?.includes('dd')) {
+    const month = String(monthIndex + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   return format && format.includes('MMM')
-    ? `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
-    : `${date.getUTCFullYear()}`;
+    ? `${MONTHS[monthIndex]} ${year}`
+    : `${year}`;
 };
 
 export const buildTooltipFormatter = (config: SDMXChartConfig, language: string, timeFormat?: string) => {

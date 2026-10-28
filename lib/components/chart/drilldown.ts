@@ -102,7 +102,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
             };
           });
           const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
-          const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id);
+          const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id)
+            ?? paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
           drilldownOptions[drilldownId] = {
             title: buildEchartsTitle(
               config,
@@ -175,6 +176,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
         itemStyle: seriesEntry.itemStyleByName.get(category),
       };
     });
+    if (!seriesValues.some((point) => point !== null)) return;
     const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
     rootSeries.push({
       type: 'bar',

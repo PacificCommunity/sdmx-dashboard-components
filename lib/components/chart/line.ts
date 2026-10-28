@@ -27,9 +27,10 @@ export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
 
     if (isTimeAxis) {
       const freqDimension = dimensions.find((d: any) => d.id === 'FREQ');
+      const frequency = freqDimension?.values?.[0]?.id;
       let dateFormat = '{yyyy}';
-      if (freqDimension.values[0].id === 'A') dateFormat = '{yyyy}';
-      else if (freqDimension.values[0].id === 'Q' || freqDimension.values[0].id === 'M') dateFormat = '{MMM} {yyyy}';
+      if (frequency === 'Q' || frequency === 'M' || frequency === 'W') dateFormat = '{MMM} {yyyy}';
+      else if (frequency === 'D') dateFormat = '{yyyy}-{MM}-{dd}';
       timeAxisFormat = dateFormat;
       xAxis = { type: 'time', axisLabel: { formatter: dateFormat } };
     } else {

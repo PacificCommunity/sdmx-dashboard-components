@@ -81,6 +81,8 @@ array-valued `series` is concatenated onto the built series.
 ```javascript
 <SDMXChart
   config={{
+    id: "wgi-chart",
+    type: "column",
     data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_WBWGI,1.0/A..VA_EST?startPeriod=2010&dimensionAtObservation=AllDimensions"],
     title: {
       text: "World Bank Worldwide Governance Indicator",

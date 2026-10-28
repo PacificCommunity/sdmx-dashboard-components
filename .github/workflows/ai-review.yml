@@ -30,6 +30,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  checks: write
 
 concurrency:
   group: ai-review-${{ inputs.pr || github.event.issue.number }}
@@ -91,18 +92,33 @@ jobs:
             echo "MERGE_BASE=$merge_base"
           } >> "$GITHUB_ENV"
 
+      - name: Start review check
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          jq -n --arg sha "$sha" \
+            '{name:"ai-review",head_sha:$sha,status:"in_progress",output:{title:"AI review running",summary:"The AI reviewer is reading the diff."}}' \
+            | gh api --method POST "repos/$REPO/check-runs" --input - --jq '.id' > "$RUNNER_TEMP/check-id"
+          {
+            echo "AI_REVIEW_CHECK_ID=$(cat "$RUNNER_TEMP/check-id")"
+            echo "AI_REVIEW_SHA=$sha"
+          } >> "$GITHUB_ENV"
+
       - name: Extract trusted assets
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/ai-review"
-          for f in prompt.md opencode.json post-server.mjs post-review.mjs; do
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs verdict.mjs; do
             if ! git cat-file -e "$BASE_SHA:.github/ai-review/$f" 2>/dev/null; then
               echo "::error::.github/ai-review/$f is missing on the base revision"
               exit 1
             fi
             git show "$BASE_SHA:.github/ai-review/$f" > "$RUNNER_TEMP/ai-review/$f"
           done
-          for f in prompt.md opencode.json; do
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs verdict.mjs; do
             if [ "$(git hash-object "$RUNNER_TEMP/ai-review/$f")" != "$(git rev-parse "$BASE_SHA:.github/ai-review/$f")" ]; then
               echo "::error::trusted copy of $f does not match the base revision"
               exit 1
@@ -145,8 +161,12 @@ jobs:
       - name: Install OpenCode
         run: |
           set -euo pipefail
+          # Install from a neutral directory so a PR-committed .npmrc cannot redirect the registry.
+          # Scripts stay enabled: @opencode/cli's postinstall fetches the platform binary.
           cd "$RUNNER_TEMP"
-          npm install --global --ignore-scripts @opencode/cli@2.2.0
+          export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/empty-npmrc"
+          : > "$NPM_CONFIG_USERCONFIG"
+          npm install --global --no-audit --no-fund @opencode/cli@2.2.0
           opencode --version
 
       - name: Remove previous AI review
@@ -159,10 +179,8 @@ jobs:
             --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- ai-review -->"))) | .id'); do
             gh api --method DELETE "repos/$REPO/issues/comments/$id"
           done
-          for id in $(gh api --paginate "repos/$REPO/pulls/$PR/reviews" \
-            --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- ai-review -->"))) | .id'); do
-            gh api --method DELETE "repos/$REPO/pulls/$PR/reviews/$id"
-          done
+          # Submitted reviews cannot be deleted through the REST API (only pending ones), so a
+          # previous approval stays in the timeline. The new run posts a fresh comment instead.
 
       - name: Start broker
         env:
@@ -173,7 +191,7 @@ jobs:
           AI_REVIEW_BROKER_INFO: ${{ runner.temp }}/broker-url
         run: |
           set -euo pipefail
-          for f in prompt.md opencode.json post-server.mjs post-review.mjs; do
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs verdict.mjs; do
             if [ "$(git hash-object "$RUNNER_TEMP/ai-review/$f")" != "$(git rev-parse "$BASE_SHA:.github/ai-review/$f")" ]; then
               echo "::error::$f changed after extraction; refusing to start the broker"
               exit 1
@@ -218,6 +236,28 @@ jobs:
         run: |
           set -euo pipefail
           cat .ai-review/review.md 2>/dev/null || echo "no review file written"
+
+      - name: Publish run summary
+        if: always()
+        run: |
+          if [ -s .ai-review/review.md ]; then
+            cat .ai-review/review.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No review file was produced. See the job log." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Complete review check
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AI_REVIEW_CHECK_ID:-}" ]; then
+            echo "No check run was started (dry run or earlier failure)."
+            exit 0
+          fi
+          node "$RUNNER_TEMP/ai-review/verdict.mjs" .ai-review/review.md "$RUNNER_TEMP/check.json"
+          gh api --method PATCH "repos/$REPO/check-runs/$AI_REVIEW_CHECK_ID" --input "$RUNNER_TEMP/check.json"
 
       - name: Stop broker
         if: always()

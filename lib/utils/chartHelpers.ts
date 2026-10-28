@@ -513,6 +513,31 @@ export const labelFormatter = (config: SDMXChartConfig, language: string, chartT
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const HTML_ENTITIES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+// ECharts renders tooltip strings as HTML. Dataset labels are untrusted, so escape them
+// before concatenation; ECharts' own marker markup stays untouched.
+export const escapeHtml = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, (char) => HTML_ENTITIES[char]);
+
+// ECharts font sizes are numbers. Accept the CSS strings the public config allows
+// ("20px", "0.8em", "1.2rem") and fall back when the value cannot be interpreted.
+export const toFontSize = (value: string | number | undefined, fallback: number): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return fallback;
+  const match = /^\s*(-?\d+(?:\.\d+)?)\s*(px|em|rem)?\s*$/i.exec(value);
+  if (!match) return fallback;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount)) return fallback;
+  return (match[2] ?? 'px').toLowerCase() === 'px' ? amount : amount * 16;
+};
+
 export const formatTimeValue = (timestamp: number, format?: string): string => {
   const date = new Date(Number(timestamp));
   if (Number.isNaN(date.getTime())) return String(timestamp);
@@ -537,11 +562,11 @@ export const buildTooltipFormatter = (config: SDMXChartConfig, language: string,
       const rawValue = Array.isArray(point.value) ? point.value[1] : point.value;
       const formatted = typeof customValueFormatter === 'function'
         ? String(customValueFormatter(rawValue, point.dataIndex))
-        : formatTooltipValue(rawValue, language);
-      const series = point.seriesName ? `${point.seriesName}: ` : '';
+        : escapeHtml(formatTooltipValue(rawValue, language));
+      const series = point.seriesName ? `${escapeHtml(point.seriesName)}: ` : '';
       return `${point.marker || ''}${series}${formatted}`;
     });
-    return `${xValue ? `${xValue}<br/>` : ''}${lines.join('<br/>')}`;
+    return `${xValue ? `${escapeHtml(xValue)}<br/>` : ''}${lines.join('<br/>')}`;
   };
 };
 
@@ -563,7 +588,7 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   title.left = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
   if (config.title) {
     const textStyle: any = {};
-    if (config.title.size !== undefined) textStyle.fontSize = config.title.size;
+    if (config.title.size !== undefined) textStyle.fontSize = toFontSize(config.title.size, 16);
     if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight;
     if (config.title.style !== undefined) textStyle.fontStyle = config.title.style;
     if (config.title.color !== undefined) textStyle.color = config.title.color;
@@ -572,8 +597,7 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   }
   if (config.subtitle) {
     const subtextStyle: any = {};
-    if (config.subtitle.size !== undefined) subtextStyle.fontSize = config.subtitle.size ?? '0.8em';
-    else subtextStyle.fontSize = '0.8em';
+    subtextStyle.fontSize = toFontSize(config.subtitle.size ?? '0.8em', 12.8);
     if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight;
     if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style;
     if (config.subtitle.color !== undefined) subtextStyle.color = config.subtitle.color;

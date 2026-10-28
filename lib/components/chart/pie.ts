@@ -27,7 +27,6 @@ const applyPieLabels = (series: any[], config: SDMXChartConfig, language: string
       show: true,
       position: 'outside',
       formatter: pieLabelFormatter(config, language),
-      color: '#333',
       fontWeight: 'bold',
       overflow: 'break',
     },

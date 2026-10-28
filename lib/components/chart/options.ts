@@ -205,11 +205,3 @@ export const buildChartOptionFromDatasets = (
     drilldown: parts.drilldown,
   };
 };
-
-export const buildChartOption = async (
-  config: SDMXChartConfig,
-  language: string
-): Promise<BuiltChart> => {
-  const datasets = await loadDatasets(config.data, config.xAxisConcept, language);
-  return buildChartOptionFromDatasets(config, language, datasets);
-};

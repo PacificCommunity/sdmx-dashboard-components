@@ -5,6 +5,7 @@ import {
   buildLegend,
   buildValueTooltip,
   collectColumnLike,
+  paletteColor,
   sortColumnLikeCategories,
 } from '../../utils/chartHelpers';
 
@@ -22,10 +23,11 @@ export const buildTreemap: ChartBuilder = (context) => {
     collection.entries.forEach((seriesEntry) => {
       const point = seriesEntry.valueByName.get(category);
       if (point) {
+        const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
         treemapData.push({
           name: point.name,
           value: point.value,
-          itemStyle: point.itemStyle,
+          itemStyle: point.itemStyle ?? (color ? { color } : undefined),
         });
       }
     });

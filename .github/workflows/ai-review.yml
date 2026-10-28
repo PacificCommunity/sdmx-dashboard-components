@@ -145,8 +145,12 @@ jobs:
       - name: Install OpenCode
         run: |
           set -euo pipefail
+          # Install from a neutral directory so a PR-committed .npmrc cannot redirect the registry.
+          # Scripts stay enabled: @opencode/cli's postinstall fetches the platform binary.
           cd "$RUNNER_TEMP"
-          npm install --global --ignore-scripts @opencode/cli@2.2.0
+          export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/empty-npmrc"
+          : > "$NPM_CONFIG_USERCONFIG"
+          npm install --global --no-audit --no-fund @opencode/cli@2.2.0
           opencode --version
 
       - name: Remove previous AI review

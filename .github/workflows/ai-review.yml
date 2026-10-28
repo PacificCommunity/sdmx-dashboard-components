@@ -1,0 +1,231 @@
+name: AI PR Review
+
+# Manual, on-demand review. A maintainer starts it either from the Actions tab
+# (workflow_dispatch) or by commenting `/ai-review` on any PR in any branch
+# (issue_comment). Everything the reviewer trusts (prompt, OpenCode config, broker) is read from
+# the base revision; the PR worktree is sanitized before the agent starts.
+#
+# Required repository secret: OPENCODE_API_KEY (OpenCode Go).
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Pull request number'
+        required: true
+        type: number
+      model:
+        description: 'OpenCode model'
+        required: false
+        default: 'opencode-go/kimi-k3.1-pro'
+        type: string
+      dry_run:
+        description: 'Print the review without posting it'
+        required: false
+        default: false
+        type: boolean
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ inputs.pr || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # issue_comment runs for every comment in the repo, so gate it to maintainers asking for a
+    # review on a pull request. Bot comments never trigger it.
+    if: |
+      github.event_name == 'workflow_dispatch'
+      || (
+        github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+        && startsWith(github.event.comment.body, '/ai-review')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PR: ${{ inputs.pr || github.event.issue.number }}
+      MODEL: ${{ inputs.model || 'opencode-go/kimi-k3.1-pro' }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Validate inputs
+        env:
+          OPENCODE_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "::error::pr must be a pull request number"
+            exit 1
+          fi
+          if [ -z "$OPENCODE_KEY" ]; then
+            echo "::error::Missing OPENCODE_API_KEY repository secret"
+            exit 1
+          fi
+
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr || github.event.issue.number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve base and diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          base=$(gh pr view "$PR" --json baseRefName -q .baseRefName)
+          git fetch origin "$base" --no-tags
+          base_sha=$(git rev-parse FETCH_HEAD)
+          merge_base=$(git merge-base "$base_sha" HEAD)
+          git diff "$merge_base" HEAD > "$RUNNER_TEMP/pr.diff"
+          git diff --name-only "$merge_base" HEAD > "$RUNNER_TEMP/changed-files.txt"
+          {
+            echo "BASE_SHA=$base_sha"
+            echo "MERGE_BASE=$merge_base"
+          } >> "$GITHUB_ENV"
+
+      - name: Extract trusted assets
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ai-review"
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs; do
+            if ! git cat-file -e "$BASE_SHA:.github/ai-review/$f" 2>/dev/null; then
+              echo "::error::.github/ai-review/$f is missing on the base revision"
+              exit 1
+            fi
+            git show "$BASE_SHA:.github/ai-review/$f" > "$RUNNER_TEMP/ai-review/$f"
+          done
+          for f in prompt.md opencode.json; do
+            if [ "$(git hash-object "$RUNNER_TEMP/ai-review/$f")" != "$(git rev-parse "$BASE_SHA:.github/ai-review/$f")" ]; then
+              echo "::error::trusted copy of $f does not match the base revision"
+              exit 1
+            fi
+          done
+          cp "$RUNNER_TEMP/ai-review/prompt.md" "$RUNNER_TEMP/ai-review/full-prompt.md"
+          if git cat-file -e "$BASE_SHA:.github/copilot-instructions.md" 2>/dev/null; then
+            {
+              echo ""
+              echo "## Repository instructions (from the base revision)"
+              echo ""
+              git show "$BASE_SHA:.github/copilot-instructions.md"
+            } >> "$RUNNER_TEMP/ai-review/full-prompt.md"
+          fi
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "PR: #$PR"
+            echo "Merge base: $MERGE_BASE"
+            echo "Diff file: $RUNNER_TEMP/pr.diff"
+            echo "Changed files: $RUNNER_TEMP/changed-files.txt"
+          } >> "$RUNNER_TEMP/ai-review/full-prompt.md"
+
+      - name: Sanitize PR tree
+        run: |
+          set -euo pipefail
+          rm -rf .opencode opencode.json opencode.jsonc .mcp.json .claude .agents AGENTS.md CLAUDE.md .github/ai-review
+          rm -rf .ai-review
+          mkdir -p .ai-review
+          test ! -e .opencode
+          test ! -e opencode.json
+          test ! -e .mcp.json
+          test ! -e .claude
+          test ! -e .agents
+          test ! -e .github/ai-review
+          test -d .ai-review
+          test ! -L .ai-review
+
+      - name: Install OpenCode
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          npm install --global --ignore-scripts @opencode/cli@2.2.0
+          opencode --version
+
+      - name: Remove previous AI review
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for id in $(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- ai-review -->"))) | .id'); do
+            gh api --method DELETE "repos/$REPO/issues/comments/$id"
+          done
+          for id in $(gh api --paginate "repos/$REPO/pulls/$PR/reviews" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- ai-review -->"))) | .id'); do
+            gh api --method DELETE "repos/$REPO/pulls/$PR/reviews/$id"
+          done
+
+      - name: Start broker
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_REVIEW_PR: ${{ inputs.pr || github.event.issue.number }}
+          AI_REVIEW_REPO: ${{ github.repository }}
+          AI_REVIEW_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          AI_REVIEW_BROKER_INFO: ${{ runner.temp }}/broker-url
+        run: |
+          set -euo pipefail
+          for f in prompt.md opencode.json post-server.mjs post-review.mjs; do
+            if [ "$(git hash-object "$RUNNER_TEMP/ai-review/$f")" != "$(git rev-parse "$BASE_SHA:.github/ai-review/$f")" ]; then
+              echo "::error::$f changed after extraction; refusing to start the broker"
+              exit 1
+            fi
+          done
+          node "$RUNNER_TEMP/ai-review/post-server.mjs" > "$RUNNER_TEMP/broker.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/broker.pid"
+          for _ in $(seq 1 60); do
+            if [ -s "$RUNNER_TEMP/broker-url" ]; then break; fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/broker.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/broker.log"
+              exit 1
+            fi
+            sleep 0.5
+          done
+          if [ ! -s "$RUNNER_TEMP/broker-url" ]; then
+            cat "$RUNNER_TEMP/broker.log"
+            echo "::error::broker did not start"
+            exit 1
+          fi
+          echo "AI_REVIEW_BROKER_URL=$(cat "$RUNNER_TEMP/broker-url")" >> "$GITHUB_ENV"
+
+      - name: Run reviewer
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_DB: ':memory:'
+          HOME: ${{ runner.temp }}/home
+          XDG_CONFIG_HOME: ${{ runner.temp }}/home/.config
+          XDG_DATA_HOME: ${{ runner.temp }}/home/.local/share
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME"
+          mkdir -p "$XDG_CONFIG_HOME/opencode" "$XDG_DATA_HOME"
+          cp "$RUNNER_TEMP/ai-review/opencode.json" "$XDG_CONFIG_HOME/opencode/opencode.json"
+          opencode run --standalone --auto --agent reviewer --model "$MODEL" \
+            "$(cat "$RUNNER_TEMP/ai-review/full-prompt.md")"
+
+      - name: Print review
+        if: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          cat .ai-review/review.md 2>/dev/null || echo "no review file written"
+
+      - name: Stop broker
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/broker.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/broker.pid")" 2>/dev/null || true
+          fi
+          if [ -f "$RUNNER_TEMP/broker.log" ]; then
+            echo "--- broker log ---"
+            tail -n 40 "$RUNNER_TEMP/broker.log"
+          fi

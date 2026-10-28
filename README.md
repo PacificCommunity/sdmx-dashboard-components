@@ -10,7 +10,7 @@ This repository also embeds a demo application to showcase the components (more 
 ## Usage
 
 This library provides a set of components to build visuals for SDMX data.
-Single React components are available `SDMXChart`, `SDMXMap` and `SDMXValue` to embed SDMX visuals in your application and can also be combined in a
+Single React components are available `SDMXChart`, `SDMXMap`, `SDMXValue` and `SDMXTable` to embed SDMX visuals in your application and can also be combined in a
  `SDMXDashboard` component that generates a dashboard.
 The single components are only configured via props, while the dashboard component can configured via a JSON configuration file.
 
@@ -170,6 +170,27 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
   }}
 />
 ```
+
+### Tables
+
+Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalone, to render column-chart data as an HTML table. It fetches the same data as a column chart.
+
+```javascript
+<SDMXTable
+  config={{
+    id: "table-example",
+    type: "table",
+    data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SI_POV_DAY1.FJ+FM+KI+MH+NR+PG+SB+TO+TV+VU+WS.F+M.Y15T24+Y15T999+Y25T999+_T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+    xAxisConcept: "GEO_PICT",
+    legend: { concept: "SEX" },
+    categoryLabel: "Country",
+    decimals: 1
+  }}
+  language="en"
+/>
+```
+
+The first column contains the `xAxisConcept` values and is headed `Category` unless `categoryLabel` overrides it. Each legend value becomes a value column; without `legend`, columns are built from the values of the first non-x active dimension. Missing values display `N/A`. `decimals` formats values, and `unit.text` is appended to each value column header. Tables ignore `extraOptions` and ECharts theming.
 
 ## Development
 

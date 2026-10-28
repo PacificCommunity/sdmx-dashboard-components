@@ -12,6 +12,7 @@ import Value from './components/Value';
 import Lollipop from './components/Lollipop';
 import Other from './components/Other';
 import Maps from './components/Maps';
+import Table from './components/Table';
 
 const App = () => {
   const { active_tab } = useParams();
@@ -46,6 +47,10 @@ const App = () => {
     lollipop: {
       title: 'Lollipop charts',
       component: <Lollipop />,
+    },
+    table: {
+      title: 'Tables',
+      component: <Table />,
     },
     maps: {
       title: 'Maps',

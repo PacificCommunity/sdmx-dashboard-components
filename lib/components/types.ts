@@ -24,7 +24,7 @@ export type SDMXColorPalette = {
 export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
-    type: "line" | "bar" | "pie" | "column" | "lollipop" | "treemap" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, lollipop, treemap, value, drilldown, note, map) |
+    type: "line" | "bar" | "pie" | "column" | "lollipop" | "treemap" | "value" | "drilldown" | "note" | "map" | "table", // type of the visualization (available types: line, bar, pie, column, lollipop, treemap, value, drilldown, note, map, table) |
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization
@@ -59,6 +59,10 @@ export type SDMXChartConfig = {
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
     extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
+
+export type SDMXTableConfig = {
+    categoryLabel?: string, // header of the first column; defaults to "Category"
+} & SDMXChartConfig
 
 export type SDMXMapConfig = {
     colorScheme: string, // SDMX concept of the color

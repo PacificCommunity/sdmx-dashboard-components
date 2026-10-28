@@ -1,4 +1,4 @@
-import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { ChartBuilder, ChartContext } from '../../utils/chartHelpers';
 import {
   applyBarBorderRadius,
   applySeriesLabels,
@@ -11,7 +11,9 @@ import {
   sortColumnLikeCategories,
 } from '../../utils/chartHelpers';
 
-export const buildBar: ChartBuilder = (context) => {
+type Orientation = 'bar' | 'column';
+
+export const buildColumnLikeChart = (context: ChartContext, orientation: Orientation) => {
   const { config, language } = context;
   const collection = collectColumnLike(context);
   const categories = sortColumnLikeCategories(
@@ -26,15 +28,17 @@ export const buildBar: ChartBuilder = (context) => {
     config
   );
   const series = applySeriesLabels(
-    applyBarBorderRadius(bars, 'bar'),
+    applyBarBorderRadius(bars, orientation),
     config,
     language,
-    'bar'
+    orientation
   );
-  const axes = finalizeCartesianAxes(
-    { type: 'value' },
-    { type: 'category', data: categories, axisLabel: { interval: 0 } }
-  );
+
+  const categoryAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
+  const valueAxis = { type: 'value' };
+  const axes = orientation === 'bar'
+    ? finalizeCartesianAxes(valueAxis, categoryAxis)
+    : finalizeCartesianAxes(categoryAxis, valueAxis);
 
   return {
     series,
@@ -45,3 +49,6 @@ export const buildBar: ChartBuilder = (context) => {
     legend: buildLegend(config),
   };
 };
+
+export const buildBar: ChartBuilder = (context) => buildColumnLikeChart(context, 'bar');
+export const buildColumn: ChartBuilder = (context) => buildColumnLikeChart(context, 'column');

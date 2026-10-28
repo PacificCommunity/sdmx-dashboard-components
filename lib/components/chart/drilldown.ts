@@ -67,6 +67,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
             valueByName: new Map<any, any>(),
             drilldownIdByName: new Map<any, string>(),
             itemStyleByName: new Map<any, any>(),
+            periodByName: new Map<any, any>(),
           };
           drilldownSeriesByKey.set(seriesKey, seriesEntry);
         }
@@ -90,6 +91,9 @@ export const buildDrilldown: ChartBuilder = (context) => {
             seriesEntry.valueByName.set(category, legendSerieDataValue['value']);
             seriesEntry.drilldownIdByName.set(category, drilldownId);
             seriesEntry.itemStyleByName.set(category, pointColor ? { color: pointColor } : undefined);
+            if (drilldownXAxisConcept === 'TIME_PERIOD') {
+              seriesEntry.periodByName.set(category, legendSerieDataValue[drilldownXAxisConcept]);
+            }
           }
 
           const childData = tmpArr.map((value: any) => {
@@ -168,10 +172,12 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const seriesValues = categories.map((category: any) => {
       const value = seriesEntry.valueByName.get(category);
       if (value == null) return null;
+      const period = seriesEntry.periodByName.get(category);
       return {
         value,
         name: category,
         ...(rootConcept ? { [rootConcept]: category } : {}),
+        ...(period ? { TIME_PERIOD: period } : {}),
         drilldownId: seriesEntry.drilldownIdByName.get(category),
         itemStyle: seriesEntry.itemStyleByName.get(category),
       };

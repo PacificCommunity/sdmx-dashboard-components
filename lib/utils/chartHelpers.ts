@@ -774,7 +774,12 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
               const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
               if (c) itemStyle = { color: c };
             }
-            seriesEntry.valueByName.set(category, { value: val['value'], name: val[xAxisConcept], itemStyle });
+            seriesEntry.valueByName.set(category, {
+              value: val['value'],
+              name: val[xAxisConcept],
+              itemStyle,
+              ...(val['TIME_PERIOD'] ? { TIME_PERIOD: val['TIME_PERIOD'] } : {}),
+            });
           });
       });
   });

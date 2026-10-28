@@ -2,14 +2,10 @@
 import type { EChartsOption } from 'echarts';
 import type { ChartBuilder } from '../../utils/chartHelpers';
 import {
-  applyBarBorderRadius,
-  applySeriesLabels,
-  buildCartesianGrid,
+  buildCartesianChartParts,
   buildCartesianTooltip,
   buildEchartsTitle,
-  buildLegend,
   CARTESIAN_GRID_INSETS,
-  finalizeCartesianAxes,
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
@@ -201,24 +197,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
       a.data.filter((point: any) => point !== null).length
   );
 
-  const series = applySeriesLabels(
-    applyBarBorderRadius(rootSeries, 'drilldown'),
-    config,
-    language,
-    'drilldown'
-  );
-  const axes = finalizeCartesianAxes(
-    { type: 'category', data: categories, axisLabel: { interval: 0 } },
-    { type: 'value' }
-  );
-
   return {
-    series,
-    xAxis: axes.xAxis,
-    yAxis: axes.yAxis,
-    grid: buildCartesianGrid(config, series),
-    tooltip: buildCartesianTooltip(config, language),
-    legend: buildLegend(config),
+    ...buildCartesianChartParts(config, language, categories, rootSeries, 'column'),
     drilldown: { options: drilldownOptions },
   };
 };

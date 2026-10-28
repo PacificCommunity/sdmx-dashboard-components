@@ -718,6 +718,37 @@ export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {
   );
 };
 
+// Shared tail for every category/value cartesian chart: series styling, axes, grid, tooltip,
+// and legend. `bar` is horizontal (value axis first); everything else is vertical.
+export const buildCartesianChartParts = (
+  config: SDMXChartConfig,
+  language: string,
+  categories: any[],
+  rawSeries: any[],
+  orientation: 'bar' | 'column'
+) => {
+  const series = applySeriesLabels(
+    applyBarBorderRadius(rawSeries, orientation),
+    config,
+    language,
+    orientation
+  );
+  const categoryAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
+  const valueAxis = { type: 'value' };
+  const axes = orientation === 'bar'
+    ? finalizeCartesianAxes(valueAxis, categoryAxis)
+    : finalizeCartesianAxes(categoryAxis, valueAxis);
+
+  return {
+    series,
+    xAxis: axes.xAxis,
+    yAxis: axes.yAxis,
+    grid: buildCartesianGrid(config, series),
+    tooltip: buildCartesianTooltip(config, language),
+    legend: buildLegend(config),
+  };
+};
+
 export const collectColumnLike = (context: ChartContext): ColumnLikeCollection => {
   const { config, datasets } = context;
   const xAxisConcept = config.xAxisConcept;

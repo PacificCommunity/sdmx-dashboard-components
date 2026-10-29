@@ -1,4 +1,5 @@
 import type { EChartsOption } from 'echarts';
+import type { ReactNode } from 'react';
 
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
@@ -60,8 +61,23 @@ export type SDMXChartConfig = {
     extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
 
+export type SDMXTableCellTooltipParams = {
+    name: string, // row category
+    seriesName: string, // value column header, including the unit suffix
+    value: unknown, // raw value; null for N/A
+    data: { TIME_PERIOD?: string }, // chart-shaped data object
+    marker: string, // colored-dot HTML, empty when no palette color resolves
+    color?: string, // resolved hex color, when available
+}
+
+export type SDMXTableTooltipConfig = {
+    enabled?: boolean, // default true
+    formatter?: (params: SDMXTableCellTooltipParams) => string | ReactNode,
+}
+
 export type SDMXTableConfig = {
     categoryLabel?: string, // header of the first column; defaults to "Category"
+    tooltip?: SDMXTableTooltipConfig, // value-cell tooltip
 } & SDMXChartConfig
 
 export type SDMXMapConfig = {

@@ -3,13 +3,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import parse from 'html-react-parser';
-import { Button } from 'react-bootstrap';
+import { Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { InfoCircle } from 'react-bootstrap-icons';
 import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import type { ParsedDataset } from '../../utils/chartHelpers';
-import type { SDMXChartConfig, SDMXTableConfig } from '../types';
-import { buildTableModel, type TableModel } from './model';
+import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams } from '../types';
+import { buildTableModel, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
 interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -33,7 +33,84 @@ const resolveText = (
   return parseTextExpr(text.text[language] ?? '', dimensions);
 };
 
-const renderTable = (model: TableModel, config: SDMXTableConfig): React.JSX.Element => {
+const markerHtml = (color?: string): string =>
+  color
+    ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:4px;"></span>`
+    : '';
+
+const defaultTableCellTooltip = (
+  params: SDMXTableCellTooltipParams,
+  text: string
+): React.ReactNode => (
+  <>
+    <div>{params.name}</div>
+    <div>
+      {params.marker
+        ? <span dangerouslySetInnerHTML={{ __html: params.marker }} />
+        : null}
+      {params.seriesName}: {text}
+      {params.data.TIME_PERIOD ? ` in ${params.data.TIME_PERIOD}` : ''}
+    </div>
+  </>
+);
+
+const TableCellValue = ({
+  cell,
+  category,
+  seriesName,
+  tooltipId,
+  container,
+  config,
+}: {
+  cell: TableCell;
+  category: string;
+  seriesName: string;
+  tooltipId: string;
+  container?: HTMLElement | null;
+  config: SDMXTableConfig;
+}) => {
+  const tooltip = config.tooltip;
+  const formatter = tooltip?.formatter;
+  const marker = markerHtml(cell.color);
+
+  if (tooltip?.enabled === false || (!formatter && !cell.period)) {
+    return <>{cell.text}</>;
+  }
+
+  const params: SDMXTableCellTooltipParams = {
+    name: category,
+    seriesName,
+    value: cell.rawValue,
+    data: cell.period ? { TIME_PERIOD: cell.period } : {},
+    marker,
+    ...(cell.color ? { color: cell.color } : {}),
+  };
+  const content = formatter
+    ? formatter(params)
+    : defaultTableCellTooltip(params, cell.text);
+
+  return (
+    <OverlayTrigger
+      placement="top"
+      trigger={['hover', 'focus']}
+      container={container ?? undefined}
+      overlay={
+        <Tooltip id={tooltipId}>
+          {typeof content === 'string' ? parse(content) : content}
+        </Tooltip>
+      }
+    >
+      <span className={styles.tooltipTrigger} tabIndex={0}>{cell.text}</span>
+    </OverlayTrigger>
+  );
+};
+
+const renderTable = (
+  model: TableModel,
+  config: SDMXTableConfig,
+  container?: HTMLElement | null
+): React.JSX.Element => {
+  const tableId = String(config.id ?? 'table').replace(/[^\w-]/g, '-');
   const table = (
     <table className={styles.table}>
       <thead>
@@ -45,11 +122,20 @@ const renderTable = (model: TableModel, config: SDMXTableConfig): React.JSX.Elem
         </tr>
       </thead>
       <tbody>
-        {model.rows.map((row) => (
+        {model.rows.map((row, rowIndex) => (
           <tr key={row.category}>
             <th scope="row" className={styles.categoryCell}>{row.category}</th>
-            {row.values.map((value, index) => (
-              <td key={index} className={styles.valueCell}>{value.text}</td>
+            {row.values.map((cell, columnIndex) => (
+              <td key={columnIndex} className={styles.valueCell}>
+                <TableCellValue
+                  cell={cell}
+                  category={row.category}
+                  seriesName={model.columns[columnIndex]}
+                  tooltipId={`${tableId}-tooltip-${rowIndex}-${columnIndex}`}
+                  container={container}
+                  config={config}
+                />
+              </td>
             ))}
           </tr>
         ))}
@@ -124,7 +210,7 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
       setNoteText(resolveText(config.note, dimensions, language));
       setIsLoading(false);
       setError(null);
-      callbackRef.current?.(renderTable(nextModel, config));
+      callbackRef.current?.(renderTable(nextModel, config, containerRef.current));
     } catch (err) {
       console.error(err);
       setError('Failed to load table.');
@@ -185,7 +271,7 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
           {parse(noteText)}
         </p>
       )}
-      {!isLoading && !error && model && renderTable(model, config)}
+      {!isLoading && !error && model && renderTable(model, config, containerRef.current)}
     </>
   );
 

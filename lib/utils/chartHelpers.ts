@@ -681,6 +681,18 @@ export const getLatestTimePeriodRow = (
   return latest;
 };
 
+export const sortTimePeriodValues = (data: any[], timeDimension?: any): any[] => {
+  const ranks = timePeriodRank(timeDimension);
+  return [...data].sort((a, b) => {
+    const left = timePeriodKey(a?.TIME_PERIOD, ranks);
+    const right = timePeriodKey(b?.TIME_PERIOD, ranks);
+    if (left[0] !== right[0]) return left[0] - right[0];
+    if (left[1] < right[1]) return -1;
+    if (left[1] > right[1]) return 1;
+    return 0;
+  });
+};
+
 const latestValuesByCategory = (
   data: any[],
   categoryDimension: string,

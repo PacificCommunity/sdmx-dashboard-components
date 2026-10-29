@@ -187,8 +187,8 @@ git commit -m "feat(chart): select latest non-empty time period"
 
 - [ ] **Step 1: Locate the time dimension per dataset**
 
-Add `getLatestTimePeriodRow` to the existing import list from
-`../../utils/chartHelpers`.
+Add `getLatestTimePeriodRow` and `isNonEmptyValue` to the existing import list
+from `../../utils/chartHelpers`.
 
 After `const drilldownXAxisDimension = ...`, add:
 
@@ -211,16 +211,23 @@ if (drilldownXAxisConcept === 'TIME_PERIOD') {
   if (!legendSerieDataValue) return;
   tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
 } else if (timeDimension) {
-  const totals = tmpArr.filter(
-    (val: any) => val[drilldownXAxisConcept] === 'Total'
+  const latest = getLatestTimePeriodRow(tmpArr, timeDimension);
+  if (!latest) return;
+  const periodRows = tmpArr.filter(
+    (val: any) => val['TIME_PERIOD'] === latest['TIME_PERIOD']
   );
-  legendSerieDataValue = getLatestTimePeriodRow(totals, timeDimension);
-  if (!legendSerieDataValue) return;
-  tmpArr = tmpArr.filter(
+  legendSerieDataValue = periodRows.find(
     (val: any) =>
-      val['TIME_PERIOD'] === legendSerieDataValue['TIME_PERIOD'] &&
-      val[drilldownXAxisConcept] !== 'Total'
+      val[drilldownXAxisConcept] === 'Total' && isNonEmptyValue(val.value)
+  ) ?? periodRows.find(
+    (val: any) =>
+      val[drilldownXAxisConcept] !== 'Total' && isNonEmptyValue(val.value)
   );
+  if (!legendSerieDataValue) return;
+  tmpArr = periodRows.filter(
+    (val: any) => val[drilldownXAxisConcept] !== 'Total'
+  );
+  tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
   if (tmpArr.length === 0) return;
 } else {
   tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);

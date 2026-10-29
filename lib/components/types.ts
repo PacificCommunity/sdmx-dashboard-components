@@ -1,3 +1,5 @@
+import type { EChartsOption } from 'echarts';
+
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property
@@ -7,12 +9,14 @@ export type SDMXTextConfig = {
     style?: string, // style of the text as in font-style css property
     text: string | {
         [keyof: string]: string // translations of the text in different languages
-    }
+    },
+    link?: string, // optional link for the text
+    target?: "self" | "blank" // target for the link, defaults to "blank"
 }
 
 export type SDMXColorPalette = {
     [keyof: string]: { // SDMX dimension concept
-        [keyof: string]: string | number // key value of dimension and value can be either a HEX color code or a colorIndex in case of use of styledMode
+        [keyof: string]: string // key value of dimension and value is a HEX color code
     }
 }
 
@@ -20,7 +24,7 @@ export type SDMXColorPalette = {
 export type SDMXVisualConfig = {
     id: string, // unique identifier
     colSize?: number, // size of the visualization in columns (when integrated in a dashboard)
-    type: "line" | "bar" | "pie" | "column" | "lollipop" | "treemap" | "value" | "drilldown" | "note" | "map", // type of the visualization (available types: line, bar, pie, column, lollipop, treemap, value, drilldown, note, map) |
+    type: "line" | "bar" | "pie" | "column" | "lollipop" | "treemap" | "value" | "drilldown" | "note" | "map" | "table", // type of the visualization (available types: line, bar, pie, column, lollipop, treemap, value, drilldown, note, map, table) |
     title?: SDMXTextConfig, // title of the visualization
     subtitle?: SDMXTextConfig, // subtitle of the visualization
     note?: SDMXTextConfig, // note of the visualization
@@ -53,8 +57,12 @@ export type SDMXChartConfig = {
         },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
-    extraOptions?: any // extra options for the visualization
+    extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
+
+export type SDMXTableConfig = {
+    categoryLabel?: string, // header of the first column; defaults to "Category"
+} & SDMXChartConfig
 
 export type SDMXMapConfig = {
     colorScheme: string, // SDMX concept of the color

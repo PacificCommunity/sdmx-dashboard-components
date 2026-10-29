@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "type": "module",
   "module": "dist/index.js",
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
@@ -21,8 +21,7 @@
   },
   "peerDependencies": {
     "d3-scale-chromatic": "^3.0.0",
-    "highcharts": "^11.4.6",
-    "highcharts-react-official": "^3.2.1",
+    "echarts": "^6.1.0",
     "html-react-parser": "^5.2.10",
     "ol": "^8.2.0",
     "proj4": "^2.9.2",
@@ -31,8 +30,7 @@
     "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^19.1.0",
     "react-error-boundary": "^4.0.12",
-    "sdmx-json-parser": "^0.4.0",
-    "ts-deepmerge": "^7.0.1"
+    "sdmx-json-parser": "^0.4.0"
   },
   "devDependencies": {
     "@types/d3-scale-chromatic": "^3.0.3",
@@ -50,6 +48,7 @@
     "gh-pages": "^6.3.0",
     "react-live": "^4.1.8",
     "react-router": "^7.1.5",
+    "ts-deepmerge": "^7.0.1",
     "tsdown": "^0.21.10",
     "typescript": "^5.2.2",
     "vite": "^8.0.0",

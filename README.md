@@ -10,11 +10,17 @@ This repository also embeds a demo application to showcase the components (more 
 ## Usage
 
 This library provides a set of components to build visuals for SDMX data.
-Single React components are available `SDMXChart`, `SDMXMap` and `SDMXValue` to embed SDMX visuals in your application and can also be combined in a
+Single React components are available `SDMXChart`, `SDMXMap`, `SDMXValue` and `SDMXTable` to embed SDMX visuals in your application and can also be combined in a
  `SDMXDashboard` component that generates a dashboard.
 The single components are only configured via props, while the dashboard component can configured via a JSON configuration file.
 
 More information on the syntax of the configuration can be found [here](https://github.com/PacificCommunity/sdmx-dashboard-demo/blob/main/public/doc.md)
+
+> **1.0.0 breaking change:** the chart component now renders with Apache ECharts.
+> `config.extraOptions` is a native ECharts option (options from the previous
+> charting library are no longer supported), `colorPalette` accepts hex colors only
+> (numeric color indexes / styled mode removed), and the `callback` prop receives
+> an `echarts/core` `EChartsType` instance (the `EChartsType` type is exported).
 
 ```bash
 npm install sdmx-dashboard-components
@@ -56,59 +62,100 @@ const App = () => {
 };
 ```
 
-### Highcharts Styled Mode
+The core `config` fields are independent of the charting library; chart-specific
+tuning belongs in `extraOptions` (see below).
 
-The user can also make use of all the Highcharts options passing them as props to the components with the `extraOptions` parameter of the config object.
+### Theming and native ECharts options
 
-For instance, the Highcharts `styledMode` option can be used to apply CSS styles to the chart's elements and also leverage the dark theme. In this case, the `colorPalette` parameter passed to the component must be an object that specify a colorIndex and not a color code. The integrating application has to include in its CSS the highcharts classes for the indexes. 
+Charts are rendered with [Apache ECharts](https://echarts.apache.org/) 6
+(`echarts@^6.1.0` is a peer dependency). Use the
+`theme` prop to select an ECharts theme registered with `echarts.registerTheme`,
+or pass native ECharts options through `config.extraOptions`. `extraOptions` is
+merged last onto the options built from the config: object and scalar values are
+merged in, and array values (including an array-valued `series`) are
+concatenated and deduplicated.
+`series` is special-cased: an object-valued `series` is merged into each built
+series — including drilldown child series — with matching keys overridden; an
+array-valued `series` is concatenated onto the built series.
 
 ```javascript
 <SDMXChart
   config={{
+    id: "wgi-chart",
+    type: "column",
     data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_WBWGI,1.0/A..VA_EST?startPeriod=2010&dimensionAtObservation=AllDimensions"],
     title: {
       text: "World Bank Worldwide Governance Indicator",
     },
+    xAxisConcept: "GEO_PICT",
+    yAxisConcept: "OBS_VALUE",
     colorPalette: {
       "GEO_PICT": {
-        "CK": 0,
-        "FJ": 1,
-        "FM": 2,
-        "KI": 3,
-        "MH": 4,
-        "NC": 5,
-        "PF": 8,
-        "PW": 10,
-        "SB": 11,
-        "TO": 12,
-        "VU": 14,
-        "WF": 15
+        "CK": "#E16A86",
+        "FJ": "#D7765B",
+        "FM": "#C7821C"
       }
     },
     extraOptions: {
-      chart: {
-        styledMode: true
+      yAxis: {
+        name: "Value"
+      },
+      tooltip: {
+        valueFormatter: (value) => `${value}`
       }
     }
   }}
+  language="en"
 />
 ```
 
-```css
-.highcharts-color-0 {
-  fill: #E16A86;
-  stroke: #E16A86;
-}
-.highcharts-color-1 {
-  fill: #D7765B;
-  stroke: #D7765B;
-}
-.highcharts-color-2 {
-  fill: #C7821C;
-  stroke: #C7821C;
-}
-...
-```
+`colorPalette` values must be hex color strings. The `callback` prop receives
+the `echarts/core` `EChartsType` instance, so the ECharts API can be used
+directly; the `EChartsType` type is exported by this package for annotating the
+callback. An object-valued `extraOptions.series` is merged into every built
+series — including drilldown child series — with matching keys overridden; an
+array-valued `series` is concatenated and deduplicated onto the built series.
+
+Value axes abbreviate large numbers by default: `1,500` → `1.5k`,
+`1,500,000` → `1.5M`, `1,500,000,000` → `1.5B` (one decimal, trailing `.0`
+dropped; values under 1,000 are unchanged). This applies to the value axis of
+cartesian charts and to drilldown child charts; category and time axes are not
+affected. Override the format with `extraOptions.yAxis.axisLabel.formatter`
+(or `xAxis` for a horizontal `bar`). Tooltip values are shown in full with the
+locale's thousands separators (e.g. `1,500,000 USD`), rather than abbreviated.
+Tooltips also show the x-axis value (category, or a formatted date for time
+axes) on the first line.
+Category x-axis labels show every label (`axisLabel.interval: 0`). When they
+do not fit, labels are wrapped onto multiple lines at word boundaries, and are
+rotated 45° only when a single word is too wide for the available space.
+Override with `extraOptions.xAxis.axisLabel.rotate` or
+`extraOptions.xAxis.axisLabel.formatter`. Time/date axes keep ECharts' adaptive
+tick interval.
+
+Pie slices show data labels outside the pie with leader lines, formatted as
+`Name: value` (or `Name: percentage %` when the unit is `%`). A pie legend is
+rendered only when `config.legend` is set, positioned by `legend.location`
+(`top`, `bottom`, `left`, `right`, or `none`). The pie radius adapts to the
+available cell size, including legend and label space, so they stay inside the
+chart; provide `extraOptions.series.radius` to size the pie yourself.
+
+### Accessibility, export, and registered components
+
+Accessibility (`aria.enabled`) and image export
+(`toolbox.feature.saveAsImage`) are enabled by default. Hovering the download
+button shows a "Save chart as image" tooltip above the icon. Both features can
+be overridden or disabled through `extraOptions`, for example
+`aria: { enabled: false }` or `toolbox: { show: false }`. CSV/data export is
+**not** provided because ECharts has no equivalent; `saveAsImage` exports the
+rendered chart image only.
+
+The library registers the chart types it uses (`LineChart`, `BarChart`,
+`PieChart`, `TreemapChart`, `ScatterChart`) plus `AriaComponent`,
+`GridComponent`, `TitleComponent`, `ToolboxComponent`, `TooltipComponent`,
+`LegendComponent`, and `CanvasRenderer`. If you enable other ECharts features
+through `extraOptions` (for example `dataZoom`), register the corresponding
+component from `echarts/components` in your application before rendering the
+chart.
 
 ### Sorting data by value
 
@@ -123,6 +170,27 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
   }}
 />
 ```
+
+### Tables
+
+Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalone, to render column-chart data as an HTML table. It fetches the same data as a column chart.
+
+```javascript
+<SDMXTable
+  config={{
+    id: "table-example",
+    type: "table",
+    data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SI_POV_DAY1.FJ+FM+KI+MH+NR+PG+SB+TO+TV+VU+WS.F+M.Y15T24+Y15T999+Y25T999+_T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+    xAxisConcept: "GEO_PICT",
+    legend: { concept: "SEX" },
+    categoryLabel: "Country",
+    decimals: 1
+  }}
+  language="en"
+/>
+```
+
+The first column contains the `xAxisConcept` values and is headed `Category` unless `categoryLabel` overrides it. Each legend value becomes a value column; without `legend`, columns are built from the values of the first non-x active dimension. Missing values display `N/A`. `decimals` formats values, and `unit.text` is appended to each value column header. Tables ignore `extraOptions` and ECharts theming.
 
 ## Development
 

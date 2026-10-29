@@ -17,13 +17,11 @@ const Drilldown = () => {
             drilldown: {"xAxisConcept": "TIME_PERIOD"},
             colorPalette: {"GEO_PICT": {"CK": "#E16A86", "FJ": "#D7765B", "FM": "#C7821C", "KI": "#AF8E00", "MH": "#909800", "NC": "#65A100", "NR": "#00A846", "NU": "#00AC74", "PF": "#00AD9A", "PG": "#00AABA", "PW": "#00A2D3", "SB": "#4495E2", "TO": "#9183E6", "TV": "#BD72DD", "VU": "#D766C9", "WF": "#E264AB"}},
             yAxisConcept: "OBS_VALUE",
+            labels: true,
             extraOptions: {
-                credits: {"enabled": false},
-                chart: {"styledMode": true},
-                yAxis: {"title": {"text": "per 100,000 live births"}},
-                tooltip: {"valueSuffix": " per 100,000 live births" },
-                drilldown: {"activeDataLabelStyle": {"textDecoration": "none", "color": "black"}, "activeAxisLabelStyle": {"textDecoration": "none", "color": "black"}},
-                plotOptions: {"column": {"dataLabels": {"enabled": true, "style": {"color": "contrast", "textOutline": "0px", "fontWeight": "normal"}}}}}, "subtitle": {"text": "<a href='https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD' target='_blank'>Source PDH.stat</a>"}}}
+                yAxis: {"name": "per 100,000 live births"},
+                tooltip: {"valueFormatter": (v) => \`\${Number(v).toLocaleString('en')} per 100,000 live births\`}
+            }, "subtitle": {"text": "Source PDH.stat", "link": "https://stats.pacificdata.org/vis?lc=en&df[ds]=SPC2&df[id]=DF_BP50&df[ag]=SPC&df[vs]=1.0&av=true&pd=2013%2C2023&lo=1&lom=LASTNOBSERVATIONS&dq=A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F._T._T._T._T._T._Z._T&to[TIME_PERIOD]=false&ly[rs]=INDICATOR&ly[rw]=GEO_PICT%2CTIME_PERIOD"}}}
             language='en'
         />`
     }, {
@@ -55,15 +53,14 @@ const Drilldown = () => {
                 },
                 yAxisConcept: "OBS_VALUE",
                 extraOptions: {
-                    chart: { styledMode: true },
                     yAxis: {
-                        title: {
-                            text: "per 1,000 live births"
-                        }
+                        name: "per 1,000 live births"
                     },
                     tooltip: {
-                        valueSuffix: " per 1,000 live births",
-                        pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
+                        formatter: (p: any) => {
+                            const pts = Array.isArray(p) ? p : [p];
+                            return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
+                        }
                     }
                 }
             }}
@@ -90,23 +87,12 @@ const Drilldown = () => {
             },
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
-                credits: {"enabled": false},
-                chart: { styledMode: true },
-                yAxis: {"title": {"text": "per 1,000 live births"}},
+                yAxis: {"name": "per 1,000 live births"},
                 tooltip: {
-                pointFormat: "{series.name}: {point.y} in {point.TIME_PERIOD}"
-                },
-                drilldown: {
-                activeDataLabelStyle: {"textDecoration": "none", "color": "black"},
-                activeAxisLabelStyle: {"textDecoration": "none", "color": "black"},
-                breadcrumbs: {
-                    formatter: function (level: any) {
-                        if (level.level === 0) {
-                            return ${'`'}\${level.levelOptions.data[0]['INDICATOR']}${'`'};
-                        }
-                        return ${'`'}\${level.levelOptions.name}${'`'};
+                    formatter: (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${x.seriesName}: \${Number(x.value).toLocaleString('en')} per 1,000 live births\`).join("<br/>");
                     }
-                }
                 },
             }
             }}
@@ -120,53 +106,21 @@ const Drilldown = () => {
             xAxisConcept: "GEO_PICT",
             legend: {concept: "INDICATOR", location: "none"},
             drilldown: {xAxisConcept: "TIME_PERIOD"},
-            colorPalette: {GEO_PICT: {CK: 0, FJ: 1, FM: 2, KI: 3, MH: 4, NC: 5, NR: 6, NU: 7, PF: 8, PG: 9, PW: 10, SB: 11, TO: 12, TV: 13, VU: 14, WF: 15}},
+            colorPalette: {GEO_PICT: {CK: "#E16A86", FJ: "#D7765B", FM: "#C7821C", KI: "#AF8E00", MH: "#909800", NC: "#65A100", NR: "#00A846", NU: "#00AC74", PF: "#00AD9A", PG: "#00AABA", PW: "#00A2D3", SB: "#4495E2", TO: "#9183E6", TV: "#BD72DD", VU: "#D766C9", WF: "#E264AB"}},
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
-                credits: {enabled: false},
-                chart: {
-                    styledMode: true,
-                    events: {
-                        drilldown: function(event: any) {
-                            if (event.seriesOptions.id.startsWith("Nauru")) {
-                                this.yAxis[0].update({
-                                    max: 100
-                                });
-                            }
-                        },
-                        drillup: function(event: any) {
-                            this.yAxis[0].update({
-                                max: 50
-                            });
-                        }
-                    }
-                },
                 yAxis: {
-                    title: {text: "percent"},
+                    name: "percent",
                     min: -25,
                     max: 50,
-                    endOnTick: false,
                 },
                 tooltip: {
-                    valueSuffix: " %",
-                    pointFormatter: function() {
-                        if (this.drilldown) {
-                            return ${'`'}\${this.y}\${this.series.tooltipOptions.valueSuffix} in \${this.TIME_PERIOD}${'`'};
-                        }
-                        return ${'`'}\${this.y}\${this.series.tooltipOptions.valueSuffix}${'`'};
-                    }},
-                drilldown: {
-                    breadcrumbs: {
-                        formatter: function (level: any) {
-                            if (level.level === 0) {
-                                return ${'`'}\${level.levelOptions.data[0]['INDICATOR']}${'`'};
-                            }
-                            return ${'`'}\${level.levelOptions.name}${'`'};
-                        }
+                    formatter: (p: any) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        return \`\${pts[0].name}<br/>\` + pts.map((x: any) => \`\${x.marker}\${Number(x.value).toLocaleString('en')} %\`).join("<br/>");
                     }
                 },
-                plotOptions: {column: {dataLabels: {enabled: true}}},
-                xAxis: {labels: {autoRotationLimit: 20}}
+                xAxis: {axisLabel: {rotate: 20}}
             }
             }}
             language='en'
@@ -175,7 +129,7 @@ const Drilldown = () => {
     const scope = {SDMXChart}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

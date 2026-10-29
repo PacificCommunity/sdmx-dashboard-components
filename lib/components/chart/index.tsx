@@ -1,639 +1,477 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { HighchartsReact } from "highcharts-react-official";
-import Highcharts from 'highcharts';
-import highchartsMore from "highcharts/highcharts-more";
-import highchartsExporting from "highcharts/modules/exporting";
-import highchartsAccessibility from "highcharts/modules/accessibility";
-import highchartsExportData from "highcharts/modules/export-data";
-import highchartsDumbbell from "highcharts/modules/dumbbell"
-import highchartsDrilldown from "highcharts/modules/drilldown"
-import highchartsLollipop from "highcharts/modules/lollipop"
-import highchartsTreemap from "highcharts/modules/treemap"
-// @ts-ignore
-import { SDMXParser } from 'sdmx-json-parser';
-import { parseTextExpr } from '../../utils/parseTextExpr';
-import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
-import { parseDate } from "../../utils/parseDate";
-import { InfoCircle } from "react-bootstrap-icons";
-import { Button } from "react-bootstrap";
-import { SDMXChartConfig } from "../types";
-import { AlignValue } from "highcharts";
-import { merge } from "ts-deepmerge";
-import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { EChartsOption, SeriesOption } from 'echarts';
+import type { EChartsType, ECElementEvent } from 'echarts/core';
+import { echarts } from './register';
+import { buildChartOptionFromDatasets, loadDatasets } from './options';
+import { applyPieRadius } from './pie';
+import type { BuiltChart, ParsedDataset } from '../../utils/chartHelpers';
+import {
+  applyBarLabelLayout,
+  applyCategoryLabelLayout,
+  applyYAxisTitleLayout,
+} from '../../utils/chartHelpers';
+import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
+import { Button } from 'react-bootstrap';
+import { SDMXChartConfig } from '../types';
+import { merge } from 'ts-deepmerge';
+import styles from '../../global.module.css';
 
-if (typeof Highcharts === 'object') {
-    highchartsMore(Highcharts)
-    highchartsExporting(Highcharts);
-    highchartsAccessibility(Highcharts);
-    highchartsDrilldown(Highcharts);
-    highchartsDumbbell(Highcharts);
-    highchartsLollipop(Highcharts);
-    highchartsExportData(Highcharts);
-    highchartsTreemap(Highcharts);
+interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
+  config: SDMXChartConfig;
+  language: string;
+  placeholder?: React.JSX.Element;
+  callback?: (chart: EChartsType) => void;
+  theme?: string;
 }
 
-interface ChartProps extends HighchartsReact.Props {
-    config: SDMXChartConfig;
-    language: string;
-    placeholder?: React.JSX.Element;
-    callback?: (chart: Highcharts.Chart) => void;
-}
 
-const Chart = ({ config, language, placeholder, callback, ...props }: ChartProps) => {
+const mergeExtraOptions = (option: EChartsOption, extra?: EChartsOption): EChartsOption => {
+  if (!extra) return option;
+  const { series: extraSeries, ...rest } = extra;
+  let merged = merge(option, rest) as EChartsOption;
+  if (extraSeries !== undefined) {
+    if (!Array.isArray(extraSeries) && Array.isArray(merged.series)) {
+      merged = {
+        ...merged,
+        series: (merged.series as SeriesOption[]).map((s) => merge(s, extraSeries) as SeriesOption),
+      };
+    } else {
+      merged = merge(merged, { series: extraSeries }) as EChartsOption;
+    }
+  }
+  return merged;
+};
 
-    const [hcOptions, setHcOptions] = useState<Highcharts.Options>({
-        title: {
-            text: "Loading..."
+const TITLE_WIDTH_PADDING = 24;
+
+type TitleLike = {
+  textStyle?: {
+    width?: number;
+    overflow?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+type GridLike = {
+  top?: number;
+  bottom?: number;
+  [key: string]: unknown;
+};
+
+type ComponentChild = {
+  type?: string;
+  ignore?: boolean;
+  getBoundingRect: () => { y: number; height: number };
+};
+
+type EChartsInternals = {
+  getModel: () => { getComponent: (type: string, index?: number) => unknown };
+  getViewOfComponentModel: (model: unknown) => {
+    group?: {
+      y?: number;
+      getBoundingRect: () => { y: number; height: number };
+      children?: () => ComponentChild[];
+    };
+  };
+};
+
+const getTitleEntries = (option: EChartsOption | null): TitleLike[] => {
+  const title = (option as unknown as { title?: TitleLike | TitleLike[] } | null)?.title;
+  if (!title) return [];
+  return Array.isArray(title) ? title : [title];
+};
+
+const applyTitleWidth = (option: EChartsOption | null, width: number) => {
+  if (!option || width <= 0) return;
+  const maxWidth = Math.max(0, width - TITLE_WIDTH_PADDING);
+  getTitleEntries(option).forEach((entry) => {
+    if (!entry) return;
+    entry.textStyle = { ...(entry.textStyle || {}), width: maxWidth, overflow: 'break' };
+  });
+};
+
+const hasExplicitTitleLayout = (config: SDMXChartConfig): boolean => {
+  const extraTitle = config.extraOptions?.title as unknown as TitleLike | TitleLike[] | undefined;
+  if (!extraTitle) return false;
+  const entries = Array.isArray(extraTitle) ? extraTitle : [extraTitle];
+  return entries.some((entry) => entry?.textStyle?.width !== undefined || entry?.textStyle?.overflow !== undefined);
+};
+
+const baseGridTop = new WeakMap<EChartsOption, number>();
+
+const TITLE_GRID_GAP = 20;
+const TOOLBOX_GRID_GAP = 8;
+
+type ChartComponent = 'title' | 'toolbox';
+
+const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
+  const internals = chart as unknown as EChartsInternals;
+  const model = internals.getModel()?.getComponent(type, 0);
+  if (!model) return 0;
+  const group = internals.getViewOfComponentModel(model)?.group;
+  const rect = group?.getBoundingRect();
+  if (!group || !rect?.height) return 0;
+  const groupY = typeof group.y === 'number' ? group.y : 0;
+  const viewTop = groupY + (rect.y ?? 0);
+  if (type === 'toolbox' && viewTop > chart.getHeight() / 2) return 0;
+  let bottom = viewTop + rect.height;
+  if (type === 'toolbox' && typeof group.children === 'function') {
+    let iconBottom = 0;
+    group.children().forEach((child) => {
+      if (child?.ignore || child?.type !== 'path') return;
+      const childRect = child.getBoundingRect();
+      iconBottom = Math.max(iconBottom, groupY + (childRect.y ?? 0) + childRect.height);
+    });
+    if (iconBottom > 0) bottom = iconBottom;
+  }
+  return bottom;
+};
+
+const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
+  const titleBottom = componentBottom(chart, 'title');
+  const toolboxBottom = componentBottom(chart, 'toolbox');
+  const required = Math.max(
+    titleBottom > 0 ? titleBottom + TITLE_GRID_GAP : 0,
+    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0
+  );
+  if (required <= 0) return;
+  const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
+  if (!grid || Array.isArray(grid)) return;
+  if (!baseGridTop.has(option)) {
+    baseGridTop.set(option, typeof grid.top === 'number' ? grid.top : 0);
+  }
+  const top = Math.max(baseGridTop.get(option) ?? 0, Math.ceil(required));
+  if (grid.top === top) return;
+  const nextGrid = { ...grid, top };
+  (option as unknown as { grid?: GridLike }).grid = nextGrid;
+  chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+const LEGEND_GRID_GAP = 8;
+const baseGridBottom = new WeakMap<EChartsOption, number>();
+
+const reserveLegendSpace = (chart: EChartsType, option: EChartsOption) => {
+  const internals = chart as unknown as EChartsInternals;
+  const legendModel = internals.getModel()?.getComponent('legend', 0);
+  if (!legendModel) return;
+  const legendView = internals.getViewOfComponentModel(legendModel);
+  const legendRect = legendView?.group?.getBoundingRect();
+  if (!legendRect?.height) return;
+  const legendOption = (chart.getOption().legend as Array<{ show?: boolean; bottom?: unknown }> | undefined)?.[0];
+  if (!legendOption || legendOption.show === false || legendOption.bottom == null) return;
+  const chartHeight = chart.getHeight();
+  if (chartHeight <= 0) return;
+  const legendTop = (typeof legendView?.group?.y === 'number' ? legendView.group.y : 0)
+    + (legendRect.y ?? 0);
+  const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
+  if (!grid || Array.isArray(grid)) return;
+  if (!baseGridBottom.has(option)) {
+    baseGridBottom.set(option, typeof grid.bottom === 'number' ? grid.bottom : 0);
+  }
+  const bottom = Math.max(
+    baseGridBottom.get(option) ?? 0,
+    Math.ceil(chartHeight - legendTop + LEGEND_GRID_GAP)
+  );
+  if (grid.bottom === bottom) return;
+  const nextGrid = { ...grid, bottom };
+  (option as unknown as { grid?: GridLike }).grid = nextGrid;
+  chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+const initChart = (container: HTMLDivElement, themeName?: string): EChartsType => {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  if (width > 0 && height > 0) return echarts.init(container, themeName);
+
+  const chart = echarts.init(container, themeName, { width: width || 600, height: height || 400 });
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => chart.resize());
+  }
+  return chart;
+};
+
+const Chart = ({ config, language, placeholder, callback, theme, className, style, ...props }: ChartProps) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [drilldownLabel, setDrilldownLabel] = useState('');
+  const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<EChartsType | null>(null);
+  const drilldownRef = useRef<BuiltChart['drilldown']>(undefined);
+  const baseOptionRef = useRef<EChartsOption | null>(null);
+  const stackRef = useRef<EChartsOption[]>([]);
+  const callbackRef = useRef(callback);
+  const activeThemeRef = useRef<string | undefined>(theme);
+  const configRef = useRef(config);
+  const [loadedData, setLoadedData] = useState<{
+    key: string;
+    datasets: ParsedDataset[];
+  } | null>(null);
+
+  const dataKey = JSON.stringify(config.data);
+  const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
+
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  useEffect(() => {
+    configRef.current = config;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    const { data, xAxisConcept } = configRef.current;
+    setError(null);
+    loadDatasets(data, xAxisConcept, language)
+      .then((datasets) => {
+        if (cancelled) return;
+        setLoadedData({ key: loadKey, datasets });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setError('Failed to load chart.');
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadKey, language]);
+
+  useEffect(() => {
+    const resolveTheme = () => {
+      if (theme) {
+        activeThemeRef.current = theme;
+        setActiveTheme(theme);
+        return;
+      }
+      const darkContainer = containerRef.current?.closest('[data-bs-theme="dark"]');
+      const nextTheme = darkContainer ? 'dark' : undefined;
+      activeThemeRef.current = nextTheme;
+      setActiveTheme(nextTheme);
+    };
+    resolveTheme();
+    const observer = new MutationObserver(resolveTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-bs-theme'],
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [theme]);
+
+  const goBack = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    stackRef.current.pop();
+    const previous = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+    if (previous) chart.setOption(previous, { notMerge: true });
+    setCanGoBack(stackRef.current.length > 1);
+    setDrilldownLabel('');
+  }, []);
+
+  const attachDrilldownHandler = useCallback((chart: EChartsType) => {
+    chart.on('click', (params: ECElementEvent) => {
+      const data = params.data as unknown as { drilldownId?: string } | undefined;
+      const id = data?.drilldownId;
+      const child = id ? drilldownRef.current?.options?.[id] : undefined;
+      if (!child) return;
+      const currentConfig = configRef.current;
+      if (!hasExplicitTitleLayout(currentConfig)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
+      const mergedChild = mergeExtraOptions(child, currentConfig.extraOptions);
+      applyYAxisTitleLayout(mergedChild, currentConfig.extraOptions);
+      applyBarLabelLayout(mergedChild);
+      applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
+      // Child options are built without the shared chrome; carry it over so drilldowns keep
+      // accessibility output and the save-as-image control.
+      const baseOption = baseOptionRef.current;
+      const withChrome = baseOption
+        ? { ...mergedChild, aria: baseOption.aria, toolbox: baseOption.toolbox }
+        : mergedChild;
+      stackRef.current.push(withChrome);
+      chart.setOption(withChrome, { notMerge: true });
+      reserveTopSpace(chart, withChrome);
+      reserveLegendSpace(chart, withChrome);
+      setCanGoBack(stackRef.current.length > 1);
+      setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!loadedData || loadedData.key !== loadKey) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    setIsLoading(chartRef.current === null);
+    setError(null);
+    stackRef.current = [];
+    baseOptionRef.current = null;
+    drilldownRef.current = undefined;
+    setCanGoBack(false);
+    setDrilldownLabel('');
+
+    const resizeObserver = new ResizeObserver(() => {
+      const chart = chartRef.current;
+      const container = containerRef.current;
+      if (!chart || !container) return;
+      chart.resize();
+      const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+      if (current) {
+        if (
+          config.type === 'pie'
+          && applyPieRadius(current, container.clientWidth, container.clientHeight, config)
+        ) {
+          const series = (current as unknown as { series?: unknown }).series;
+          if (series) chart.setOption({ series } as unknown as EChartsOption);
         }
-    })
+        if (applyCategoryLabelLayout(current, container.clientWidth, config.extraOptions)) {
+          const xAxis = (current as unknown as { xAxis?: unknown }).xAxis;
+          if (xAxis) chart.setOption({ xAxis } as unknown as EChartsOption);
+        }
+        if (!hasExplicitTitleLayout(config)) {
+          applyTitleWidth(current, container.clientWidth);
+          const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
+          if (title) chart.setOption({ title } as unknown as EChartsOption);
+        }
+        reserveTopSpace(chart, current);
+        reserveLegendSpace(chart, current);
+      }
+    });
+    resizeObserver.observe(container);
 
-    const [isLoading, setIsLoading] = useState(true)
+    try {
+      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets);
 
-    const chartComponentRef = useRef<HighchartsReact.RefObject>(null);
+      if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, container.clientWidth);
+      const merged = mergeExtraOptions(built.option, config.extraOptions);
+      applyYAxisTitleLayout(merged, config.extraOptions);
+      applyBarLabelLayout(merged);
+      applyCategoryLabelLayout(merged, container.clientWidth, config.extraOptions);
+      if (config.type === 'pie') {
+        applyPieRadius(merged, container.clientWidth, container.clientHeight, config);
+      }
+      drilldownRef.current = built.drilldown;
+      baseOptionRef.current = merged;
+      stackRef.current = [merged];
 
-    const sortByDimension = (data: any, dimensionId: string) => {
+      const existingChart = chartRef.current;
+      const chart = existingChart ?? initChart(container, activeThemeRef.current);
+      if (!existingChart) {
+        attachDrilldownHandler(chart);
+        chartRef.current = chart;
+      }
 
-        return data.sort((a: any, b: any) => {
-            if (dimensionId === "TIME_PERIOD") {
-                return parseInt(a[dimensionId]) - parseInt(b[dimensionId])
-            } else {
-                return a[dimensionId].localeCompare(b[dimensionId])
-            }
-        })
+      chart.setOption(merged, { notMerge: true });
+      reserveTopSpace(chart, merged);
+      reserveLegendSpace(chart, merged);
+      setIsLoading(false);
+      if (callbackRef.current) callbackRef.current(chart);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load chart.');
+      setIsLoading(false);
     }
 
-    const sortByValue = (data: any, order: string) => {
-        data.sort((a: any, b: any) => {
-            if (order === 'asc') {
-                return a.value - b.value
-            } else {
-                return b.value - a.value
-            }
-        })
-        return data
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [config, language, loadKey, loadedData, attachDrilldownHandler]);
+
+  useEffect(() => () => {
+    chartRef.current?.dispose();
+    chartRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    activeThemeRef.current = activeTheme;
+    const container = containerRef.current;
+    const chart = chartRef.current;
+    if (!container || !chart) return;
+    const currentConfig = configRef.current;
+    const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
+    if (current && !hasExplicitTitleLayout(currentConfig)) applyTitleWidth(current, container.clientWidth);
+    chart.dispose();
+    const nextChart = initChart(container, activeTheme);
+    attachDrilldownHandler(nextChart);
+    chartRef.current = nextChart;
+    if (current) {
+      nextChart.setOption(current, { notMerge: true });
+      reserveTopSpace(nextChart, current);
+      reserveLegendSpace(nextChart, current);
     }
+    if (callbackRef.current) callbackRef.current(nextChart);
+  }, [activeTheme, attachDrilldownHandler]);
 
-    const getLatestValue = (data: any, dimension: string) => {
-        let values  = []
-        values = data.map((dataPoint: any) => dataPoint[dimension])
-                    .map((e: any, i: number, final: any) => final.indexOf(e) === i && i)
-                    .filter((e: any) => data[e]).map((e: any) => data[e])
-        return values;
-    }
+  const isDarkTheme = activeTheme === 'dark';
+  const hasHeader = !isLoading && !error && canGoBack;
 
-    useEffect(() => {
+  const chartNode: React.ReactNode = (
+    <div
+      ref={containerRef}
+      className={`${className || ''} ${config.frame ? 'border' : ''}`}
+      style={{ width: '100%', height: 400, ...(style || {}) }}
+      {...props}
+    />
+  );
 
-        const dataObjs = parseDataExpr(config.data);
+  const content = (
+    <>
+      {!isLoading && !error && config.metadataLink && (
+        <div className="d-inline-block mb-1">
+          <Button variant="link" onClick={() => window.open(config.metadataLink, '_blank')}>
+            <InfoCircle />
+          </Button>
+        </div>
+      )}
+      {!isLoading && !error && canGoBack && (
+        <div className="d-flex align-items-center justify-content-start gap-2 mb-2" style={{ textAlign: 'left', fontSize: '0.8em' }}>
+          <button
+            type="button"
+            className="btn btn-link p-0 text-secondary text-decoration-none d-inline-flex align-items-center"
+            style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+            onClick={goBack}
+          >
+            <ChevronLeft className="me-1" />
+            Back
+          </button>
+          {drilldownLabel && <span className="fw-semibold">{drilldownLabel}</span>}
+        </div>
+      )}
+      <div style={{ position: 'relative' }}>
+        {config.dataLink ? (
+          <a href={config.dataLink} target="_blank" rel="noreferrer">
+            {chartNode}
+          </a>
+        ) : (
+          chartNode
+        )}
+        {isLoading && (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
+            {placeholder || (
+              <div className="opacity-50 d-table-cell align-middle" style={{ height: 400, width: 600 }}>
+                Loading...
+              </div>
+            )}
+          </div>
+        )}
+        {!isLoading && error && (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-danger">
+            Failed to load chart.
+          </div>
+        )}
+      </div>
+    </>
+  );
 
-        if (config.download) {
-            // ExportData(Highcharts)
-        }
-
-        const chartType = config.type
-        if (!chartType) {
-            throw new Error('Chart type not defined');
-        }
-        const hcExtraOptions: Highcharts.Options = {
-            plotOptions: {
-                [chartType]: {}
-            },
-        };
-
-        let seriesData: any[] = [];
-        let xAxisValue: any[] = [];
-
-        const dataPromises = dataObjs.map((dataObj) => {
-            const parser = new SDMXParser();
-            return parser.getDatasets(dataObj.dataFlowUrl, {
-                headers: new Headers({
-                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                    "Accept-Language": language
-                })
-            }).then(() => {
-                let data = parser.getData();
-                const attributes = parser.getAttributes();
-                // if alternate label specified in the DATA field, the label is appended to the data with key xAxisConcept
-                if (dataObj.alternateLabel) {
-                    data.forEach((_dataItem: any, index: number, data: [any]) => {
-                        data[index][config.xAxisConcept] = dataObj.alternateLabel;
-                    });
-                }
-                // if operation specified in the DATA field, it is applied here whether the operand is an attribute or another SDMX request
-                if (dataObj.operator) {
-                    if (dataObj.operator === 'hist') {
-                        // we compute the histogram of values along the xAxisConcept
-                        // we also need to get all the values for the xAxisConcept dimension to take into account the 'no-data'
-                        let histData: any[] = []
-                        data.forEach((_dataItem: any) => {
-                            let histItemIndex = histData.findIndex(item => {
-                                if (item.binValue === _dataItem.value) {
-                                    let found = true
-                                    return found
-                                } else {
-                                    return false
-                                }
-                            })
-                            if (histItemIndex === -1) {
-                                let histItem: any = {}
-                                histItem[config.xAxisConcept] = _dataItem[config.xAxisConcept]
-                                histItem.value = 1
-                                histItem.binValue = _dataItem.value
-                                histData.push(histItem)
-                            } else {
-                                histData[histItemIndex].value += 1
-                                histData[histItemIndex][config.xAxisConcept] = `${histData[histItemIndex][config.xAxisConcept]}<br/>${_dataItem[config.xAxisConcept]}`
-                            }
-                        })
-                        return [histData, parser.getDimensions()]
-
-                    } else if (dataObj.operator === "expr") {
-                        const scope: Scope = {x0: data.map((item: any) => item.value)}
-                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
-                        return Promise.all(dataPromises).then(() => {
-                            const astFactory = new EvalAstFactory();
-                            const expr = parseExpr(dataObj.expression, astFactory);
-
-                            // compute the expression for each data point
-                            data.forEach((item: any, index: number) => {
-                                const scopeValues : Scope = {}
-                                Object.keys(scope).forEach((varKey: string) => {
-                                    scopeValues[varKey] = scope[varKey][index];
-                                });
-                                item.value = expr?.evaluate(scopeValues)
-                            })
-                            return [data, parser.getDimensions(), parser.getActiveDimensions()]
-                        })
-                    }
-                } else {
-                    return [data, parser.getDimensions(), parser.getActiveDimensions()];
-                }
-            })
-        });
-        let titleText = config.title?'Loading...':'';
-        let subtitleText = config.subtitle?'Loading...':'';
-        Promise.all(dataPromises).then((sdmxObjs) => {
-            sdmxObjs.forEach((sdmxObj: any) => {
-                const data = sdmxObj[0];
-                const dimensions = sdmxObj[1];
-                const activeDimensions = sdmxObj[2];
-
-                if(typeof config.title == 'string') {
-                    titleText = parseTextExpr(config.title, dimensions)
-                } else if (typeof config.title === 'object') {
-                    titleText = typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions)
-                }
-                if(typeof config.subtitle == 'string') {
-                    subtitleText = parseTextExpr(config.subtitle, dimensions)
-                } else if (typeof config.subtitle === 'object') {
-                    subtitleText = typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions)
-                }
-
-                // check if xAxisConcept exists in data
-                if (config.xAxisConcept && config.xAxisConcept !== 'MULTI') {
-                    const xAxisDimension = dimensions.find((dimension: any) => dimension.id === config.xAxisConcept);
-                    if (!xAxisDimension) {
-                        throw new Error(`xAxisConcept ${config.xAxisConcept} not found in dataflow`);
-                    }
-                }
-                // check if legendConcept exists in dataFlow
-                if (config.legend && config.legend.concept && config.legend.concept !== 'MULTI') {
-                    const legendDimension = dimensions.find((dimension: any) => dimension.id === config?.legend?.concept);
-                    if (!legendDimension) {
-                        throw new Error(`legendConcept ${config.legend.concept} not found in dataflow`);
-                    }
-                }
-
-                let xAxisConcept = config.xAxisConcept;
-                let legendConcept = config?.legend?.concept || "";
-
-                // check if colorPalette is expressed with codes or colorIndexes
-                // if colorPalette uses number, it means that it is colorIndex
-                // otherwise it is a HEX color code
-                if ( config.colorPalette && config.colorPalette[legendConcept] && Object.values(config.colorPalette[legendConcept]).every((value: string|number) => {
-                    return typeof value === 'number'
-                })) {
-                    hcExtraOptions['chart'] = {
-                        'colorCount': Object.keys(config.colorPalette[legendConcept]).length
-                    }
-                }
-
-                if (chartType === 'line') {
-                    // in case xAxisConcept is empty, we use TIME_PERIOD
-                    xAxisConcept = xAxisConcept || 'TIME_PERIOD';
-                    // in case legendConcept is empty, we use the first dimension which is not TIME_PERIOD
-                    legendConcept = legendConcept || dimensions.find((dimension: any) => dimension.id !== xAxisConcept)['id']
-                    if (!legendConcept) {
-                        throw new Error(`No other dimension than ${xAxisConcept} found`);
-                    }
-                    // for (multiple) line charts, we create multiple series for each legendConcept dimension values and using xAxisConcept as the x-axis dimension
-                    let serieDimensions = dimensions.find((dimension: any) => dimension.id === legendConcept);
-                    if (xAxisConcept === "TIME_PERIOD") {
-                        // we assume that line charts have a time dimension represented on x-axis
-                        const freqDimension = dimensions.find((dimension: any) => dimension.id === "FREQ");
-                        let unit = '';
-                        let xAxisLabelformat = '';
-                        if (freqDimension.values[0].id === "A") {
-                            unit = "year";
-                            xAxisLabelformat = "{value:%Y}";
-                        } else if (freqDimension.values[0].id === "Q" || freqDimension.values[0].id === 'M') {
-                            unit = "month";
-                            xAxisLabelformat = "{value:%b %Y}";
-                        }
-                        hcExtraOptions["xAxis"] = {
-                            type: "datetime",
-                            units: [[unit, []]],
-                            labels: {
-                                format: xAxisLabelformat
-                            }
-                        }
-                    } else {
-                        hcExtraOptions["xAxis"] = {
-                            type: "category",
-                            categories: data.map((val: any) => val[xAxisConcept])
-                        }
-                    }
-                    serieDimensions.values.sort((a: any, b: any) => a.name.localeCompare(b.name)).forEach((serieDimension: any) => {
-                        // a serie is created for each of the serie's dimension value
-                        const serieData = data.filter((val: any) => val[legendConcept||""] === serieDimension.name);
-                        if(serieData.length == 0) {
-                          // continue if no data for this serie
-                          return
-                        }
-                        const sortedData = sortByDimension(serieData, xAxisConcept);
-                        const yAxisValue = sortedData.map((val: any) => {
-                            return {
-                                ...val,
-                                y: val["value"],
-                                x: parseDate(val[xAxisConcept])
-                            };
-                        });
-                        let serieDataObj: any = {
-                            name: serieDimension.name,
-                            data: yAxisValue,
-                        }
-                        if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                            serieDataObj['color'] = config.colorPalette[legendConcept][serieDimension.id]
-                            if (typeof config.colorPalette[legendConcept][serieDimension.id] === 'number') {
-                                serieDataObj.colorIndex = config.colorPalette[legendConcept][serieDimension.id]
-                                serieDataObj.className = `highcharts-colorPalette-${serieDimensions.id}`
-                            } else {
-                                serieDataObj["color"] = config.colorPalette[legendConcept][serieDimension.id]
-                            }
-                        }
-
-                        seriesData.push(serieDataObj);
-                    });
-                } else if (chartType === 'column' || chartType === 'bar' || chartType === 'lollipop' || chartType === 'treemap') {
-                    if (!xAxisConcept) {
-                        throw new Error('No xAxis concept found')
-                    }
-                    let legendDimension: any = {}
-                    // in case legendConcept is empty, we take the other active dimension and display a serie for each value
-                    if (!legendConcept) {
-                        legendDimension = activeDimensions.find((dimension: any) => dimension.id !== xAxisConcept)
-                    } else {
-                        legendDimension = dimensions.find((dimension: any) => dimension.id === legendConcept)
-                    }
-                    const xAxisDimension = activeDimensions.find((dimension: any) => dimension.id === xAxisConcept)
-                    legendDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((legendDimensionValue: any) => {
-                        const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
-                        let sortedData = sortByDimension(legendSerie, xAxisConcept)
-                        if (config.sortByValue) {
-                            sortedData = sortByValue(sortedData, config.sortByValue);
-                        }
-                        const latestValues = getLatestValue(sortedData, xAxisConcept)
-                        const yAxisValue = latestValues
-                            .filter((val: any) => val.value !== null ) // remove null values from chart
-                            .map((val: any) => {
-                                if (config.extraOptions?.plotOptions?.[chartType]?.colorByPoint) {
-                                    // add color to each point of the serie if colorByPoint is set to true
-                                    const valXAxis = xAxisDimension.values.find((xVal: any) => xVal.name === val[xAxisConcept])
-                                    if (typeof config.colorPalette?.[xAxisConcept]?.[valXAxis.id] === 'number') {
-                                        val.className = `highcharts-colorPalette-${xAxisDimension.id}`
-                                        val.colorIndex = config.colorPalette[xAxisConcept][valXAxis.id]
-                                    } else if (typeof config.colorPalette?.[xAxisConcept]?.[valXAxis.id] === 'string') {
-                                        val.color = config.colorPalette[xAxisConcept][valXAxis.id]
-                                    }
-                                }
-                                return {
-                                    ...val,
-                                    y: val["value"],
-                                    name: val[xAxisConcept]
-                                }
-                            })
-
-                        // add category to xAxis
-                        yAxisValue.forEach((val: any) => {
-                            if (!xAxisValue.includes(val[xAxisConcept])) {
-                                xAxisValue.push(val[xAxisConcept])
-                            }
-                        });
-                        if (yAxisValue.length > 0) {
-                            let serieDataObj: any = {
-                                name: legendDimensionValue.name,
-                                data: yAxisValue,
-                            }
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                // if colorPalette set for legendConcept, we use the same color for every point of the serie
-                                if (typeof config.colorPalette[legendConcept][legendDimensionValue.id] === 'number') {
-                                    serieDataObj.colorIndex = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                    serieDataObj.className = `highcharts-colorPalette-${legendDimension.id}`
-                                } else {
-                                    serieDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                }
-                            }
-
-                            seriesData.push(serieDataObj)
-                        }
-                    })
-
-                    hcExtraOptions["xAxis"] = {
-                        type: 'category'
-                    }
-
-                } else if (chartType === 'drilldown') {
-                    const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
-                    if (!drilldownXAxisConcept) {
-                        throw new Error('No drilldown xAxis concept found')
-                    }
-                    if (!legendConcept) {
-                        throw new Error('No legend concept found')
-                    }
-                    const xAxisDimension = dimensions.find((dimension: any) => dimension.id === xAxisConcept);
-                    const legendDimension = dimensions.find((dimension: any) => dimension.id === legendConcept);
-                    // const drilldownXAxisDimension = dimensions.find((dimension: any) => dimension.id === drilldownXAxisConcept)
-
-                    let dataDrilldownData: any[] = []
-                    legendDimension.values.sort((a: any, b: any) => a.id.localeCompare(b.id)).forEach((legendDimensionValue: any) => {
-                        const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
-                        let legendSerieData: any[] = []
-                        xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
-                            let tmpArr = legendSerie
-                                .filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name)
-
-                            // sort data by drilldownXAxisConcept ASC
-                            tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept)
-                            // either the "Total" value or the latest value is used to display in the column chart of drilldown
-                            let legendSerieDataValue = tmpArr.find((val: any) => val[drilldownXAxisConcept] === "Total")
-                            if (drilldownXAxisConcept === "TIME_PERIOD") {
-                                legendSerieDataValue = tmpArr[tmpArr.length - 1]
-                            } else {
-                                // filter out the "Total" value from the drilled down data array
-                                tmpArr = tmpArr.filter((val: any) => val[drilldownXAxisConcept] !== "Total")
-                            }
-
-                            if (tmpArr.length === 0) {
-                                return
-                            }
-                            let legendSerieDataObj: any = {
-                                ...legendSerieDataValue,
-                                name: xAxisDimensionValue.name,
-                                drilldown: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
-                                y: legendSerieDataValue["value"]
-                            }
-                            // if colorByPoint is true, we use the colorPalette to color the series points, each column is colored differently
-                            if (config.extraOptions?.plotOptions?.column?.colorByPoint) {
-                                if (typeof config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id] === 'number') {
-                                    legendSerieDataObj.colorIndex = config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id]
-                                    legendSerieDataObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
-                                } else {
-                                    legendSerieDataObj.color = config?.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id]
-                                }
-                            }
-                            legendSerieData.push(legendSerieDataObj);
-
-                            let drilldownSerieObj: any = {
-                                id: `${xAxisDimensionValue.name}-${legendDimensionValue.name}`,
-                                type: (drilldownXAxisConcept === "TIME_PERIOD" ? 'line' : 'column'),
-                                name: `${legendDimensionValue.name}`,
-                                // className: `highcharts-colorPalette-${xAxisDimension.id}`,
-                                data: tmpArr.map((value: any) => {
-                                    return {
-                                        ...value,
-                                        name: value[drilldownXAxisConcept],
-                                        className: Object.keys(config.colorPalette || {}).includes(xAxisDimension.id) ? `highcharts-colorPalette-${xAxisDimension.id}` : "",
-                                        y: value["value"]
-                                    }
-                                })
-                            }
-                            // depending on what is available in the passed object config `colorPalette` we use them to color the series
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(xAxisConcept)) {
-                                // else if colorPalette specifies a color based on the xAxisConcept, we apply it
-                                if (typeof config.colorPalette?.[xAxisConcept]?.[xAxisDimensionValue.id] === 'number') {
-                                    drilldownSerieObj["colorIndex"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
-                                    legendSerieDataObj.className = `highcharts-colorPalette-${legendConcept}`
-                                    drilldownSerieObj.className = `highcharts-colorPalette-${xAxisDimension.id}`
-                                } else {
-                                    drilldownSerieObj["color"] = config.colorPalette[xAxisConcept][xAxisDimensionValue.id]
-                                }
-                            } else if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                // if colorPalette specifies a color based on the legendConcept, we apply it to the drilldown serie
-                                if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {
-                                    drilldownSerieObj['colorIndex'] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                    legendSerieDataObj.className = `highcharts-colorPalette-${legendConcept}`
-                                    drilldownSerieObj.className = `highcharts-colorPalette-${legendConcept}`
-                                } else {
-                                    drilldownSerieObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                }
-                            }
-
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(drilldownXAxisConcept)) {
-                                // on top of that, if colorPalette specifies a color based on the drilldownXAxisConcept, we apply it to the drilldown serie
-                                drilldownSerieObj.data = drilldownSerieObj.data.map((item: any) => {
-                                    const dimId = dimensions.find((dim: any) => dim.id === drilldownXAxisConcept).values.find((val: any) => val.name === item[drilldownXAxisConcept]).id
-                                    let colorObj: any = {
-                                        color: config.colorPalette?.[drilldownXAxisConcept][dimId]
-                                    }
-                                    if (typeof config.colorPalette?.[drilldownXAxisConcept]?.[dimId] === 'number') {
-                                        colorObj = {
-                                            colorIndex: config.colorPalette?.[drilldownXAxisConcept][dimId]
-                                        }
-                                    }
-                                    return {
-                                        ...item,
-                                        ...colorObj
-                                    }
-                                })
-                            }
-
-                            dataDrilldownData.push(drilldownSerieObj)
-                        })
-
-
-                        if (legendSerieData.length !== 0) {
-                            let sortedData = sortByDimension(legendSerieData, xAxisDimension.id)
-                            if (config.sortByValue) {
-                                sortedData = sortByValue(sortedData, config.sortByValue);
-                            }
-                            let seriesDataObj: any = {
-                                name: legendDimensionValue.name,
-                                data: sortedData
-                            }
-                            if (config.colorPalette && Object.keys(config.colorPalette).includes(legendConcept)) {
-                                if (typeof config.colorPalette?.[legendConcept]?.[legendDimensionValue.id] === 'number') {
-                                    seriesDataObj["colorIndex"] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                    seriesDataObj.className = `highcharts-colorPalette-${legendConcept}`
-                                } else {
-                                    seriesDataObj["color"] = config.colorPalette[legendConcept][legendDimensionValue.id]
-                                }
-                            }
-                            seriesData.push(seriesDataObj)
-                        }
-
-                    })
-                    // move the serie with the more data to the top of the array to keep sorting
-                    seriesData.sort((a: any, b: any) => {
-                        return b.data.length - a.data.length
-                    })
-                    hcExtraOptions["drilldown"] = {
-                        allowPointDrilldown: false,
-                        series: dataDrilldownData
-                    }
-                    hcExtraOptions["xAxis"] = {
-                        type: 'category'
-                    }
-                } else if (chartType === 'pie') {
-                    // other chart type (bar, pie) only one serie is created using the dimension specified in xAxisConcept
-                    const sortedData = sortByDimension(data, xAxisConcept);
-                    xAxisValue = sortedData.map((val: any) => {
-                        return val[xAxisConcept];
-                    });
-                    hcExtraOptions["xAxis"] = {
-                        type: 'category',
-                        categories: xAxisValue
-                    }
-                    const yAxisValue = sortedData.map((val: any) => {
-                        return {
-                            ...val,
-                            y: val["value"],
-                            name: xAxisConcept ? val[xAxisConcept] : val[legendConcept || ""],
-                        };
-                    });
-
-                    // in case of "boolean" pie chart with only 2 values resulting of a hist, we order values DESC (true first)
-                    if (yAxisValue.length == 2 && Object.keys(yAxisValue[0]).includes("binValue")) {
-                        yAxisValue.sort((a: any, b: any) => b.binValue - a.binValue)
-                    }
-
-                    if (config.labels) {
-                        hcExtraOptions["plotOptions"] = {
-                            [chartType]: {
-                                dataLabels: {
-                                    enabled: true,
-                                    formatter: function (this: any) {
-                                        if (config?.unit?.text === '%') {
-                                            return `${this.point?.name}: ${this.point?.percentage.toFixed(config.decimals)} %`
-                                        } else {
-                                            return `${this.point?.y?.toLocaleString(language)}`
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // force legend for Pie charts
-                    if (config.legend && chartType === 'pie') {
-                        hcExtraOptions["plotOptions"] = {
-                            [chartType]: {
-                                showInLegend: true
-                            }
-                        }
-                    }
-
-                    // append data to the serie
-                    if (seriesData.length === 0) {
-                        seriesData = [{
-                            name: titleText || dimensions.find((dim: any) => dim.id === config.legend?.concept).values[0].name,
-                            data: yAxisValue,
-                        },];
-                    } else {
-                        seriesData[0].data.push(...yAxisValue);
-                    }
-                }
-            })
-            let legendAlign: AlignValue = "center"
-            if (config?.legend?.location) {
-                if (config.legend.location == "left" || config.legend.location == "right") {
-                    legendAlign = config.legend.location
-                }
-            }
-            if (config.labels) {
-                hcExtraOptions["plotOptions"]= {
-                    [chartType] : {
-                        dataLabels: {
-                            enabled: true,
-                            formatter: function (this: any) {
-                                if (config?.unit?.text === '%' && this.point.percentage !== undefined) {
-                                    if (chartType === "pie") {
-                                        return `${this.point?.name}: ${this.point?.percentage.toFixed(config.decimals)} %`
-                                    } else {
-                                        return `${this.point?.percentage.toFixed(config.decimals)} %`
-                                    }
-                                } else {
-                                    return `${this.point?.y?.toLocaleString(language)}`
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            setIsLoading(false)
-
-            setHcOptions(merge({
-                chart: {
-                    type: chartType === 'drilldown' ? 'column' : chartType
-                },
-                title: {
-                    useHTML: true,
-                    text: `<h2 style="font-weight:inherit;font-size:inherit;font-style:inherit;">${titleText}${config.metadataLink?<Button variant="link" onClick={() => window.open(config.metadataLink, "_blank")}><InfoCircle></InfoCircle></Button>:""}</h2>`,
-                    style: {
-                        fontWeight: config.title?.weight? config.title.weight : "",
-                        fontStyle: config.title?.style,
-                        fontSize: config.title?.size,
-                        color: config.title?.color
-                    },
-                    align: config.title?.align || "center"
-                },
-                subtitle: {
-                    text: `<h4>${subtitleText}</h4>`,
-                    style: {
-                        fontWeight: config.subtitle?.weight || "",
-                        fontStyle: config.subtitle?.style || "",
-                        fontSize: config.subtitle?.size,
-                        color: config.subtitle?.color
-                    },
-                    align: config.subtitle?.align || "center"
-                },
-                legend: {
-                    enabled: config.legend?.location !== "none" ? true:false,
-                    align: legendAlign
-                },
-                series: seriesData
-            }, hcExtraOptions || {}, config.extraOptions || {}));
-        })
-    }, [config, language]);
-
-    const chart: React.ReactNode =
-        <HighchartsReact
-            highcharts={Highcharts}
-            options={hcOptions}
-            ref={chartComponentRef}
-            containerProps={{ ...props, className: `${props.className} ${config.frame && config.frame ? "border" : ""}`}}
-            callback={callback}
-        />
-
-    return (
-        <>
-            {isLoading ? placeholder || <div className="opacity-50 d-table-cell align-middle" style={{ "height": 400, "width": 600 }}>Loading...</div>
-            :  config.dataLink ? <a href={ config.dataLink} target="_blank" rel="noreferrer">{chart}</a>
-                : chart
-            }
-        </>
-    )
-}
+  return isDarkTheme ? (
+    <div className={`${styles.chartDark} ${hasHeader ? styles.chartDarkHeader : ''}`}>{content}</div>
+  ) : content;
+};
 
 export default Chart;

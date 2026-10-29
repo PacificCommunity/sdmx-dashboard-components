@@ -4,10 +4,12 @@ import SDMXDashboard from "./components/dashboard";
 import SDMXChart from "./components/chart";
 import SDMXMap from "./components/map";
 import SDMXValue from "./components/value";
+import SDMXTable from "./components/table";
 import {
   type SDMXVisualConfig,
   type SDMXChartConfig,
   type SDMXMapConfig,
+  type SDMXTableConfig,
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
@@ -18,10 +20,14 @@ export {
   SDMXChart,
   SDMXMap,
   SDMXValue,
+  SDMXTable,
   SDMXVisualConfig,
   SDMXChartConfig,
   SDMXMapConfig,
+  SDMXTableConfig,
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
 };
+
+export type { EChartsType } from 'echarts/core';

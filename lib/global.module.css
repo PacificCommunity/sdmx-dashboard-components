@@ -3,6 +3,14 @@
   overflow-x: hidden;
 }
 
+.chartDark {
+  background-color: #000;
+}
+
+.chartDarkHeader {
+  padding: 0.5rem 0;
+}
+
 button.menu-button {
   position: fixed;
   top: .5em;

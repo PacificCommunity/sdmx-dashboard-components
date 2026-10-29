@@ -2,10 +2,12 @@ import React from 'react';
 import Text from '../text';
 import Value from '../value';
 import Chart from '../chart';
+import Table from '../table';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
-import { SDMXChartConfig, SDMXMapConfig, SDMXVisualConfig } from '../types';
+import { SDMXChartConfig, SDMXMapConfig, SDMXTableConfig, SDMXVisualConfig } from '../types';
 import { Map } from 'ol';
+import type { EChartsType } from 'echarts/core';
 
 /**
  * Return div/col with component corresponding to chart type
@@ -22,7 +24,7 @@ const Cell = ({
     className
 }: {
     config: SDMXVisualConfig | SDMXChartConfig | SDMXMapConfig,
-    callback?: (component: React.JSX.Element | Highcharts.Chart | Map) => void,
+    callback?: (component: React.JSX.Element | EChartsType | Map) => void,
     language: string, className: string }) => {
 
     const conditionalBoardComponent = () => {
@@ -51,6 +53,13 @@ const Cell = ({
             case 'value':
                 return <Value
                     config={config}
+                    key={language}
+                    language={language}
+                    callback={callback}
+                />
+            case 'table':
+                return <Table
+                    config={config as SDMXTableConfig}
                     key={language}
                     language={language}
                     callback={callback}

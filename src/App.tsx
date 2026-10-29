@@ -12,6 +12,7 @@ import Value from './components/Value';
 import Lollipop from './components/Lollipop';
 import Other from './components/Other';
 import Maps from './components/Maps';
+import Table from './components/Table';
 
 const App = () => {
   const { active_tab } = useParams();
@@ -47,6 +48,10 @@ const App = () => {
       title: 'Lollipop charts',
       component: <Lollipop />,
     },
+    table: {
+      title: 'Tables',
+      component: <Table />,
+    },
     maps: {
       title: 'Maps',
       component: <Maps />,
@@ -61,7 +66,7 @@ const App = () => {
     <Form>
       <Form.Check type='switch' id='theme-switch' label='Dark theme' onChange={() => setIsDarkTheme(!isDarkTheme)} />
     </Form>
-    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'} className={isDarkTheme ? 'highcharts-dark' : 'highcharts-light'}>
+    <Container data-bs-theme={isDarkTheme ? 'dark' : 'light'}>
       <Row>
         <h1>SDMX Visual Components Library</h1>
         <p>On this page, some examples of charts generated using the sdmx-dashboard-react library.</p>

@@ -17,18 +17,9 @@ const Lollipop = () => {
             },
             yAxisConcept: "OBS_VALUE",
             extraOptions: {
-                colors: ["#726f5c"],
-                chart: { styledMode: true },
-                credits: {
-                enabled: false},
-                yAxis: {
-                    title: {
-                    text: "Boolean or binary measure"
-                    }
-                },
-                tooltip: {
-                    valueSuffix: " Boolean or binary measure"
-                }
+                color: ["#726f5c"],
+                yAxis: { name: "Boolean or binary measure" },
+                tooltip: { valueFormatter: (v) => \`\${Number(v).toLocaleString('en')} Boolean or binary measure\` }
                 },
             }}
             language='en'

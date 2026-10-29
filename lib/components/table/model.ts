@@ -39,19 +39,20 @@ export const buildTableModel = (
     subtitleText: '',
   };
   const collection = collectColumnLike(context);
+  const entries = collection.entries.filter((entry) => entry.valueByName.size > 0);
   const categories = sortColumnLikeCategories(
     collection.categories,
     collection.entries,
     config.sortByValue
   );
   const unit = config.unit?.text;
-  const columns = collection.entries.map((entry) => {
+  const columns = entries.map((entry) => {
     const name = collection.resolvedNames.get(entry) ?? entry.name;
     return unit ? `${name} (${unit})` : name;
   });
   const rows = categories.map((category) => ({
     category: String(category),
-    values: collection.entries.map((entry) =>
+    values: entries.map((entry) =>
       formatTableValue(entry.valueByName.get(category)?.value, config, language)
     ),
   }));

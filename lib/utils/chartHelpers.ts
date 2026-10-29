@@ -638,6 +638,67 @@ export const getLatestValue = (data: any[], dimension: string) => {
   return values;
 };
 
+export const isNonEmptyValue = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === '') return false;
+  return !(typeof value === 'number' && Number.isNaN(value));
+};
+
+export const timePeriodRank = (dimension: any): Map<any, number> => {
+  const ranks = new Map<any, number>();
+  if (!dimension || !Array.isArray(dimension.values)) return ranks;
+  dimension.values.forEach((value: any, index: number) => {
+    if (value && value.name !== undefined) ranks.set(value.name, index);
+  });
+  return ranks;
+};
+
+const timePeriodKey = (period: any, ranks: Map<any, number>): [number, any] => {
+  const index = ranks.get(period);
+  return index === undefined ? [0, String(period)] : [1, index];
+};
+
+export const getLatestTimePeriodRow = (
+  data: any[],
+  timeDimension?: any
+): any | undefined => {
+  const ranks = timePeriodRank(timeDimension);
+  let latest: any | undefined;
+  let latestKey: [number, any] | undefined;
+  data.forEach((row) => {
+    if (!isNonEmptyValue(row?.value)) return;
+    const period = row?.TIME_PERIOD;
+    if (period === undefined || period === null || period === '') return;
+    const key = timePeriodKey(period, ranks);
+    if (
+      !latestKey ||
+      key[0] > latestKey[0] ||
+      (key[0] === latestKey[0] && key[1] > latestKey[1])
+    ) {
+      latest = row;
+      latestKey = key;
+    }
+  });
+  return latest;
+};
+
+const latestValuesByCategory = (
+  data: any[],
+  categoryDimension: string,
+  timeDimension: any
+): any[] => {
+  const byCategory = new Map<any, any[]>();
+  data.forEach((row) => {
+    if (!isNonEmptyValue(row?.value)) return;
+    const category = row[categoryDimension];
+    const rows = byCategory.get(category);
+    if (rows) rows.push(row);
+    else byCategory.set(category, [row]);
+  });
+  return Array.from(byCategory.values()).map(
+    (rows) => getLatestTimePeriodRow(rows, timeDimension) ?? rows[0]
+  );
+};
+
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
 
 export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
@@ -765,13 +826,19 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
       ? activeDimensions!.find((d: any) => d.id !== xAxisConcept)
       : dimensions.find((d: any) => d.id === legendConcept);
     const xAxisDimension = activeDimensions!.find((d: any) => d.id === xAxisConcept);
+    const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
+    const useLatestTimePeriod = Boolean(timeDimension)
+      && xAxisConcept !== 'TIME_PERIOD'
+      && legendDimension?.id !== 'TIME_PERIOD';
 
     [...legendDimension.values]
       .sort((a: any, b: any) => a.id.localeCompare(b.id))
       .forEach((legendDimensionValue: any) => {
         const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
         const sortedData = sortByDimension(legendSerie, xAxisConcept);
-        const latestValues = getLatestValue(sortedData, xAxisConcept);
+        const latestValues = useLatestTimePeriod
+          ? latestValuesByCategory(sortedData, xAxisConcept, timeDimension)
+          : getLatestValue(sortedData, xAxisConcept);
 
         const seriesKey = `${datasetIndex}:${legendDimensionValue.name}`;
         let seriesEntry = byName.get(seriesKey);

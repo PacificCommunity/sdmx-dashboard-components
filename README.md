@@ -171,6 +171,12 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 />
 ```
 
+### Choosing the observation
+
+When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values.
+
+The rule applies only when `TIME_PERIOD` is neither `xAxisConcept` nor the legend concept. Otherwise the previous first-row-per-category behaviour is kept. Tables use the same selection.
+
 ### Tables
 
 Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalone, to render column-chart data as an HTML table. It fetches the same data as a column chart.
@@ -191,6 +197,30 @@ Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalo
 ```
 
 The first column contains the `xAxisConcept` values and is headed `Category` unless `categoryLabel` overrides it. Each legend value becomes a value column; without `legend`, columns are built from the values of the first non-x active dimension. Missing values display `N/A`. `decimals` formats values, and `unit.text` is appended to each value column header. Tables ignore `extraOptions` and ECharts theming.
+
+### Table tooltips
+
+Value cells show a tooltip on hover and keyboard focus. By default it shows the row category, the value column, the formatted value, and the `TIME_PERIOD` used for that cell. Override the content with `tooltip.formatter`; it receives chart-shaped params and may return an HTML string (like a chart formatter) or a React node.
+
+```javascript
+<SDMXTable
+  config={{
+    ...
+    tooltip: {
+      formatter: ({ name, seriesName, value, data, marker }) => {
+        const display = value == null || value === ""
+          ? "N/A"
+          : Number(value).toLocaleString("en");
+        const period = data.TIME_PERIOD ? ` in ${data.TIME_PERIOD}` : "";
+        return `${name}<br/>${marker}${seriesName}: ${display}${period}`;
+      }
+    }
+  }}
+  language="en"
+/>
+```
+
+Set `tooltip: { enabled: false }` to disable them. Cells with no `TIME_PERIOD` and no formatter show no tooltip.
 
 ## Development
 

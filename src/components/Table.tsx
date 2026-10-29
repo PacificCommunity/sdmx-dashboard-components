@@ -30,6 +30,32 @@ const Table = () => {
         }}
         language='en'
     />`
+    }, {
+        id: "SH_STA_MORT_TABLE",
+        code: `<SDMXTable
+        config={{
+            data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SH_STA_MORT.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS.F+_T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],
+            id: "SH_STA_MORT_TABLE",
+            type: "table",
+            xAxisConcept: "GEO_PICT",
+            legend: { concept: "SEX", location: "none" },
+            categoryLabel: "Country",
+            decimals: 1,
+            colorPalette: {
+                SEX: { F: "#e16a86", _T: "#00ad9a" }
+            },
+            title: { text: "Maternal mortality ratio" },
+            subtitle: { text: "Source PDH.stat", style: "italic" },
+            tooltip: {
+                formatter: ({ name, seriesName, value, data, marker }) => {
+                    const display = value == null || value === "" ? "N/A" : Number(value).toLocaleString("en");
+                    const period = data.TIME_PERIOD ? " in " + data.TIME_PERIOD : "";
+                    return name + "<br/>" + marker + seriesName + ": " + display + period;
+                }
+            }
+        }}
+        language='en'
+    />`
     }]
     const scope = {SDMXTable}
     return (

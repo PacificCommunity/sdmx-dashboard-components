@@ -49,7 +49,7 @@ const renderTable = (model: TableModel, config: SDMXTableConfig): React.JSX.Elem
           <tr key={row.category}>
             <th scope="row" className={styles.categoryCell}>{row.category}</th>
             {row.values.map((value, index) => (
-              <td key={index} className={styles.valueCell}>{value}</td>
+              <td key={index} className={styles.valueCell}>{value.text}</td>
             ))}
           </tr>
         ))}

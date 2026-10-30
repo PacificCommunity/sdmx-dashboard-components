@@ -47,10 +47,18 @@ const Table = () => {
             title: { text: "Maternal mortality ratio" },
             subtitle: { text: "Source PDH.stat", style: "italic" },
             tooltip: {
-                formatter: ({ name, seriesName, value, data, marker }) => {
+                formatter: ({ name, seriesName, value, data, color }) => {
                     const display = value == null || value === "" ? "N/A" : Number(value).toLocaleString("en");
                     const period = data.TIME_PERIOD ? " in " + data.TIME_PERIOD : "";
-                    return name + "<br/>" + marker + seriesName + ": " + display + period;
+                    return (
+                        <div>
+                            <div>{name}</div>
+                            <div>
+                                {color && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, marginRight: 4 }} />}
+                                {seriesName}: {display}{period}
+                            </div>
+                        </div>
+                    );
                 }
             }
         }}

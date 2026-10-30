@@ -200,25 +200,44 @@ The first column contains the `xAxisConcept` values and is headed `Category` unl
 
 ### Table tooltips
 
-Value cells show a tooltip on hover and keyboard focus. By default it shows the row category, the value column, the formatted value, and the `TIME_PERIOD` used for that cell. Override the content with `tooltip.formatter`; it receives chart-shaped params and may return an HTML string (like a chart formatter) or a React node.
+Value cells show a tooltip on hover and keyboard focus. By default it shows the row category, the value column, the formatted value, and the `TIME_PERIOD` used for that cell. Override the content with `tooltip.formatter`; it receives chart-shaped params and returns a React node.
 
-```javascript
+```jsx
 <SDMXTable
   config={{
     ...
     tooltip: {
-      formatter: ({ name, seriesName, value, data, marker }) => {
+      formatter: ({ name, seriesName, value, data, color }) => {
         const display = value == null || value === ""
           ? "N/A"
           : Number(value).toLocaleString("en");
-        const period = data.TIME_PERIOD ? ` in ${data.TIME_PERIOD}` : "";
-        return `${name}<br/>${marker}${seriesName}: ${display}${period}`;
+        return (
+          <>
+            <div>{name}</div>
+            <div>
+              {color && (
+                <span style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: color,
+                  marginRight: 4
+                }} />
+              )}
+              {seriesName}: {display}
+              {data.TIME_PERIOD ? ` in ${data.TIME_PERIOD}` : ""}
+            </div>
+          </>
+        );
       }
     }
   }}
   language="en"
 />
 ```
+
+A string return value is still accepted, but it is sanitized: dataset-derived text is escaped, and only attribute-free formatting tags (`br`, `b`, `strong`, `i`, `em`, `u`, `small`, `span`, `div`, `p`) are kept. Attributes, styles and scripts appear as text. Prefer React nodes — they render as-is and markup cannot leak in.
 
 Set `tooltip: { enabled: false }` to disable them. Cells with no `TIME_PERIOD` and no formatter show no tooltip.
 

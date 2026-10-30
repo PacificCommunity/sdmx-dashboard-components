@@ -72,7 +72,7 @@ export type SDMXTableCellTooltipParams = {
 
 export type SDMXTableTooltipConfig = {
     enabled?: boolean, // default true
-    formatter?: (params: SDMXTableCellTooltipParams) => string | ReactNode,
+    formatter?: (params: SDMXTableCellTooltipParams) => string | ReactNode, // strings are sanitized: dataset text is escaped, only simple formatting tags survive
 }
 
 export type SDMXTableConfig = {

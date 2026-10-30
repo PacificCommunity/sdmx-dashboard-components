@@ -7,6 +7,7 @@ import { Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { InfoCircle } from 'react-bootstrap-icons';
 import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
+import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
 import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams } from '../types';
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
@@ -99,7 +100,7 @@ const TableCellValue = ({
       container={container ?? undefined}
       overlay={
         <Tooltip id={tooltipId}>
-          {typeof content === 'string' ? parse(content) : content}
+          {typeof content === 'string' ? parse(sanitizeTooltipHtml(content, marker)) : content}
         </Tooltip>
       }
     >

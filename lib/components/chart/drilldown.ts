@@ -6,10 +6,10 @@ import {
   buildCartesianTooltip,
   buildEchartsTitle,
   CARTESIAN_GRID_INSETS,
-  getLatestTimePeriodRow,
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
+  selectLatestRootRow,
   sortByDimension,
   sortByValue,
   sortTimePeriodValues,
@@ -79,15 +79,14 @@ export const buildDrilldown: ChartBuilder = (context) => {
           let legendSerieDataValue: any;
 
           if (drilldownXAxisConcept === 'TIME_PERIOD') {
-            legendSerieDataValue = getLatestTimePeriodRow(tmpArr, timeDimension);
+            legendSerieDataValue = selectLatestRootRow(tmpArr, timeDimension);
             if (!legendSerieDataValue) return;
             tmpArr = sortTimePeriodValues(tmpArr, timeDimension);
           } else if (timeDimension) {
-            const totals = tmpArr.filter(
-              (val: any) => val[drilldownXAxisConcept] === 'Total'
-            );
-            legendSerieDataValue = getLatestTimePeriodRow(totals, timeDimension)
-              ?? getLatestTimePeriodRow(tmpArr, timeDimension);
+            legendSerieDataValue = selectLatestRootRow(tmpArr, timeDimension, {
+              preferredDimension: drilldownXAxisConcept,
+              preferredValue: 'Total',
+            });
             if (!legendSerieDataValue) return;
             tmpArr = tmpArr.filter(
               (val: any) =>

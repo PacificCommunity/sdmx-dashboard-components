@@ -681,6 +681,27 @@ export const getLatestTimePeriodRow = (
   return latest;
 };
 
+export type LatestRootOptions = {
+  preferredDimension?: string;
+  preferredValue?: any;
+};
+
+export const selectLatestRootRow = (
+  rows: any[],
+  timeDimension?: any,
+  options: LatestRootOptions = {}
+): any | undefined => {
+  const { preferredDimension, preferredValue = 'Total' } = options;
+  if (preferredDimension) {
+    const preferred = rows.filter(
+      (row) => row?.[preferredDimension] === preferredValue
+    );
+    const preferredRow = getLatestTimePeriodRow(preferred, timeDimension);
+    if (preferredRow) return preferredRow;
+  }
+  return getLatestTimePeriodRow(rows, timeDimension);
+};
+
 export const sortTimePeriodValues = (data: any[], timeDimension?: any): any[] => {
   const ranks = timePeriodRank(timeDimension);
   return [...data].sort((a, b) => {
@@ -706,9 +727,9 @@ const latestValuesByCategory = (
     if (rows) rows.push(row);
     else byCategory.set(category, [row]);
   });
-  return Array.from(byCategory.values()).map(
-    (rows) => getLatestTimePeriodRow(rows, timeDimension) ?? rows[0]
-  );
+  return Array.from(byCategory.values())
+    .map((rows) => selectLatestRootRow(rows, timeDimension))
+    .filter((row): row is any => row !== undefined);
 };
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };

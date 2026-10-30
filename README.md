@@ -171,6 +171,12 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 />
 ```
 
+### Choosing the observation
+
+When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values. Time drilldowns keep the full period series in the child chart; a drilldown over another dimension uses the latest period with a non-empty `Total` value for the root (falling back to a non-`Total` row only when no `Total` exists), and shows that period's breakdown.
+
+The rule applies only when `TIME_PERIOD` is neither `xAxisConcept` nor the legend concept. Otherwise the previous first-row-per-category behaviour is kept. Tables use the same selection.
+
 ### Tables
 
 Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalone, to render column-chart data as an HTML table. It fetches the same data as a column chart.
@@ -191,6 +197,49 @@ Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalo
 ```
 
 The first column contains the `xAxisConcept` values and is headed `Category` unless `categoryLabel` overrides it. Each legend value becomes a value column; without `legend`, columns are built from the values of the first non-x active dimension. Missing values display `N/A`. `decimals` formats values, and `unit.text` is appended to each value column header. Tables ignore `extraOptions` and ECharts theming.
+
+### Table tooltips
+
+Value cells show a tooltip on hover and keyboard focus. By default it shows the row category, the value column, the formatted value, and the `TIME_PERIOD` used for that cell. Override the content with `tooltip.formatter`; it receives chart-shaped params and returns a React node.
+
+```jsx
+<SDMXTable
+  config={{
+    ...
+    tooltip: {
+      formatter: ({ name, seriesName, value, data, color }) => {
+        const display = value == null || value === ""
+          ? "N/A"
+          : Number(value).toLocaleString("en");
+        return (
+          <>
+            <div>{name}</div>
+            <div>
+              {color && (
+                <span style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: color,
+                  marginRight: 4
+                }} />
+              )}
+              {seriesName}: {display}
+              {data.TIME_PERIOD ? ` in ${data.TIME_PERIOD}` : ""}
+            </div>
+          </>
+        );
+      }
+    }
+  }}
+  language="en"
+/>
+```
+
+A string return value is still accepted, but it is sanitized: dataset-derived text is escaped, and only attribute-free formatting tags (`br`, `b`, `strong`, `i`, `em`, `u`, `small`, `span`, `div`, `p`) are kept. Attributes, styles and scripts appear as text. Prefer React nodes — they render as-is and markup cannot leak in.
+
+Set `tooltip: { enabled: false }` to disable them. Cells with no `TIME_PERIOD` and no formatter show no tooltip.
 
 ## Development
 

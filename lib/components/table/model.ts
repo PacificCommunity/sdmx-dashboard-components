@@ -1,12 +1,24 @@
 import type { ChartContext, ParsedDataset } from '../../utils/chartHelpers';
-import { collectColumnLike, sortColumnLikeCategories } from '../../utils/chartHelpers';
+import { collectColumnLike, paletteColor, sortColumnLikeCategories } from '../../utils/chartHelpers';
 import type { SDMXTableConfig } from '../types';
+
+export type TableCell = {
+  text: string;
+  rawValue: unknown;
+  period?: string;
+  color?: string;
+};
 
 export type TableModel = {
   categoryLabel: string;
   columns: string[];
-  rows: { category: string; values: string[] }[];
+  rows: { category: string; values: TableCell[] }[];
 };
+
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+export const safePaletteColor = (color?: unknown): string | undefined =>
+  typeof color === 'string' && HEX_COLOR.test(color) ? color : undefined;
 
 export const formatTableValue = (
   value: unknown,
@@ -52,9 +64,16 @@ export const buildTableModel = (
   });
   const rows = categories.map((category) => ({
     category: String(category),
-    values: entries.map((entry) =>
-      formatTableValue(entry.valueByName.get(category)?.value, config, language)
-    ),
+    values: entries.map((entry) => {
+      const point = entry.valueByName.get(category);
+      const color = safePaletteColor(paletteColor(config, entry.legendConcept, entry.id));
+      return {
+        text: formatTableValue(point?.value, config, language),
+        rawValue: point?.value ?? null,
+        ...(point?.TIME_PERIOD ? { period: String(point.TIME_PERIOD) } : {}),
+        ...(color ? { color } : {}),
+      };
+    }),
   }));
 
   return {

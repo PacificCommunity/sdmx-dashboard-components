@@ -9,8 +9,10 @@ import {
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
+  selectLatestRootRow,
   sortByDimension,
   sortByValue,
+  sortTimePeriodValues,
   withValueAxisFormatter,
 } from '../../utils/chartHelpers';
 
@@ -36,6 +38,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const xAxisDimension = dimensions.find((d: any) => d.id === xAxisConcept);
     const legendDimension = dimensions.find((d: any) => d.id === legendConcept);
     const drilldownXAxisDimension = dimensions.find((d: any) => d.id === drilldownXAxisConcept);
+    const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
     rootConcept = xAxisConcept;
 
     if (categorySortId === undefined) categorySortId = xAxisDimension.id;
@@ -70,13 +73,37 @@ export const buildDrilldown: ChartBuilder = (context) => {
         }
 
         xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
-          let tmpArr = legendSerie.filter((val: any) => val[xAxisConcept] === xAxisDimensionValue.name);
-          tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
-          let legendSerieDataValue = tmpArr.find((val: any) => val[drilldownXAxisConcept] === 'Total');
+          let tmpArr = legendSerie.filter(
+            (val: any) => val[xAxisConcept] === xAxisDimensionValue.name
+          );
+          let legendSerieDataValue: any;
+
           if (drilldownXAxisConcept === 'TIME_PERIOD') {
-            legendSerieDataValue = tmpArr[tmpArr.length - 1];
+            legendSerieDataValue = selectLatestRootRow(tmpArr, timeDimension);
+            if (!legendSerieDataValue) return;
+            tmpArr = sortTimePeriodValues(tmpArr, timeDimension);
+          } else if (timeDimension) {
+            legendSerieDataValue = selectLatestRootRow(tmpArr, timeDimension, {
+              preferredDimension: drilldownXAxisConcept,
+              preferredValue: 'Total',
+            });
+            if (!legendSerieDataValue) return;
+            tmpArr = tmpArr.filter(
+              (val: any) =>
+                val['TIME_PERIOD'] === legendSerieDataValue['TIME_PERIOD'] &&
+                val[drilldownXAxisConcept] !== 'Total'
+            );
+            tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
+            if (tmpArr.length === 0) return;
           } else {
-            tmpArr = tmpArr.filter((val: any) => val[drilldownXAxisConcept] !== 'Total');
+            tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
+            legendSerieDataValue = tmpArr.find(
+              (val: any) => val[drilldownXAxisConcept] === 'Total'
+            );
+            tmpArr = tmpArr.filter(
+              (val: any) => val[drilldownXAxisConcept] !== 'Total'
+            );
+            if (!legendSerieDataValue || tmpArr.length === 0) return;
           }
           if (!legendSerieDataValue) return;
           if (tmpArr.length === 0) return;
@@ -89,8 +116,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
             seriesEntry.drilldownIdByName.set(category, drilldownId);
             seriesEntry.itemStyleByName.set(category, pointColor ? { color: pointColor } : undefined);
             categoriesWithData.add(category);
-            if (drilldownXAxisConcept === 'TIME_PERIOD') {
-              seriesEntry.periodByName.set(category, legendSerieDataValue[drilldownXAxisConcept]);
+            if (legendSerieDataValue['TIME_PERIOD']) {
+              seriesEntry.periodByName.set(category, legendSerieDataValue['TIME_PERIOD']);
             }
           }
 

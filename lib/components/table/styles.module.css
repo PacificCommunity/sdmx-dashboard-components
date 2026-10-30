@@ -30,6 +30,15 @@
   text-align: right;
 }
 
+.tooltipTrigger {
+  cursor: help;
+  outline-offset: 2px;
+}
+
+.tooltipTrigger:focus-visible {
+  outline: 2px solid #5b8db8;
+}
+
 :global([data-bs-theme="dark"]) .container {
   background: #000;
 }
@@ -46,4 +55,8 @@
 :global([data-bs-theme="dark"]) .categoryCell,
 :global([data-bs-theme="dark"]) .valueCell {
   border-color: #495057;
+}
+
+:global([data-bs-theme="dark"]) .tooltipTrigger:focus-visible {
+  outline-color: #9ec5e8;
 }

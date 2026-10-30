@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsdown",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "test": "vitest run",
     "build-preview": "rm -rf dist && vite build -c ./vite.preview.ts",
     "preview": "rm -rf dist && NODE_ENV=development vite build -c ./vite.preview.ts && vite preview",
     "publish-pages": "gh-pages -d dist"
@@ -34,7 +35,7 @@
   },
   "devDependencies": {
     "@types/d3-scale-chromatic": "^3.0.3",
-    "@types/node": "^20.10.6",
+    "@types/node": "^24.19.2",
     "@types/proj4": "^2.5.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
@@ -52,7 +53,8 @@
     "tsdown": "^0.21.10",
     "typescript": "^5.2.2",
     "vite": "^8.0.0",
-    "vite-plugin-lib-inject-css": "^2.2.0"
+    "vite-plugin-lib-inject-css": "^2.2.0",
+    "vitest": "^5.0.5"
   },
   "files": [
     "dist",

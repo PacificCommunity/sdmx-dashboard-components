@@ -173,7 +173,7 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 
 ### Choosing the observation
 
-When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values.
+When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values. Time drilldowns keep the full period series in the child chart; a drilldown over another dimension uses the latest period with a non-empty `Total` value for the root (falling back to a non-`Total` row only when no `Total` exists), and shows that period's breakdown.
 
 The rule applies only when `TIME_PERIOD` is neither `xAxisConcept` nor the legend concept. Otherwise the previous first-row-per-category behaviour is kept. Tables use the same selection.
 

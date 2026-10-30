@@ -7,7 +7,6 @@ import {
   buildEchartsTitle,
   CARTESIAN_GRID_INSETS,
   getLatestTimePeriodRow,
-  isNonEmptyValue,
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
@@ -84,21 +83,16 @@ export const buildDrilldown: ChartBuilder = (context) => {
             if (!legendSerieDataValue) return;
             tmpArr = sortTimePeriodValues(tmpArr, timeDimension);
           } else if (timeDimension) {
-            const latest = getLatestTimePeriodRow(tmpArr, timeDimension);
-            if (!latest) return;
-            const periodRows = tmpArr.filter(
-              (val: any) => val['TIME_PERIOD'] === latest['TIME_PERIOD']
+            const totals = tmpArr.filter(
+              (val: any) => val[drilldownXAxisConcept] === 'Total'
             );
-            legendSerieDataValue = periodRows.find(
-              (val: any) =>
-                val[drilldownXAxisConcept] === 'Total' && isNonEmptyValue(val.value)
-            ) ?? periodRows.find(
-              (val: any) =>
-                val[drilldownXAxisConcept] !== 'Total' && isNonEmptyValue(val.value)
-            );
+            legendSerieDataValue = getLatestTimePeriodRow(totals, timeDimension)
+              ?? getLatestTimePeriodRow(tmpArr, timeDimension);
             if (!legendSerieDataValue) return;
-            tmpArr = periodRows.filter(
-              (val: any) => val[drilldownXAxisConcept] !== 'Total'
+            tmpArr = tmpArr.filter(
+              (val: any) =>
+                val['TIME_PERIOD'] === legendSerieDataValue['TIME_PERIOD'] &&
+                val[drilldownXAxisConcept] !== 'Total'
             );
             tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
             if (tmpArr.length === 0) return;

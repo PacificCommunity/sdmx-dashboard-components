@@ -18,4 +18,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm run build
-      - run: npm publish --access public
+      - name: Publish
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            # Pre-release: keep npm's latest tag untouched.
+            npm publish --access public --tag next
+          else
+            npm publish --access public
+          fi

@@ -9,7 +9,7 @@ import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import type { ParsedDataset } from '../../utils/chartHelpers';
 import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams } from '../types';
-import { buildTableModel, type TableCell, type TableModel } from './model';
+import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
 interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -33,10 +33,12 @@ const resolveText = (
   return parseTextExpr(text.text[language] ?? '', dimensions);
 };
 
-const markerHtml = (color?: string): string =>
-  color
-    ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:4px;"></span>`
+const markerHtml = (color?: string): string => {
+  const safe = safePaletteColor(color);
+  return safe
+    ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${safe};margin-right:4px;"></span>`
     : '';
+};
 
 const defaultTableCellTooltip = (
   params: SDMXTableCellTooltipParams,
@@ -71,7 +73,8 @@ const TableCellValue = ({
 }) => {
   const tooltip = config.tooltip;
   const formatter = tooltip?.formatter;
-  const marker = markerHtml(cell.color);
+  const color = safePaletteColor(cell.color);
+  const marker = markerHtml(color);
 
   if (tooltip?.enabled === false || (!formatter && !cell.period)) {
     return <>{cell.text}</>;
@@ -83,7 +86,7 @@ const TableCellValue = ({
     value: cell.rawValue,
     data: cell.period ? { TIME_PERIOD: cell.period } : {},
     marker,
-    ...(cell.color ? { color: cell.color } : {}),
+    ...(color ? { color } : {}),
   };
   const content = formatter
     ? formatter(params)

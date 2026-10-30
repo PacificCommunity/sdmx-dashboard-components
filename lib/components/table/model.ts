@@ -15,6 +15,11 @@ export type TableModel = {
   rows: { category: string; values: TableCell[] }[];
 };
 
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+export const safePaletteColor = (color?: unknown): string | undefined =>
+  typeof color === 'string' && HEX_COLOR.test(color) ? color : undefined;
+
 export const formatTableValue = (
   value: unknown,
   config: SDMXTableConfig,
@@ -61,7 +66,7 @@ export const buildTableModel = (
     category: String(category),
     values: entries.map((entry) => {
       const point = entry.valueByName.get(category);
-      const color = paletteColor(config, entry.legendConcept, entry.id);
+      const color = safePaletteColor(paletteColor(config, entry.legendConcept, entry.id));
       return {
         text: formatTableValue(point?.value, config, language),
         rawValue: point?.value ?? null,

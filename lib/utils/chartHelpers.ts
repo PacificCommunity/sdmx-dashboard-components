@@ -698,6 +698,11 @@ export const selectLatestRootRow = (
     );
     const preferredRow = getLatestTimePeriodRow(preferred, timeDimension);
     if (preferredRow) return preferredRow;
+    // Preferred rows exist but none has a usable value: never promote an
+    // arbitrary breakdown row to the root. A dataset mixing Total with other
+    // categories is either a multi-column chart or a data mistake; only Total
+    // counts, so leave the root missing.
+    if (preferred.length > 0) return undefined;
   }
   return getLatestTimePeriodRow(rows, timeDimension);
 };

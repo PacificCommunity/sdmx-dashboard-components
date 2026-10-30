@@ -1,6 +1,6 @@
 {
   "name": "sdmx-dashboard-components",
-  "version": "1.0.0",
+  "version": "1.0.0-rc.1",
   "type": "module",
   "module": "dist/index.js",
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",

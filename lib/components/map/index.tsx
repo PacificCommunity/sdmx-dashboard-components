@@ -29,6 +29,7 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig } from '../types';
 import RenderFeature from 'ol/render/Feature';
@@ -229,12 +230,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
 
 
     const dataFlowUrl = dataObj.dataFlowUrl;
-    sdmxParser.getDatasets(dataFlowUrl, {
-      headers: new Headers({
-        Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-        "Accept-Language": language
-      })
-    }).then(() => {
+    sdmxParser.getDatasets(dataFlowUrl, { headers: dataRequestHeaders(language) }).then(() => {
       const data = sdmxParser.getData();
       const _dim = sdmxParser.getDimensions();
       const _att = sdmxParser.getAttributes();

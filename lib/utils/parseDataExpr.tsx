@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { parseOperandTextExpr } from "./parseTextExpr";
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
 /**
@@ -16,10 +17,10 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
   }
 
   // define return object
-  let results : any[] = [];
+  const results : any[] = [];
 
   dataExprs.forEach((dataExpr: string) => {
-    let parsedExpr : any = {
+    const parsedExpr : any = {
       'dataFlowUrl': [],
     };
 

@@ -44,6 +44,28 @@ describe('toSDMXRenderError', () => {
         expect(result.code).toBe('ERR_EMPTY');
     });
 
+    it('classifies the parser NO_RECORDS error as ERR_EMPTY with the zero-observations message', () => {
+        const original = Object.assign(new Error('No records found for the requested query'), { code: 'NO_RECORDS' });
+        const result = toSDMXRenderError(original, 'vis-1');
+        expect(result.code).toBe('ERR_EMPTY');
+        expect(result.visualId).toBe('vis-1');
+        expect(result.message).toContain('The data query for visual vis-1 returned zero observations.');
+        expect(result.cause).toBe(original);
+    });
+
+    it.each([
+        'No records found',
+        // re-wrapped by the parser as Error(err): the code is lost
+        'Error: No records found (HTTP 404 NoRecordsFound)',
+    ])('classifies "%s" as ERR_EMPTY by message', (message) => {
+        expect(toSDMXRenderError(new Error(message), 'vis-1').code).toBe('ERR_EMPTY');
+    });
+
+    it('keeps a 404 without the no-records signature as ERR_FETCH', () => {
+        const result = toSDMXRenderError(new Error('Error: Error while fetching data please provide valid api url'), 'vis-1');
+        expect(result.code).toBe('ERR_FETCH');
+    });
+
     it('falls back to ERR_ENGINE and keeps the original as cause', () => {
         const original = new Error('something exploded in the renderer');
         const result = toSDMXRenderError(original, 'vis-1');

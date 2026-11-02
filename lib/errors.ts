@@ -56,6 +56,14 @@ const EMPTY_SIGNATURES = [
     /observations empty/i // parser: "Series not found and observations empty"
 ];
 
+// the parser answers an HTTP 404 whose body reports no records (.Stat Suite
+// "NoRecordsFound") with code NO_RECORDS; a re-wrap by `new Error(err)` drops
+// the code and prefixes the message, hence the message signature as well
+const NO_RECORDS_SIGNATURE = /^(?:\w*Error: )*No records found/;
+const isNoRecords = (error: unknown, message: string): boolean =>
+    (typeof error === "object" && error !== null && "code" in error && error.code === "NO_RECORDS")
+    || NO_RECORDS_SIGNATURE.test(message);
+
 /**
  * Normalise any error escaping a visual's data pipeline into an
  * SDMXRenderError with a stable code and the originating visual id.
@@ -70,6 +78,9 @@ export const toSDMXRenderError = (error: unknown, visualId: string): SDMXRenderE
         return error;
     }
     const message = error instanceof Error ? error.message : String(error);
+    // a query without records is an empty result, not a failed fetch: report
+    // it exactly as a 200 response with zero observations
+    if (isNoRecords(error, message)) return emptyDataError(visualId, undefined, error);
     let code: SDMXRenderErrorCode = "ERR_ENGINE";
     if (FETCH_SIGNATURES.some((signature) => signature.test(message))) {
         code = "ERR_FETCH";
@@ -85,11 +96,11 @@ export const toSDMXRenderError = (error: unknown, visualId: string): SDMXRenderE
  * The query behind a visual returned no observations. Raised by every
  * component, so the message stays identical across chart, table, value and map.
  */
-export const emptyDataError = (visualId: string, url: unknown): SDMXRenderError =>
+export const emptyDataError = (visualId: string, url: unknown, cause?: unknown): SDMXRenderError =>
     new SDMXRenderError(
         'ERR_EMPTY',
         `The data query for visual ${visualId} returned zero observations. Fix: widen the data query (e.g. broaden the filter or the period) or check that the dataflow contains data for the requested slice.`,
-        { visualId, detail: { url } }
+        { visualId, detail: { url }, cause }
     );
 
 /**

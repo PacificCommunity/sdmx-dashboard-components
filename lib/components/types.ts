@@ -20,6 +20,18 @@ export type VisualRenderStatus = {
 // dashboard passes them unchanged through each cell
 export type SDMXVisualProps = {
     onVisualRender?: (status: VisualRenderStatus) => void, // loading, then rendered | empty | error
+    onUserInteraction?: (interaction: VisualInteraction) => void, // clicks on chart points, series, and legend items
+}
+
+// user interaction on a rendered visual; `concepts` maps dimension id to
+// code at the interaction point, enough to reconstruct the SDMX query for
+// the clicked slice without any engine knowledge on the consumer side
+export type VisualInteraction = {
+    visualId: string,
+    kind: "point-click" | "series-click" | "legend-click",
+    concepts: Record<string, string>,
+    value?: number, // point clicks: the observation value
+    timePeriod?: string, // point clicks: the observation's TIME_PERIOD, when it has one
 }
 
 export type SDMXTextConfig = {

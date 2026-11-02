@@ -59,6 +59,8 @@ export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
           data: points,
           itemStyle: color ? { color } : undefined,
           lineStyle: color ? { color } : undefined,
+          // clicks on the line itself report a series-click
+          triggerEvent: 'line',
         });
       });
   });

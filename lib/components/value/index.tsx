@@ -21,7 +21,8 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     language: string;
 }
 
-const Value = ({ config, placeholder, callback, language, onVisualRender, ...props }: ValueProps) => {
+// onUserInteraction is taken off the DOM props: only charts report interactions
+const Value = ({ config, placeholder, callback, language, onVisualRender, onUserInteraction: _onUserInteraction, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")

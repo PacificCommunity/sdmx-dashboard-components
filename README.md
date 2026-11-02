@@ -65,6 +65,18 @@ const App = () => {
 The core `config` fields are independent of the charting library; chart-specific
 tuning belongs in `extraOptions` (see below).
 
+### Axis titles, download, and dashboard rows
+
+`xAxisTitle` and `yAxisTitle` (`SDMXTextConfig`, a string or a per-language map, with the same text expressions as `title`) name the axis of `xAxisConcept` and the value axis. For a horizontal `bar` chart, whose category axis is vertical, they are swapped accordingly. Left unset, the axes stay unnamed; `extraOptions.xAxis.name`/`yAxis.name` still override.
+
+```javascript
+config={{ ..., xAxisTitle: { text: 'Year' }, yAxisTitle: { text: { en: 'Population', fr: 'Population' } } }}
+```
+
+`download: false` hides the chart's save-as-image button; it is shown otherwise.
+
+Dashboard rows list their visuals under `columns` (type `SDMXDashboardRow`). The earlier misspelling `colums` is still accepted as a deprecated alias for this major version; migrate to `columns`.
+
 ### Theming and native ECharts options
 
 Charts are rendered with [Apache ECharts](https://echarts.apache.org/) 6
@@ -145,7 +157,7 @@ Accessibility (`aria.enabled`) and image export
 (`toolbox.feature.saveAsImage`) are enabled by default. Hovering the download
 button shows a "Save chart as image" tooltip above the icon. Both features can
 be overridden or disabled through `extraOptions`, for example
-`aria: { enabled: false }` or `toolbox: { show: false }`. CSV/data export is
+`aria: { enabled: false }`, or the config's `download: false`. CSV/data export is
 **not** provided because ECharts has no equivalent; `saveAsImage` exports the
 rendered chart image only.
 

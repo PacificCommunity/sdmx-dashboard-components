@@ -58,6 +58,8 @@ export type SDMXChartConfig = {
         },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
+    xAxisTitle?: SDMXTextConfig, // title of the xAxisConcept axis (the vertical axis of a horizontal bar chart)
+    yAxisTitle?: SDMXTextConfig, // title of the value axis (the horizontal axis of a horizontal bar chart)
     extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
 
@@ -90,11 +92,15 @@ export type SDMXMapConfig = {
 } & SDMXVisualConfig
 
 
+export type SDMXDashboardRow = {
+    columns?: Array<SDMXVisualConfig>, // visuals in this row
+    /** @deprecated misspelling kept as an alias for one major version; use `columns` */
+    colums?: Array<SDMXVisualConfig>,
+}
+
 export type SDMXDashboardConfig = {
     id: string, // unique identifier
-    rows: Array<{
-        colums: Array<SDMXVisualConfig>
-    }>,
+    rows: Array<SDMXDashboardRow>,
     languages?: Array<string>, // languages available for the dashboard
     colCount?: number, // number of columns in the dashboard
     header?: {

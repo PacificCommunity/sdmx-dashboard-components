@@ -739,12 +739,24 @@ const latestValuesByCategory = (
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
 
+// ECharts 6's form of the legacy grid.containLabel: the grid box, axis
+// labels included, sits at the given insets. It is the layout ECharts 6
+// falls back to for containLabel when LegacyGridContainLabel is not
+// registered (outer bounds = the grid box, containing axis labels, with no
+// clamp), without the deprecation warning.
+export const GRID_CONTAINS_LABELS = {
+  outerBoundsMode: 'same',
+  outerBoundsContain: 'axisLabel',
+  outerBoundsClampWidth: 0,
+  outerBoundsClampHeight: 0,
+} as const;
+
 export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
   const labels = Array.from(
     new Set(series.map((s: any) => s.name).filter(Boolean))
   );
   return {
-    containLabel: true,
+    ...GRID_CONTAINS_LABELS,
     ...CARTESIAN_GRID_INSETS,
     ...legendGridInsets(config.legend?.location, labels),
   };

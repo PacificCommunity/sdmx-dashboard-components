@@ -8,32 +8,32 @@ import {
   sortByDimension,
 } from '../../utils/chartHelpers';
 
-const pieLabelFormatter = (config: SDMXChartConfig, language: string) => {
+const pieLabelFormatter = (config: SDMXChartConfig, numberLocale: string) => {
   return (params: any) => {
     const value = Array.isArray(params.value) ? params.value[params.value.length - 1] : params.value;
     const formatted = config?.unit?.text === '%' && params.percent !== undefined
       ? `${params.percent.toFixed(Number(config.decimals) || 0)} %`
       : Number.isFinite(Number(value))
-        ? Number(value).toLocaleString(language)
+        ? Number(value).toLocaleString(numberLocale)
         : String(value ?? '');
     return `${params.name}: ${formatted}`;
   };
 };
 
-const applyPieLabels = (series: any[], config: SDMXChartConfig, language: string) =>
+const applyPieLabels = (series: any[], config: SDMXChartConfig, numberLocale: string) =>
   series.map((s: any) => ({
     ...s,
     label: {
       show: true,
       position: 'outside',
-      formatter: pieLabelFormatter(config, language),
+      formatter: pieLabelFormatter(config, numberLocale),
       fontWeight: 'bold',
       overflow: 'break',
     },
     labelLine: { ...(s.labelLine || {}), show: true },
   }));
 
-export const buildPie: ChartBuilder = ({ config, language, datasets, titleText }) => {
+export const buildPie: ChartBuilder = ({ config, numberLocale, datasets, titleText }) => {
   const xAxisConcept = config.xAxisConcept;
   let series: any[] = [];
 
@@ -66,8 +66,8 @@ export const buildPie: ChartBuilder = ({ config, language, datasets, titleText }
   });
 
   return {
-    series: applyPieLabels(series, config, language),
-    tooltip: buildValueTooltip(config, language),
+    series: applyPieLabels(series, config, numberLocale),
+    tooltip: buildValueTooltip(config, numberLocale),
     legend: config.legend ? legendPosition(config.legend.location) : { show: false },
   };
 };

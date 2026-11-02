@@ -15,6 +15,7 @@ import {
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
+  type SDMXTheme,
   type VisualRenderStatus,
 } from "./components/types";
 import { SDMXRenderError, type SDMXRenderErrorCode } from "./errors";
@@ -37,6 +38,7 @@ export {
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
+  SDMXTheme,
 };
 
 export type { EChartsType } from 'echarts/core';

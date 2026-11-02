@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig } from '../types';
+import type { SDMXChartConfig, SDMXTheme } from '../types';
+import { merge } from 'ts-deepmerge';
+import { resolveNumberLocale, themeChartOptions } from '../../utils/theme';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -119,6 +121,7 @@ export const loadDatasets = async (
 const createChartContext = (
   config: SDMXChartConfig,
   language: string,
+  numberLocale: string,
   sourceDatasets: ParsedDataset[]
 ): ChartContext => {
   let titleText = '';
@@ -155,7 +158,7 @@ const createChartContext = (
     return { ...dataset, titleText: datasetTitleText, subtitleText: datasetSubtitleText };
   });
 
-  return { config, language, datasets, titleText, subtitleText };
+  return { config, language, numberLocale, datasets, titleText, subtitleText };
 };
 
 const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
@@ -197,18 +200,21 @@ const assembleOption = (
 export const buildChartOptionFromDatasets = (
   config: SDMXChartConfig,
   language: string,
-  datasets: ParsedDataset[]
+  datasets: ParsedDataset[],
+  theme?: SDMXTheme
 ): BuiltChart => {
   const chartType = config.type;
   if (!chartType) throw new Error('Chart type not defined');
   const builder = builders[chartType as ChartType];
   if (!builder) throw new Error(`Unsupported chart type: ${chartType}`);
 
-  const context = createChartContext(config, language, datasets);
+  const context = createChartContext(config, language, resolveNumberLocale(theme, language), datasets);
   const parts = builder(context);
+  const option = assembleOption(config, context, parts);
 
   return {
-    option: assembleOption(config, context, parts),
+    // the theme sits under everything the chart sets itself
+    option: theme ? merge(themeChartOptions(theme), option) as EChartsOption : option,
     titleText: context.titleText,
     subtitleText: context.subtitleText,
     drilldown: parts.drilldown,

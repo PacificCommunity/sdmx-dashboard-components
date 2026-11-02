@@ -14,10 +14,13 @@ import {
 } from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
-import { SDMXChartConfig, SDMXVisualProps } from '../types';
+import { SDMXChartConfig, SDMXTheme, SDMXVisualProps } from '../types';
 import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { resolveNumberLocale } from '../../utils/theme';
+import { buildTableModel, type TableModel } from '../table/model';
+import HiddenDataTable from '../hiddenDataTable';
 import { merge } from 'ts-deepmerge';
 import styles from '../../global.module.css';
 
@@ -26,7 +29,9 @@ interface ChartProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (chart: EChartsType) => void;
-  theme?: string;
+  // a registered ECharts theme name (rc.1 behaviour), or an SDMXTheme
+  // merged under the chart's own options; dark mode applies under either
+  theme?: string | SDMXTheme;
 }
 
 // run an engine call; anything it throws is an ERR_ENGINE failure of the visual
@@ -209,12 +214,44 @@ const initChart = (container: HTMLDivElement, themeName?: string): EChartsType =
 // full height: room for a two- or three-line message plus padding
 const ERROR_PANEL_MIN_HEIGHT = 120;
 
+// the chart's observations as a table for assistive technology: x-axis
+// values as rows, legend values as columns. Charts whose shape the table
+// pivot cannot read (a pie without a legend dimension, say) get none; the
+// chart itself is unaffected.
+const buildA11yTable = (
+  config: SDMXChartConfig,
+  numberLocale: string,
+  datasets: ParsedDataset[],
+  titleText: string
+): { model: TableModel; caption: string } | null => {
+  try {
+    const tableConfig = {
+      ...config,
+      type: 'table' as const,
+      xAxisConcept: config.xAxisConcept || 'TIME_PERIOD',
+      categoryLabel: config.xAxisConcept || 'TIME_PERIOD',
+      sortByValue: undefined,
+    };
+    const model = buildTableModel(tableConfig, numberLocale, datasets);
+    if (model.rows.length === 0) return null;
+    return { model, caption: titleText || config.id };
+  } catch {
+    return null;
+  }
+};
+
 const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: ChartProps) => {
+  const themeName = typeof theme === 'string' ? theme : undefined;
+  const sdmxTheme = typeof theme === 'object' ? theme : undefined;
+  // keyed on content: an inline theme literal must not rebuild the chart
+  const sdmxThemeKey = JSON.stringify(sdmxTheme ?? null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [drilldownLabel, setDrilldownLabel] = useState('');
-  const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
+  const [activeTheme, setActiveTheme] = useState<string | undefined>(themeName);
+  // the observations behind the chart, for the visually hidden data table
+  const [a11yTable, setA11yTable] = useState<{ model: TableModel; caption: string } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
@@ -222,7 +259,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
   const baseOptionRef = useRef<EChartsOption | null>(null);
   const stackRef = useRef<EChartsOption[]>([]);
   const callbackRef = useRef(callback);
-  const activeThemeRef = useRef<string | undefined>(theme);
+  const activeThemeRef = useRef<string | undefined>(themeName);
   const configRef = useRef(config);
   const onVisualRenderRef = useLatest(onVisualRender);
   const [loadedData, setLoadedData] = useState<{
@@ -278,9 +315,9 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
 
   useEffect(() => {
     const resolveTheme = () => {
-      if (theme) {
-        activeThemeRef.current = theme;
-        setActiveTheme(theme);
+      if (themeName) {
+        activeThemeRef.current = themeName;
+        setActiveTheme(themeName);
         return;
       }
       const darkContainer = containerRef.current?.closest('[data-bs-theme="dark"]');
@@ -296,7 +333,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       subtree: true,
     });
     return () => observer.disconnect();
-  }, [theme]);
+  }, [themeName]);
 
   const goBack = useCallback(() => {
     const chart = chartRef.current;
@@ -328,7 +365,14 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       // accessibility output and the save-as-image control.
       const baseOption = baseOptionRef.current;
       const withChrome = baseOption
-        ? { ...mergedChild, aria: baseOption.aria, toolbox: baseOption.toolbox }
+        ? {
+          // the theme's palette and data font are chrome too
+          ...(baseOption.color !== undefined ? { color: baseOption.color } : {}),
+          ...(baseOption.textStyle !== undefined ? { textStyle: baseOption.textStyle } : {}),
+          ...mergedChild,
+          aria: baseOption.aria,
+          toolbox: baseOption.toolbox,
+        }
         : mergedChild;
       stackRef.current.push(withChrome);
       try {
@@ -394,7 +438,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     resizeObserver.observe(container);
 
     try {
-      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets);
+      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets, sdmxTheme);
 
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, container.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
@@ -420,6 +464,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
         reserveLegendSpace(chart, merged);
       });
       setIsLoading(false);
+      setA11yTable(buildA11yTable(config, resolveNumberLocale(sdmxTheme, language), loadedData.datasets, built.titleText));
       if (callbackRef.current && chart) callbackRef.current(chart);
       onVisualRenderRef.current?.({
         visualId: config.id,
@@ -433,7 +478,9 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     return () => {
       resizeObserver.disconnect();
     };
-  }, [config, language, loadKey, loadedData, attachDrilldownHandler, fail, onVisualRenderRef]);
+    // the theme is read at its sdmxThemeKey; its identity alone must not re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, sdmxThemeKey, language, loadKey, loadedData, attachDrilldownHandler, fail, onVisualRenderRef]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();
@@ -533,6 +580,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           {error.message}
         </div>
       )}
+      {!isLoading && !error && a11yTable && <HiddenDataTable model={a11yTable.model} caption={a11yTable.caption} />}
     </>
   );
 

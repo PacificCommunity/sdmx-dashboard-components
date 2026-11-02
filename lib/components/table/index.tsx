@@ -9,7 +9,8 @@ import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
-import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXVisualProps } from '../types';
+import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXTheme, SDMXVisualProps } from '../types';
+import { resolveNumberLocale } from '../../utils/theme';
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
@@ -21,6 +22,7 @@ interface TableProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (table: React.JSX.Element) => void;
+  theme?: SDMXTheme; // only numberFormat applies to a table
 }
 
 const alignClass = (align?: string): string =>
@@ -159,7 +161,8 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, onVisualRender, className, style, ...props }: TableProps) => {
+const Table = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: TableProps) => {
+  const numberLocale = resolveNumberLocale(theme, language);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{
@@ -217,7 +220,7 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
     try {
-      const nextModel = buildTableModel(config, language, loadedData.datasets);
+      const nextModel = buildTableModel(config, numberLocale, loadedData.datasets);
       const dimensions = loadedData.datasets[0]?.dimensions ?? [];
       setModel(nextModel);
       setTitleText(resolveText(config.title, dimensions, language));
@@ -234,7 +237,7 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
     } catch (err) {
       fail(err);
     }
-  }, [config, language, loadKey, loadedData, fail, onVisualRenderRef]);
+  }, [config, language, numberLocale, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>

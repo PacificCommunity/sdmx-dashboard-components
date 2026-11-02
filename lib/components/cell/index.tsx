@@ -5,7 +5,7 @@ import Chart from '../chart';
 import Table from '../table';
 import { ErrorBoundary } from 'react-error-boundary';
 import MapComponent from '../map';
-import { SDMXChartConfig, SDMXMapConfig, SDMXTableConfig, SDMXVisualConfig, SDMXVisualProps } from '../types';
+import { SDMXChartConfig, SDMXMapConfig, SDMXTableConfig, SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from '../types';
 import { toSDMXRenderError } from '../../errors';
 import { REPORTING_VISUAL_TYPES, failedRenderStatus } from '../../utils/renderStats';
 import { Map } from 'ol';
@@ -16,6 +16,7 @@ type CellProps = SDMXVisualProps & {
     callback?: (component: React.JSX.Element | EChartsType | Map) => void,
     language: string,
     className: string,
+    theme?: SDMXTheme,
 }
 
 /**
@@ -24,6 +25,7 @@ type CellProps = SDMXVisualProps & {
  * @todo create component with type = VALUE
  * 
  * @param config Dashboard element configuration
+ * @param theme dashboard theme, for charts, tables and values
  * @param visualProps props shared by every data visual, passed through unchanged
  * @returns 
  */
@@ -32,6 +34,7 @@ const Cell = ({
     callback,
     language,
     className,
+    theme,
     ...visualProps
 }: CellProps) => {
 
@@ -51,6 +54,7 @@ const Cell = ({
                     key={language}
                     callback={callback}
                     language={language}
+                    theme={theme}
                 />
             case 'map':
                 return <MapComponent
@@ -67,6 +71,7 @@ const Cell = ({
                     key={language}
                     language={language}
                     callback={callback}
+                    theme={theme}
                 />
             case 'table':
                 return <Table
@@ -75,6 +80,7 @@ const Cell = ({
                     key={language}
                     language={language}
                     callback={callback}
+                    theme={theme}
                 />
             case 'note':
                 return <Text

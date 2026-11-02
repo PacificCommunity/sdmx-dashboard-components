@@ -5,7 +5,7 @@ import Cell from './cell';
 import Text from './text';
 
 import '../global.module.css';
-import { SDMXDashboardConfig, SDMXVisualProps, VisualRenderStatus } from './types';
+import { SDMXDashboardConfig, SDMXTheme, SDMXVisualProps, VisualRenderStatus } from './types';
 import { REPORTING_VISUAL_TYPES } from '../utils/renderStats';
 import { useLatest } from '../utils/useLatest';
 
@@ -14,6 +14,7 @@ type DashboardProps = SDMXVisualProps & {
     config?: SDMXDashboardConfig,
     lang?: string,
     onRenderComplete?: (all: VisualRenderStatus[]) => void, // once per config and language, after every visual settled
+    theme?: SDMXTheme, // applied to every chart, table and value of the dashboard
 }
 
 // ids of the visuals that report a render status, in layout order

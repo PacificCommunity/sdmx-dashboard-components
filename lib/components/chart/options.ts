@@ -6,6 +6,7 @@ import type { SDMXChartConfig } from '../types';
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { SDMXRenderError, emptyDataError } from '../../errors';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
 import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
@@ -45,12 +46,7 @@ export const loadDatasets = async (
   const dataPromises = dataObjs.map((dataObj, datasetIndex) => {
     const parser = new SDMXParser();
     return parser
-      .getDatasets(dataObj.dataFlowUrl, {
-        headers: new Headers({
-          Accept: 'application/vnd.sdmx.data+json;version=2.0.0',
-          'Accept-Language': language,
-        }),
-      })
+      .getDatasets(dataObj.dataFlowUrl, { headers: dataRequestHeaders(language) })
       .then(() => {
         const data = parser.getData();
         if (data.length === 0) throw emptyDataError(id, dataObj.dataFlowUrl);

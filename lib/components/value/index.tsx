@@ -4,6 +4,7 @@ import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
+import { dataRequestHeaders } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig, SDMXVisualProps } from "../types";
@@ -147,12 +148,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
             dataObj.index = dataObj.index || 0;
 
             const dataFlowUrl = dataObj.dataFlowUrl;
-            return sdmxParser.getDatasets(dataFlowUrl, {
-                headers: new Headers({
-                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                    "Accept-Language": language
-                })
-            }).then(() => {
+            return sdmxParser.getDatasets(dataFlowUrl, { headers: dataRequestHeaders(language) }).then(() => {
                 const data = sdmxParser.getData();
                 if (data.length === 0) {
                     throw emptyDataError(config.id, dataFlowUrl);

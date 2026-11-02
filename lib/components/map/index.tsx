@@ -29,6 +29,7 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
@@ -246,12 +247,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
       initMapIfNeeded(geojsonProj);
 
       const dataFlowUrl = dataObj.dataFlowUrl;
-      return sdmxParser.getDatasets(dataFlowUrl, {
-        headers: new Headers({
-          Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-          "Accept-Language": language
-        })
-      }).then(() => {
+      return sdmxParser.getDatasets(dataFlowUrl, { headers: dataRequestHeaders(language) }).then(() => {
         if (cancelled) return;
         const data = sdmxParser.getData();
         if (data.length === 0) {

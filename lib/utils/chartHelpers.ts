@@ -860,9 +860,18 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
   datasets.forEach((dataset) => {
     const { data, dimensions, activeDimensions, alternateLabel, datasetIndex } = dataset;
     const legendConcept = config.legend?.concept || '';
-    const legendDimension = !legendConcept
-      ? activeDimensions!.find((d: any) => d.id !== xAxisConcept)
-      : dimensions.find((d: any) => d.id === legendConcept);
+    // without legend.concept the series come from the other varying
+    // dimension or, when only the x axis varies (a treemap or table of one
+    // series), from any other dimension, which then holds a single value
+    const legendDimension = legendConcept
+      ? dimensions.find((d: any) => d.id === legendConcept)
+      : activeDimensions!.find((d: any) => d.id !== xAxisConcept)
+        ?? dimensions.find((d: any) => d.id !== xAxisConcept);
+    if (!legendDimension) {
+      throw new Error(
+        `Chart type=${config.type} with xAxis=${xAxisConcept} needs a dimension besides ${xAxisConcept} to group its series, and the dataflow has none. Fix: set xAxisConcept to another dimension of the dataflow.`
+      );
+    }
     const xAxisDimension = activeDimensions!.find((d: any) => d.id === xAxisConcept);
     const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
     const useLatestTimePeriod = Boolean(timeDimension)

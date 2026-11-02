@@ -10,6 +10,7 @@ import { SDMXRenderError, emptyDataError } from '../../errors';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
 import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
+import { validateSeriesDimensions } from '../../utils/validateChartData';
 import { buildLine } from './line';
 import { buildBar, buildColumn } from './columnLikeChart';
 import { buildLollipop } from './lollipop';
@@ -151,6 +152,16 @@ const createChartContext = (
         );
       }
     }
+
+    // fail with a descriptive error instead of a blank panel or a misleading
+    // single merged series (see-saw plot)
+    validateSeriesDimensions(
+      config.type,
+      config.xAxisConcept || (config.type === 'line' ? 'TIME_PERIOD' : ''),
+      legendConcept ?? '',
+      dataset.data,
+      dimensions
+    );
 
     return { ...dataset, titleText: datasetTitleText, subtitleText: datasetSubtitleText };
   });

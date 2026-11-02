@@ -19,6 +19,7 @@ import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
 import { useTransport } from '../../utils/transport';
+import { failureSlot } from '../../utils/slots';
 import { merge } from 'ts-deepmerge';
 import styles from '../../global.module.css';
 
@@ -210,7 +211,7 @@ const initChart = (container: HTMLDivElement, themeName?: string): EChartsType =
 // full height: room for a two- or three-line message plus padding
 const ERROR_PANEL_MIN_HEIGHT = 120;
 
-const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, fetcher, onDataFetch, className, style, ...props }: ChartProps) => {
+const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -478,6 +479,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
   const isDarkTheme = activeTheme === 'dark';
   const hasHeader = !isLoading && !error && canGoBack;
   const failed = !isLoading && error !== null;
+  const errorSlot = error ? failureSlot(error, config.id, { renderEmpty, renderError }) : undefined;
 
   const chartNode: React.ReactNode = (
     <div
@@ -523,7 +525,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
         )}
         {isLoading && (
           <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
-            {placeholder || (
+            {(renderLoading ? renderLoading(config.id) : placeholder) || (
               <div className="opacity-50 d-table-cell align-middle" style={{ height: 400, width: 600 }}>
                 Loading...
               </div>
@@ -531,7 +533,8 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           </div>
         )}
       </div>
-      {failed && error && (
+      {failed && errorSlot !== undefined && errorSlot}
+      {failed && error && errorSlot === undefined && (
         <div
           className="sdmx-render-error d-flex align-items-center justify-content-center text-danger"
           style={{ padding: '1rem', textAlign: 'center', minHeight: ERROR_PANEL_MIN_HEIGHT }}

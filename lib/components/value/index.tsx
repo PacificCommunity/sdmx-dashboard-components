@@ -12,6 +12,7 @@ import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
 import { useTransport } from "../../utils/transport";
+import { failureSlot } from "../../utils/slots";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
@@ -23,7 +24,7 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     language: string;
 }
 
-const Value = ({ config, placeholder, callback, language, onVisualRender, fetcher, onDataFetch, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
@@ -291,6 +292,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
             </div>
         </div>
 
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined;
+
     return (
         <div
             ref={containerRef}
@@ -298,10 +301,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
             style={containerStyle}
             {...otherProps}>
             { renderError ?
+                errorSlot !== undefined ? errorSlot :
                 <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
                     {renderError.message}
                 </div>
-            :   isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
+            :   isLoading ? (renderLoading ? renderLoading(config.id) : placeholder) || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }

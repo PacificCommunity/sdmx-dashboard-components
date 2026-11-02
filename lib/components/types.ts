@@ -20,6 +20,9 @@ export type VisualRenderStatus = {
 // dashboard passes them unchanged through each cell
 export type SDMXVisualProps = {
     onVisualRender?: (status: VisualRenderStatus) => void, // loading, then rendered | empty | error
+    renderLoading?: (visualId: string) => ReactNode, // replaces the built-in loading state
+    renderEmpty?: (visualId: string) => ReactNode, // replaces the error state when the query returned no observations (ERR_EMPTY)
+    renderError?: (error: SDMXRenderError) => ReactNode, // replaces the built-in error state for every other failure
 }
 
 export type SDMXTextConfig = {

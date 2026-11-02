@@ -100,6 +100,21 @@ Consumers that need to know when a dashboard is ready (live previews, PDF export
 
 Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rendered`, `empty`, or `error`, the `SDMXRenderError` when failed (`empty` carries `ERR_EMPTY`), and on success a `stats` block (`observationCount`, `seriesCount`, `timePeriodRange`) that lets a consumer judge whether a technically successful render is substantively thin. `onRenderComplete` fires exactly once per config and language, after the last visual settles, including the case where every visual fails and the case of a dashboard without data visuals (`[]`). The standalone `SDMXChart`, `SDMXTable`, `SDMXValue`, and `SDMXMap` accept `onVisualRender` as well. Both callbacks are optional, and inline callbacks never re-trigger data fetching.
 
+### Custom loading, empty, and error states
+
+The built-in loading, empty, and error presentations can be replaced per state with render slots, on the dashboard and on the standalone components:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  renderLoading={(visualId) => <BrandedSpinner />}
+  renderEmpty={(visualId) => <BrandedNoDataCard />}
+  renderError={(e: SDMXRenderError) => <BrandedErrorCard code={e.code} message={e.message} />}
+/>
+```
+
+Defaults reproduce the built-in behaviour. `renderEmpty` applies when a query returns zero observations (`ERR_EMPTY`); other failures, and `ERR_EMPTY` when no `renderEmpty` is given, go to `renderError`. The map has no loading presentation of its own and shows `renderLoading` only when given.
+
 ### Theming and native ECharts options
 
 Charts are rendered with [Apache ECharts](https://echarts.apache.org/) 6

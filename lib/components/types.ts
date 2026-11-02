@@ -1,6 +1,7 @@
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 import type { SDMXRenderError } from '../errors';
+import type OLMap from 'ol/Map';
 
 // per-visual render state reported through onVisualRender/onRenderComplete;
 // `stats` lets a consumer judge substantive quality ("rendered, but one
@@ -108,7 +109,18 @@ export type SDMXMapConfig = {
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
     extraOptions?: any // extra options for the visualization
+    // background tiles: "satellite" (default, ArcGIS World Imagery), "none",
+    // or an XYZ tile URL template ({z}, {x}, {y}); tiles are requested with
+    // CORS so the map can be exported
+    basemap?: "satellite" | "none" | (string & {}),
 } & SDMXVisualConfig
+
+// the OpenLayers map handed to a map visual's callback, with an export of
+// its current view as a PNG data URL (data and basemap layers; the HTML
+// legend and tooltip are not drawn)
+export type SDMXMapInstance = OLMap & {
+    toImage: () => Promise<string>,
+}
 
 
 export type SDMXDashboardConfig = {

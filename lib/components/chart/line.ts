@@ -52,7 +52,10 @@ export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
       // an unknown frequency (hourly, say) keeps ECharts' auto-scaled labels;
       // its tooltips show the full date
       timeAxisFormat = dateFormat ?? DAY_FORMAT;
-      xAxis = dateFormat ? { type: 'time', axisLabel: { formatter: dateFormat } } : { type: 'time' };
+      // ECharts adds month and year boundary ticks between the regular ones
+      // and keeps all labels of a narrow axis: hideOverlap drops the labels
+      // that would overlap a label already shown
+      xAxis = { type: 'time', axisLabel: dateFormat ? { formatter: dateFormat, hideOverlap: true } : { hideOverlap: true } };
     } else {
       const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
       xAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };

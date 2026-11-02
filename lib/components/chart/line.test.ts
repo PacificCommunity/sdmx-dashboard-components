@@ -32,7 +32,7 @@ const dataset = (periods: string[], freq: string | null): ParsedDataset => {
     };
 };
 
-type TimeAxis = { type: string, axisLabel?: { formatter?: string } };
+type TimeAxis = { type: string, axisLabel?: { formatter?: string, hideOverlap?: boolean } };
 type LineSeries = { data: Array<[unknown, unknown]> };
 
 const build = (periods: string[], freq: string | null) => {
@@ -87,5 +87,15 @@ describe('line chart time axis', () => {
         const { xAxis } = build(['2024-01-02', '2024-01-03'], 'H');
         expect(xAxis.type).toBe('time');
         expect(xAxis.axisLabel?.formatter).toBeUndefined();
+    });
+
+    it.each([
+        ['D', ['2026-06-10', '2026-10-27']],
+        ['B', ['2026-06-10', '2026-10-27']],
+        ['M', ['2024-11', '2025-12']],
+        ['A', ['2000', '2025']],
+        ['H', ['2024-01-02', '2024-01-03']],
+    ])('hides overlapping %s labels, such as boundary ticks next to regular ones', (freq, periods) => {
+        expect(build(periods, freq).xAxis.axisLabel?.hideOverlap).toBe(true);
     });
 });

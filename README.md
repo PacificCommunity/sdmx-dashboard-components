@@ -85,6 +85,8 @@ import { SDMXRenderError, SDMXRenderErrorCode } from 'sdmx-dashboard-components'
 
 Errors carry `visualId` (the `id` of the failing visual) and, where useful, a structured `detail` object (for `ERR_CONCEPT_NOT_FOUND` it lists the available concepts; for the series-structure codes it lists the varying dimensions with their value counts). The message wording is part of the public contract and is covered by unit tests: messages name the failing concepts and state concrete fixes, so an agent or a helpful UI can correct the configuration in one step.
 
+A dashboard whose `url` config fails to load shows the failure in place of the dashboard, through `renderError` when given and otherwise in the same alert panel, and logs it with `console.error`. A non-2xx response or a network failure gives `ERR_FETCH`, a body that is not JSON `ERR_PARSE`; the error has no `visualId`, and its `detail` holds the `url` and, when a response arrived, its HTTP `status`. A new `url` clears the error.
+
 ### Render lifecycle
 
 Consumers that need to know when a dashboard is ready (live previews, PDF export, agent feedback loops) can observe render state instead of polling the DOM:

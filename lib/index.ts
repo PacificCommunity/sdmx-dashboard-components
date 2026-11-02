@@ -15,7 +15,9 @@ import {
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
+  type VisualRenderStatus,
 } from "./components/types";
+import { SDMXRenderError, type SDMXRenderErrorCode } from "./errors";
 
 export {
   SDMXDashboard,
@@ -23,6 +25,9 @@ export {
   SDMXMap,
   SDMXValue,
   SDMXTable,
+  SDMXRenderError,
+  SDMXRenderErrorCode,
+  VisualRenderStatus,
   SDMXVisualConfig,
   SDMXChartConfig,
   SDMXMapConfig,

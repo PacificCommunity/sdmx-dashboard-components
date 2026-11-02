@@ -1,5 +1,26 @@
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
+import type { SDMXRenderError } from '../errors';
+
+// per-visual render state reported through onVisualRender/onRenderComplete;
+// `stats` lets a consumer judge substantive quality ("rendered, but one
+// series and two observations") without inspecting the DOM
+export type VisualRenderStatus = {
+    visualId: string,
+    status: "loading" | "rendered" | "empty" | "error",
+    error?: SDMXRenderError, // when status === "error" or "empty"
+    stats?: { // when status === "rendered"
+        observationCount: number,
+        seriesCount: number,
+        timePeriodRange?: [string, string]
+    }
+}
+
+// props shared by every data visual (chart, table, value, map); the
+// dashboard passes them unchanged through each cell
+export type SDMXVisualProps = {
+    onVisualRender?: (status: VisualRenderStatus) => void, // loading, then rendered | empty | error
+}
 
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property

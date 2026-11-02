@@ -14,17 +14,29 @@ import {
 } from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
-import { SDMXChartConfig } from '../types';
+import { SDMXChartConfig, SDMXVisualProps } from '../types';
+import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
+import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
+import { useLatest } from '../../utils/useLatest';
 import { merge } from 'ts-deepmerge';
 import styles from '../../global.module.css';
 
-interface ChartProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ChartProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualProps {
   config: SDMXChartConfig;
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (chart: EChartsType) => void;
   theme?: string;
 }
+
+// run an engine call; anything it throws is an ERR_ENGINE failure of the visual
+const runEngine = (visualId: string, draw: () => void) => {
+  try {
+    draw();
+  } catch (err) {
+    throw engineError(visualId, err);
+  }
+};
 
 
 const mergeExtraOptions = (option: EChartsOption, extra?: EChartsOption): EChartsOption => {
@@ -193,9 +205,9 @@ const initChart = (container: HTMLDivElement, themeName?: string): EChartsType =
   return chart;
 };
 
-const Chart = ({ config, language, placeholder, callback, theme, className, style, ...props }: ChartProps) => {
+const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SDMXRenderError | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [drilldownLabel, setDrilldownLabel] = useState('');
   const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
@@ -208,6 +220,7 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
   const callbackRef = useRef(callback);
   const activeThemeRef = useRef<string | undefined>(theme);
   const configRef = useRef(config);
+  const onVisualRenderRef = useLatest(onVisualRender);
   const [loadedData, setLoadedData] = useState<{
     key: string;
     datasets: ParsedDataset[];
@@ -224,25 +237,40 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     configRef.current = config;
   });
 
+  // every failure of the visual, from fetch to engine, lands here: shown in
+  // the panel and reported as a typed error. ECharts has no error event and
+  // re-renders on animation frames, so an instance that threw is disposed:
+  // left alive it would throw again outside any handler on its next frame.
+  const fail = useCallback((err: unknown) => {
+    const visualId = configRef.current.id;
+    const renderError = toSDMXRenderError(err, visualId);
+    if (renderError.code === 'ERR_ENGINE' && chartRef.current) {
+      chartRef.current.dispose();
+      chartRef.current = null;
+    }
+    setError(renderError);
+    setIsLoading(false);
+    onVisualRenderRef.current?.(failedRenderStatus(renderError, visualId));
+  }, [onVisualRenderRef]);
+
   useEffect(() => {
     let cancelled = false;
-    const { data, xAxisConcept } = configRef.current;
+    const currentConfig = configRef.current;
     setError(null);
-    loadDatasets(data, xAxisConcept, language)
+    onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
+    loadDatasets(currentConfig, language)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(err);
-        setError('Failed to load chart.');
-        setIsLoading(false);
+        fail(err);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language]);
+  }, [loadKey, language, fail, onVisualRenderRef]);
 
   useEffect(() => {
     const resolveTheme = () => {
@@ -271,10 +299,14 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     if (!chart) return;
     stackRef.current.pop();
     const previous = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
-    if (previous) chart.setOption(previous, { notMerge: true });
+    try {
+      if (previous) runEngine(configRef.current.id, () => chart.setOption(previous, { notMerge: true }));
+    } catch (err) {
+      fail(err);
+    }
     setCanGoBack(stackRef.current.length > 1);
     setDrilldownLabel('');
-  }, []);
+  }, [fail]);
 
   const attachDrilldownHandler = useCallback((chart: EChartsType) => {
     chart.on('click', (params: ECElementEvent) => {
@@ -295,13 +327,20 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
         ? { ...mergedChild, aria: baseOption.aria, toolbox: baseOption.toolbox }
         : mergedChild;
       stackRef.current.push(withChrome);
-      chart.setOption(withChrome, { notMerge: true });
-      reserveTopSpace(chart, withChrome);
-      reserveLegendSpace(chart, withChrome);
+      try {
+        runEngine(currentConfig.id, () => {
+          chart.setOption(withChrome, { notMerge: true });
+          reserveTopSpace(chart, withChrome);
+          reserveLegendSpace(chart, withChrome);
+        });
+      } catch (err) {
+        fail(err);
+        return;
+      }
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });
-  }, []);
+  }, [fail]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
@@ -320,27 +359,32 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       const chart = chartRef.current;
       const container = containerRef.current;
       if (!chart || !container) return;
-      chart.resize();
       const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
-      if (current) {
-        if (
-          config.type === 'pie'
-          && applyPieRadius(current, container.clientWidth, container.clientHeight, config)
-        ) {
-          const series = (current as unknown as { series?: unknown }).series;
-          if (series) chart.setOption({ series } as unknown as EChartsOption);
-        }
-        if (applyCategoryLabelLayout(current, container.clientWidth, config.extraOptions)) {
-          const xAxis = (current as unknown as { xAxis?: unknown }).xAxis;
-          if (xAxis) chart.setOption({ xAxis } as unknown as EChartsOption);
-        }
-        if (!hasExplicitTitleLayout(config)) {
-          applyTitleWidth(current, container.clientWidth);
-          const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
-          if (title) chart.setOption({ title } as unknown as EChartsOption);
-        }
-        reserveTopSpace(chart, current);
-        reserveLegendSpace(chart, current);
+      try {
+        runEngine(config.id, () => {
+          chart.resize();
+          if (!current) return;
+          if (
+            config.type === 'pie'
+            && applyPieRadius(current, container.clientWidth, container.clientHeight, config)
+          ) {
+            const series = (current as unknown as { series?: unknown }).series;
+            if (series) chart.setOption({ series } as unknown as EChartsOption);
+          }
+          if (applyCategoryLabelLayout(current, container.clientWidth, config.extraOptions)) {
+            const xAxis = (current as unknown as { xAxis?: unknown }).xAxis;
+            if (xAxis) chart.setOption({ xAxis } as unknown as EChartsOption);
+          }
+          if (!hasExplicitTitleLayout(config)) {
+            applyTitleWidth(current, container.clientWidth);
+            const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
+            if (title) chart.setOption({ title } as unknown as EChartsOption);
+          }
+          reserveTopSpace(chart, current);
+          reserveLegendSpace(chart, current);
+        });
+      } catch (err) {
+        fail(err);
       }
     });
     resizeObserver.observe(container);
@@ -360,28 +404,32 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
       baseOptionRef.current = merged;
       stackRef.current = [merged];
 
-      const existingChart = chartRef.current;
-      const chart = existingChart ?? initChart(container, activeThemeRef.current);
-      if (!existingChart) {
-        attachDrilldownHandler(chart);
-        chartRef.current = chart;
-      }
-
-      chart.setOption(merged, { notMerge: true });
-      reserveTopSpace(chart, merged);
-      reserveLegendSpace(chart, merged);
+      let chart = chartRef.current;
+      runEngine(config.id, () => {
+        if (!chart) {
+          chart = initChart(container, activeThemeRef.current);
+          attachDrilldownHandler(chart);
+          chartRef.current = chart;
+        }
+        chart.setOption(merged, { notMerge: true });
+        reserveTopSpace(chart, merged);
+        reserveLegendSpace(chart, merged);
+      });
       setIsLoading(false);
-      if (callbackRef.current) callbackRef.current(chart);
+      if (callbackRef.current && chart) callbackRef.current(chart);
+      onVisualRenderRef.current?.({
+        visualId: config.id,
+        status: 'rendered',
+        stats: computeRenderStats(loadedData.datasets.flatMap((dataset) => dataset.data), built.seriesCount),
+      });
     } catch (err) {
-      console.error(err);
-      setError('Failed to load chart.');
-      setIsLoading(false);
+      fail(err);
     }
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [config, language, loadKey, loadedData, attachDrilldownHandler]);
+  }, [config, language, loadKey, loadedData, attachDrilldownHandler, fail, onVisualRenderRef]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();
@@ -397,16 +445,23 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
     const current = stackRef.current[stackRef.current.length - 1] ?? baseOptionRef.current;
     if (current && !hasExplicitTitleLayout(currentConfig)) applyTitleWidth(current, container.clientWidth);
     chart.dispose();
-    const nextChart = initChart(container, activeTheme);
-    attachDrilldownHandler(nextChart);
-    chartRef.current = nextChart;
-    if (current) {
-      nextChart.setOption(current, { notMerge: true });
-      reserveTopSpace(nextChart, current);
-      reserveLegendSpace(nextChart, current);
+    try {
+      runEngine(currentConfig.id, () => {
+        const nextChart = initChart(container, activeTheme);
+        attachDrilldownHandler(nextChart);
+        chartRef.current = nextChart;
+        if (current) {
+          nextChart.setOption(current, { notMerge: true });
+          reserveTopSpace(nextChart, current);
+          reserveLegendSpace(nextChart, current);
+        }
+      });
+    } catch (err) {
+      fail(err);
+      return;
     }
-    if (callbackRef.current) callbackRef.current(nextChart);
-  }, [activeTheme, attachDrilldownHandler]);
+    if (callbackRef.current && chartRef.current) callbackRef.current(chartRef.current);
+  }, [activeTheme, attachDrilldownHandler, fail]);
 
   const isDarkTheme = activeTheme === 'dark';
   const hasHeader = !isLoading && !error && canGoBack;
@@ -461,8 +516,13 @@ const Chart = ({ config, language, placeholder, callback, theme, className, styl
           </div>
         )}
         {!isLoading && error && (
-          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-danger">
-            Failed to load chart.
+          <div
+            className="sdmx-render-error position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-danger"
+            style={{ padding: '1rem', textAlign: 'center' }}
+            role="alert"
+            data-error-code={error.code}
+          >
+            {error.message}
           </div>
         )}
       </div>

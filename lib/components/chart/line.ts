@@ -10,6 +10,7 @@ import {
   paletteColor,
   sortByDimension,
 } from '../../utils/chartHelpers';
+import { SDMXRenderError } from '../../errors';
 
 export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
   const series: any[] = [];
@@ -19,8 +20,10 @@ export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
   datasets.forEach(({ data, dimensions }) => {
     const xAxisConcept = config.xAxisConcept || 'TIME_PERIOD';
     const legendConcept = config.legend?.concept
-      || dimensions.find((d: any) => d.id !== xAxisConcept)['id'];
-    if (!legendConcept) throw new Error(`No other dimension than ${xAxisConcept} found`);
+      || dimensions.find((d: any) => d.id !== xAxisConcept)?.id;
+    if (!legendConcept) {
+      throw new SDMXRenderError('ERR_NO_SERIES_DIMENSION', `No other dimension than ${xAxisConcept} found`);
+    }
 
     const serieDimensions = dimensions.find((d: any) => d.id === legendConcept);
     const isTimeAxis = xAxisConcept === 'TIME_PERIOD';

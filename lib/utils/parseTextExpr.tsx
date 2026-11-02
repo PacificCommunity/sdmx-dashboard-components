@@ -1,3 +1,5 @@
+import { SDMXRenderError } from '../errors';
+
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -86,7 +88,7 @@ export const parseOperandTextExpr = (operandExpr: string, data : any, attributes
     }
     const attribute = attributes.find((item : any) => item.id === p1);
     if (!attribute) {
-      throw new Error(`Attribute with id ${p1} not found`);
+      throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', `Attribute with id ${p1} not found`);
     } else {
       const value = attribute.values.find((item : any) => item.name === data[attribute.id]);
       if (value) {

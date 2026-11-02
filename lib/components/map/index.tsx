@@ -30,7 +30,10 @@ import styles from './styles.module.css';
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { parseTextExpr } from '../../utils/parseTextExpr';
-import { SDMXMapConfig } from '../types';
+import { SDMXMapConfig, SDMXVisualProps } from '../types';
+import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
+import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
+import { useLatest } from '../../utils/useLatest';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
@@ -38,7 +41,13 @@ import TileGrid from 'ol/tilegrid/TileGrid';
 
 type MapDataLayer = VectorLayer<VectorSource> | VectorTileLayer
 
-const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, language: string, callback?: (map: Map) => void }) => {
+type MapProps = SDMXVisualProps & {
+  config: SDMXMapConfig,
+  language: string,
+  callback?: (map: Map) => void,
+}
+
+const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
@@ -48,6 +57,8 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
   const [dimensions, setDimensions] = useState<any[]>([])
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
+  const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
+  const onVisualRenderRef = useLatest(onVisualRender)
 
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
@@ -84,7 +95,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
   const getSingleMapDataObj = () => {
     const dataObjs = parseDataExpr(config.data);
     if (dataObjs.length > 1) {
-      throw new Error('Multiple data expressions are not supported for Value component');
+      throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Map component');
     }
     return dataObjs[0];
   }
@@ -220,59 +231,83 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
 
 
   useEffect(() => {
+    let cancelled = false
     let titleText = config.title ? 'Loading...' : '';
+    setRenderError(null)
+    onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' })
 
     const sdmxParser = new SDMXParser();
-    const dataObj = getSingleMapDataObj();
-    const geojsonProj = resolveGeojsonProjection(dataObj.geojsonProjection);
-    initMapIfNeeded(geojsonProj);
+    // start from a resolved promise so a synchronous throw (a malformed data
+    // expression, a projection OpenLayers rejects) settles the visual like a
+    // failed fetch would
+    Promise.resolve().then(() => {
+      const dataObj = getSingleMapDataObj();
+      const geojsonProj = resolveGeojsonProjection(dataObj.geojsonProjection);
+      initMapIfNeeded(geojsonProj);
 
+      const dataFlowUrl = dataObj.dataFlowUrl;
+      return sdmxParser.getDatasets(dataFlowUrl, {
+        headers: new Headers({
+          Accept: "application/vnd.sdmx.data+json;version=2.0.0",
+          "Accept-Language": language
+        })
+      }).then(() => {
+        if (cancelled) return;
+        const data = sdmxParser.getData();
+        if (data.length === 0) {
+          throw emptyDataError(config.id, dataFlowUrl)
+        }
+        const _dim = sdmxParser.getDimensions();
+        const _att = sdmxParser.getAttributes();
+        setDimensions(_dim)
+        if (config.legend?.concept) {
+          setIndicatorName(data[0][config.legend.concept])
+        } else {
+          setIndicatorName('')
+        }
+        const unitAttribute = _att.find((attribute: any) => attribute.id === 'UNIT_MEASURE')
+        const detectedUnit = unitAttribute?.values?.[0]?.name || ''
+        setUnit(config.unit?.text || detectedUnit)
 
-    const dataFlowUrl = dataObj.dataFlowUrl;
-    sdmxParser.getDatasets(dataFlowUrl, {
-      headers: new Headers({
-        Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-        "Accept-Language": language
-      })
-    }).then(() => {
-      const data = sdmxParser.getData();
-      const _dim = sdmxParser.getDimensions();
-      const _att = sdmxParser.getAttributes();
-      setDimensions(_dim)
-      if (config.legend?.concept) {
-        setIndicatorName(data.length > 0 ? data[0][config.legend.concept] : '')
-      } else {
-        setIndicatorName('')
-      }
-      const unitAttribute = _att.find((attribute: any) => attribute.id === 'UNIT_MEASURE')
-      const detectedUnit = unitAttribute?.values?.[0]?.name || ''
-      setUnit(config.unit?.text || detectedUnit)
+        if (typeof config.title == 'string') {
+          titleText = parseTextExpr(config.title, _dim)
+        } else if (typeof config.title === 'object') {
+          titleText = typeof config.title.text == 'string' ? parseTextExpr(config.title.text, _dim) : parseTextExpr(config.title.text[language], _dim)
+        }
 
-      if (typeof config.title == 'string') {
-        titleText = parseTextExpr(config.title, _dim)
-      } else if (typeof config.title === 'object') {
-        titleText = typeof config.title.text == 'string' ? parseTextExpr(config.title.text, _dim) : parseTextExpr(config.title.text[language], _dim)
-      }
+        geojsonKeyRef.current = dataObj.geojsonKey
+        const { sdmxDataByGeoId, min, max } = getGeoLookup(data, _dim, dataObj.dataFlowKey)
+        sdmxDataByGeoIdRef.current = sdmxDataByGeoId
+        setObsValueMax(max)
+        setObsValueMin(min)
 
-      geojsonKeyRef.current = dataObj.geojsonKey
-      const { sdmxDataByGeoId, min, max } = getGeoLookup(data, _dim, dataObj.dataFlowKey)
-      sdmxDataByGeoIdRef.current = sdmxDataByGeoId
-      setObsValueMax(max)
-      setObsValueMin(min)
+        if (dataLayerRef.current && mapRef.current) {
+          mapRef.current.removeLayer(dataLayerRef.current)
+        }
 
-      if (dataLayerRef.current && mapRef.current) {
-        mapRef.current.removeLayer(dataLayerRef.current)
-      }
+        const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl, dataObj.geojsonProjection)
 
-      const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl, dataObj.geojsonProjection)
+        setFeaturesLayer(initalFeaturesLayer)
+        dataLayerRef.current = initalFeaturesLayer
+        mapRef.current?.addLayer(initalFeaturesLayer)
 
-      setFeaturesLayer(initalFeaturesLayer)
-      dataLayerRef.current = initalFeaturesLayer
-      mapRef.current?.addLayer(initalFeaturesLayer)
+        legendElement.current!.children[0]!.innerHTML = titleText
 
-      legendElement.current!.children[0]!.innerHTML = titleText
-
+        onVisualRenderRef.current?.({
+          visualId: config.id,
+          status: 'rendered',
+          stats: computeRenderStats(data, 1)
+        })
+      });
+    }).catch((err: unknown) => {
+      if (cancelled) return;
+      const mapError = toSDMXRenderError(err, config.id)
+      setRenderError(mapError)
+      onVisualRenderRef.current?.(failedRenderStatus(mapError, config.id))
     });
+    return () => {
+      cancelled = true
+    }
   }, [config, language, callback])
 
   useEffect(() => {
@@ -384,7 +419,14 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
 
     return (
       <div className={`${config.frame ? "border" : "" }`}>
-        <div id={`map-${config.id || 'id'}`} ref={mapElement} className={`map ${styles.minCellHeight}`}></div>
+        {renderError && (
+          <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
+            {renderError.message}
+          </div>
+        )}
+        {/* the map and overlay divs stay mounted on error: the OpenLayers
+            effects hold refs into them and a config change retries in place */}
+        <div id={`map-${config.id || 'id'}`} ref={mapElement} className={`map ${styles.minCellHeight}`} style={renderError ? { display: 'none' } : undefined}></div>
         <div ref={tooltipElement} className={styles.mapTooltip}>
           <div className={styles.mapTooltipHeader} id="map-tooltip-header"></div>
           <div id="map-tooltip-content"></div>

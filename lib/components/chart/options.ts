@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig } from '../types';
+import type { SDMXChartConfig, SDMXFetcher } from '../types';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
-import { dataRequestHeaders } from '../../utils/requestHeaders';
+import { dataRequestOptions } from '../../utils/requestHeaders';
 import { SDMXRenderError, emptyDataError } from '../../errors';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
 import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
@@ -40,13 +40,14 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
 
 export const loadDatasets = async (
   { id, data: dataExpression, xAxisConcept }: Pick<SDMXChartConfig, 'id' | 'data' | 'xAxisConcept'>,
-  language: string
+  language: string,
+  fetcher?: SDMXFetcher
 ): Promise<ParsedDataset[]> => {
   const dataObjs = parseDataExpr(dataExpression);
   const dataPromises = dataObjs.map((dataObj, datasetIndex) => {
     const parser = new SDMXParser();
     return parser
-      .getDatasets(dataObj.dataFlowUrl, { headers: dataRequestHeaders(language) })
+      .getDatasets(dataObj.dataFlowUrl, dataRequestOptions(language, fetcher))
       .then(() => {
         const data = parser.getData();
         if (data.length === 0) throw emptyDataError(id, dataObj.dataFlowUrl);
@@ -79,7 +80,7 @@ export const loadDatasets = async (
           };
         } else if (dataObj.operator === 'expr') {
           const scope: Scope = { x0: data.map((item: any) => item.value) };
-          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language);
+          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, fetcher);
           return Promise.all(ops).then(() => {
             const astFactory = new EvalAstFactory();
             const expr = parseExpr(dataObj.expression, astFactory);

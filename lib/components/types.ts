@@ -1,6 +1,11 @@
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 import type { SDMXRenderError } from '../errors';
+import type { FetchTelemetry } from '../utils/transport';
+
+// drop-in replacement for the global fetch; lets consumers add
+// authentication, proxying, caching, or retries to every data request
+export type SDMXFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
 // per-visual render state reported through onVisualRender/onRenderComplete;
 // `stats` lets a consumer judge substantive quality ("rendered, but one
@@ -20,6 +25,8 @@ export type VisualRenderStatus = {
 // dashboard passes them unchanged through each cell
 export type SDMXVisualProps = {
     onVisualRender?: (status: VisualRenderStatus) => void, // loading, then rendered | empty | error
+    fetcher?: SDMXFetcher, // every data request goes through it (wrapped in the transport: dedup, cache, retry)
+    onDataFetch?: (telemetry: FetchTelemetry) => void, // once per settled data request
 }
 
 export type SDMXTextConfig = {

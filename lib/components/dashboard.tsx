@@ -72,14 +72,19 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
     const onVisualRenderRef = useLatest(visualProps.onVisualRender);
     const onRenderCompleteRef = useLatest(onRenderComplete);
     const onDataFetchRef = useLatest(onDataFetch);
+    const fetcherRef = useLatest(fetcher);
 
     // one transport per rendered config and language: visuals of the same
     // dashboard share identical in-flight requests and the response cache,
-    // and a config or language change invalidates both
+    // and a config or language change invalidates both. The fetcher is read
+    // through a ref, so an inline one does not invalidate them.
     const transport = useMemo(
-        () => createTransport(fetcher, (telemetry) => onDataFetchRef.current?.(telemetry)),
+        () => createTransport(
+            (url, init) => (fetcherRef.current ?? fetch)(url, init),
+            (telemetry) => onDataFetchRef.current?.(telemetry)
+        ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [pageData, lang, fetcher]
+        [pageData, lang]
     );
 
     // created lazily: child effects, which report first, run before any
@@ -98,7 +103,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
 
     useEffect(() => {
       if (url) {
-        (fetcher || fetch)(url).then(response => response.json()).then((data) => {
+        (fetcherRef.current ?? fetch)(url).then(response => response.json()).then((data) => {
             // set default values
             if (!data.colCount) {
                 data.colCount = 3;
@@ -116,7 +121,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
             console.log(e)
         })
       }
-    }, [url, fetcher])
+    }, [url, fetcherRef])
 
     // key on config content, not object identity: a consumer passing an
     // inline config={{...}} literal (new object each render) would otherwise

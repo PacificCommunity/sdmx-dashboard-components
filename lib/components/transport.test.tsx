@@ -103,3 +103,80 @@ describe('standalone component transport', () => {
         await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
     });
 });
+
+describe('inline fetcher identity', () => {
+    const chartConfig = { id: 'inline', type: 'line', xAxisConcept: 'TIME_PERIOD', legend: { concept: 'GEO_PICT' }, data: 'https://sdmx.example/rest/data/I,I,1.0/all' } as const;
+    // long enough for a refetch loop to show up in the call count
+    const settle = (): Promise<void> => {
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, 200);
+        return promise;
+    };
+
+    // a parent that re-renders on every status report and passes a new
+    // inline fetcher each time: a transport keyed on the fetcher's identity
+    // would refetch on every render and loop
+    const StatusTrackingParent = ({ base }: { base: (url: string, init?: RequestInit) => Promise<Response> }) => {
+        const [statuses, setStatuses] = React.useState<string[]>([]);
+        return (
+            <div data-statuses={statuses.join(',')}>
+                <Chart
+                    config={chartConfig}
+                    language="en"
+                    fetcher={(url, init) => base(url, init)}
+                    onVisualRender={(status) => setStatuses((previous) => [...previous, status.status])}
+                />
+            </div>
+        );
+    };
+
+    it('a standalone chart re-rendered with a new inline fetcher fetches once and does not loop', async () => {
+        const base = vi.fn(async () => new Response('{}', { status: 200 }));
+
+        render(<StatusTrackingParent base={base} />);
+
+        await waitFor(() => expect(base).toHaveBeenCalledTimes(1));
+        await settle();
+        expect(base).toHaveBeenCalledTimes(1);
+    });
+
+    it('a dashboard re-rendered with a new inline fetcher does not refetch', async () => {
+        const base = vi.fn(async () => new Response('{}', { status: 200 }));
+        const config = { id: 'dash-inline', rows: [{ columns: [chartConfig] }] } as unknown as SDMXDashboardConfig;
+
+        const { rerender } = render(<Dashboard config={config} lang="en" fetcher={(url, init) => base(url, init)} />);
+        await waitFor(() => expect(base).toHaveBeenCalledTimes(1));
+
+        rerender(<Dashboard config={config} lang="en" fetcher={(url, init) => base(url, init)} />);
+        rerender(<Dashboard config={config} lang="en" fetcher={(url, init) => base(url, init)} />);
+        await settle();
+        expect(base).toHaveBeenCalledTimes(1);
+    });
+
+    it('a replaced fetcher is used by the next request of a standalone chart', async () => {
+        const first = vi.fn(async () => new Response('{}', { status: 200 }));
+        const second = vi.fn(async () => new Response('{}', { status: 200 }));
+
+        const { rerender } = render(<Chart config={chartConfig} language="en" fetcher={first} />);
+        await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+
+        rerender(<Chart config={{ ...chartConfig, data: 'https://sdmx.example/rest/data/I,I,1.0/A..' }} language="en" fetcher={second} />);
+        await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+        expect(first).toHaveBeenCalledTimes(1);
+    });
+
+    // a language change refetches in the same commit that swaps the fetcher:
+    // the visuals' requests must already see the new one
+    it('a replaced fetcher is used by the next request of a dashboard', async () => {
+        const first = vi.fn(async () => new Response('{}', { status: 200 }));
+        const second = vi.fn(async () => new Response('{}', { status: 200 }));
+        const config = { id: 'dash-replace', rows: [{ columns: [chartConfig] }] } as unknown as SDMXDashboardConfig;
+
+        const { rerender } = render(<Dashboard config={config} lang="en" fetcher={first} />);
+        await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
+
+        rerender(<Dashboard config={config} lang="fr" fetcher={second} />);
+        await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+        expect(first).toHaveBeenCalledTimes(1);
+    });
+});

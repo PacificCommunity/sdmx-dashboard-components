@@ -152,19 +152,25 @@ export const createTransport = (
 
 /**
  * The transport a component fetches through: a fresh one, with its own cache,
- * whenever `key` (the component's data request) or the fetcher changes; the
- * dashboard's transport when the fetcher is one. onDataFetch is read through
- * a ref so an inline callback does not invalidate the cache.
+ * whenever `key` (the component's data request) changes; the dashboard's
+ * transport when the fetcher is one. The fetcher and onDataFetch are read
+ * through refs: an inline fetcher (a new function every parent render) does
+ * not discard the cache or refetch, and a replaced one serves the next request.
  */
 export const useTransport = (
     fetcher: SDMXFetcher | undefined,
     onDataFetch: ((telemetry: FetchTelemetry) => void) | undefined,
     key: string
 ): SDMXFetcher => {
+    const fetcherRef = useLatest(fetcher);
     const onDataFetchRef = useLatest(onDataFetch);
+    const sharedTransport = fetcher && transports.has(fetcher) ? fetcher : undefined;
     return useMemo(
-        () => createTransport(fetcher, (telemetry) => onDataFetchRef.current?.(telemetry)),
+        () => sharedTransport ?? createTransport(
+            (url, init) => (fetcherRef.current ?? fetch)(url, init),
+            (telemetry) => onDataFetchRef.current?.(telemetry)
+        ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [fetcher, key]
+        [sharedTransport, key]
     );
 }

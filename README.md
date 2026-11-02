@@ -102,7 +102,7 @@ Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rend
 
 ### Custom data transport
 
-All components accept an optional `fetcher` prop with the signature of the global `fetch` (`(url, init?) => Promise<Response>`, exported as `SDMXFetcher`). When provided, every request made by the library (the dashboard configuration and all SDMX data queries) goes through it, so the integrating application can add authentication headers, route requests through a proxy, or apply caching and retries without touching the global `fetch`. When absent, the global `fetch` is used.
+All components accept an optional `fetcher` prop with the signature of the global `fetch` (`(url, init?) => Promise<Response>`, exported as `SDMXFetcher`). When provided, every request made by the library (the dashboard configuration and all SDMX data queries) goes through it, so the integrating application can add authentication headers, route requests through a proxy, or apply caching and retries without touching the global `fetch`. When absent, the global `fetch` is used. The fetcher's identity does not matter: an inline function, new on every render, neither refetches nor discards the response cache, and a replaced fetcher serves the next request.
 
 ```javascript
 const proxyFetcher = (url, init) =>

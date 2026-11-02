@@ -124,4 +124,32 @@ describe('chart error surfacing', () => {
         expect(alert.getAttribute('data-error-code')).toBe('ERR_ENGINE');
         expect(alert.textContent).toContain('The charting engine failed while rendering visual test-bar.');
     });
+
+    it('shows a failure in a compact panel instead of the chart height', async () => {
+        stubFetchWith(singleSeriesResponse());
+
+        const { container } = render(<Chart config={barConfig()} language="en" />);
+
+        const alert = await screen.findByRole('alert');
+        // the panel is in the flow, sized by its message, not laid over the chart box
+        expect(alert.className).not.toContain('position-absolute');
+        expect(alert.style.minHeight).toBe('120px');
+        expect(alert.style.height).toBe('');
+        // the 400px chart box is kept at its size but takes no room
+        const chartBox = container.querySelector<HTMLElement>('div[style*="height: 400px"]');
+        expect(chartBox?.parentElement?.style.height).toBe('0px');
+        expect(chartBox?.parentElement?.style.overflow).toBe('hidden');
+    });
+
+    it('gives a rendered chart its full height', async () => {
+        stubFetchWith(singleSeriesResponse());
+        const statuses: string[] = [];
+
+        const { container } = render(<Chart config={{ ...barConfig(), type: 'line' }} language="en" onVisualRender={(s) => statuses.push(s.status)} />);
+
+        await waitFor(() => expect(statuses).toContain('rendered'));
+        const chartBox = container.querySelector<HTMLElement>('div[style*="height: 400px"]');
+        expect(chartBox).not.toBeNull();
+        expect(chartBox?.parentElement?.style.height).toBe('');
+    });
 });

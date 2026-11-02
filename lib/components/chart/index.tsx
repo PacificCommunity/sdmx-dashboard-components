@@ -205,6 +205,10 @@ const initChart = (container: HTMLDivElement, themeName?: string): EChartsType =
   return chart;
 };
 
+// a failed chart shows its message in a compact panel, not in the chart's
+// full height: room for a two- or three-line message plus padding
+const ERROR_PANEL_MIN_HEIGHT = 120;
+
 const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: ChartProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
@@ -465,6 +469,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
 
   const isDarkTheme = activeTheme === 'dark';
   const hasHeader = !isLoading && !error && canGoBack;
+  const failed = !isLoading && error !== null;
 
   const chartNode: React.ReactNode = (
     <div
@@ -498,7 +503,9 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           {drilldownLabel && <span className="fw-semibold">{drilldownLabel}</span>}
         </div>
       )}
-      <div style={{ position: 'relative' }}>
+      {/* a failed chart collapses its box (kept at its size, so the
+          instance needs no resize) and the panel sizes to its message */}
+      <div style={failed ? { position: 'relative', height: 0, overflow: 'hidden' } : { position: 'relative' }}>
         {config.dataLink ? (
           <a href={config.dataLink} target="_blank" rel="noreferrer">
             {chartNode}
@@ -515,17 +522,17 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
             )}
           </div>
         )}
-        {!isLoading && error && (
-          <div
-            className="sdmx-render-error position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center text-danger"
-            style={{ padding: '1rem', textAlign: 'center' }}
-            role="alert"
-            data-error-code={error.code}
-          >
-            {error.message}
-          </div>
-        )}
       </div>
+      {failed && error && (
+        <div
+          className="sdmx-render-error d-flex align-items-center justify-content-center text-danger"
+          style={{ padding: '1rem', textAlign: 'center', minHeight: ERROR_PANEL_MIN_HEIGHT }}
+          role="alert"
+          data-error-code={error.code}
+        >
+          {error.message}
+        </div>
+      )}
     </>
   );
 

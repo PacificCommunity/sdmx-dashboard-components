@@ -1,4 +1,4 @@
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // declare pageData type
 type pageDataType = {
     dashId: string,
@@ -10,7 +10,7 @@ export const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => 
     const dataJson = await fetch(sampleUrl);
     const data = await dataJson.json();
 
-    let layout = new Array()
+    const layout: unknown[][] = []
     let row = -1
     // store Footer row separately to append to final list
     const footerElement = data.Rows.filter((element: { chartType: string; }, index: number, arr: []) => {
@@ -28,7 +28,7 @@ export const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => 
     }) => {
         if (element.Row !== row) {
             row = element.Row
-            layout[row] = new Array()
+            layout[row] = []
         }
         element.className = parseColSize(element.chartType)
         element.colorScheme = element.chartType.split(',')[2]?.trim()
@@ -46,7 +46,7 @@ export const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => 
 }
 
 const parseColSize = (chartExpr: string) => {
-    let chartType = chartExpr.split(',')[0]
+    const chartType = chartExpr.split(',')[0]
     if (chartType == 'TITLE' || chartType == 'FOOTER') {
         // Title and Footer are full width (3 columns)
         return 'col-12'
@@ -65,7 +65,9 @@ const parseColSize = (chartExpr: string) => {
                 return 'col-12 col-md-4'
                 break;
         }
-    } catch (e) { }
+    } catch {
+        // malformed size token: fall through to the single-width default
+    }
     // single by default
     return 'col-12 col-md-4'
 }

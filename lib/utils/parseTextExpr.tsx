@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { SDMXDimension } from '../components/types';
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -13,13 +14,13 @@
  * @param {Object} dimensions
  * @returns {Object}
  */
-export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => {
+export const parseTextExpr = (textExpr: string, dimensions: SDMXDimension[]) : string  => {
 
   // clean up title
   const text = textExpr.replace(/,[\s]?\[(.*?)\]$/, '').trim()
   //const textWithValues = text.replace(/\{\$(.*?)\}/g, (match, p1) => {
   const textWithValues : string = text.replace(/\{(.*?)\}/g, (match, p1) => {
-    let valueAttribute = 'name'
+    let valueAttribute: 'name' | 'id' = 'name'
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {
       p1 = p1.substring(1);
@@ -27,7 +28,7 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
       // replace {VARIABLE} with id
       valueAttribute = 'id'
     }
-    const dimension = dimensions.find((item : any) => item.id === p1);
+    const dimension = dimensions.find((item) => item.id === p1);
     if (!dimension) {
       console.warn(`Dimension with id ${p1} not found`);
       return match;
@@ -35,9 +36,10 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
       if (dimension.values.length > 1) {
         if (dimension.id === 'TIME_PERIOD') {
           // if concept is TIME_PERIOD, we use the first and last value
-          const dateMin = new Date(Math.min(...dimension.values.map((item: any) => new Date(item["start"]))));
-          const dimValueMin = dimension.values.find((item: any) => new Date(item["start"]).getTime() === dateMin.getTime());
-          const dateMax = new Date(Math.max(...dimension.values.map((item: any) => new Date(item["end"]))));
+          // TIME_PERIOD values always carry start/end in SDMX-JSON
+          const dateMin = new Date(Math.min(...dimension.values.map((item) => new Date(item.start!).getTime())));
+          const dimValueMin = dimension.values.find((item) => new Date(item.start!).getTime() === dateMin.getTime())!;
+          const dateMax = new Date(Math.max(...dimension.values.map((item) => new Date(item.end!).getTime())));
           const date1 = new Date(dateMin);
           const date2 = new Date(dateMax);
           let date1Text = `${date1.getFullYear()}`;
@@ -61,7 +63,7 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
           }
         } else {
           // we return a comma separated list of values
-          return dimension.values.map((item : any) => item[valueAttribute]).join(', ');
+          return dimension.values.map((item) => item[valueAttribute]).join(', ');
         }
       } else {
         // we return the value

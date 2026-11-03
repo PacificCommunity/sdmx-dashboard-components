@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import { SDMXChartConfig } from '../components/types';
+import { SDMXChartConfig, type SDMXDimension } from '../components/types';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
 
@@ -15,8 +15,8 @@ export type BuiltChart = {
 
 export type ParsedDataset = {
   data: any[];
-  dimensions: any[];
-  activeDimensions?: any[];
+  dimensions: SDMXDimension[];
+  activeDimensions?: SDMXDimension[];
   alternateLabel?: string;
   datasetIndex: number;
   titleText?: string;

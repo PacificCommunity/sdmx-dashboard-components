@@ -1,6 +1,42 @@
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 
+/**
+ * One value of an SDMX dimension.
+ *
+ * Mirrors the `dimensions.*[].values[]` shape of an SDMX-JSON structure, which
+ * is what `SDMXParser.getDimensions()` returns. `sdmx-json-parser` ships no
+ * type declarations, so this is a hand-written model of its output — see
+ * `SDMXDimension` for the caveat about optional fields.
+ */
+export type SDMXDimensionValue = {
+    id: string, // machine value, e.g. "2024-01" or "NR"
+    name: string, // human-readable label, e.g. "Monthly"
+    names?: { [language: string]: string }, // localised labels keyed by language code
+    order?: number, // display order, present when the source provides one
+    start?: string, // ISO date-time; time-period dimensions only
+    end?: string, // ISO date-time; time-period dimensions only
+    annotations?: number[], // indexes into the structure's annotation list
+}
+
+/**
+ * An SDMX dimension as returned by `SDMXParser.getDimensions()`.
+ *
+ * The parser concatenates the dataset, series and observation dimension lists,
+ * so a single array can mix all three kinds. `name` and `keyPosition` are
+ * present for every dimension the parser returns today; they are declared
+ * required to keep call sites honest, and should be relaxed only with evidence
+ * from a source that omits them.
+ */
+export type SDMXDimension = {
+    id: string, // concept id, e.g. "TIME_PERIOD"
+    name: string, // human-readable concept name, e.g. "Time period"
+    names?: { [language: string]: string }, // localised concept names
+    keyPosition: number, // position of this dimension in the observation key
+    roles?: string[], // SDMX role ids, e.g. ["FREQ"]
+    values: SDMXDimensionValue[],
+}
+
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property
@@ -86,8 +122,7 @@ export type SDMXMapConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extraOptions?: any // extra options for the visualization
+    extraOptions?: Record<string, unknown> // reserved for OpenLayers options; the map renderer does not read this yet
 } & SDMXVisualConfig
 
 

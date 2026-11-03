@@ -192,7 +192,7 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                         })
                         .filter((item: SDMXObservation | undefined): item is SDMXObservation => Boolean(item)); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));
-                    setPopupStr(countData.map((item) => item[config.xAxisConcept]).join(', '))
+                    setPopupStr(countData.map((item: SDMXObservation) => item[config.xAxisConcept]).join(', '))
                 } else if (dataObj.operator === "expr") {
                     const scope: Scope = {x0: valueStr}
                     const dataPromises = fetchDataExprOperand(new Array<string>().concat(dataObj.exprOperand ?? []), data, scope, attributes, language)

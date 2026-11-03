@@ -822,7 +822,7 @@ export const buildCartesianTooltip = (config: SDMXChartConfig, language: string,
   formatter: buildTooltipFormatter(config, language, timeFormat),
 });
 
-export const buildValueTooltip = (config: SDMXChartConfig, language: string) => ({
+export const buildValueTooltip = (_config: SDMXChartConfig, language: string) => ({
   trigger: 'item' as const,
   valueFormatter: (value: unknown) => formatTooltipValue(value, language),
 });

@@ -17,6 +17,9 @@ import {
   type SDMXDashboardConfig,
   type SDMXDimension,
   type SDMXDimensionValue,
+  type SDMXAttribute,
+  type SDMXAttributeValue,
+  type SDMXObservation,
 } from "./components/types";
 
 export {
@@ -36,6 +39,9 @@ export {
   SDMXDashboardConfig,
   SDMXDimension,
   SDMXDimensionValue,
+  SDMXAttribute,
+  SDMXAttributeValue,
+  SDMXObservation,
 };
 
 export type { EChartsType } from 'echarts/core';

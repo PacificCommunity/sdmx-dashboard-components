@@ -37,6 +37,50 @@ export type SDMXDimension = {
     values: SDMXDimensionValue[],
 }
 
+/**
+ * One value of an SDMX attribute, as returned by
+ * `SDMXParser.getAttributes()`. Same shape as a dimension value minus
+ * `start`/`end`.
+ */
+export type SDMXAttributeValue = {
+    id: string, // machine value, e.g. "USD"
+    name: string, // human-readable label, e.g. "US dollar"
+    names?: { [language: string]: string }, // localised labels
+    order?: number, // display order, when the source provides one
+    annotations?: number[], // indexes into the structure's annotation list
+}
+
+/**
+ * An SDMX attribute as returned by `SDMXParser.getAttributes()`.
+ *
+ * The parser concatenates the dataset, series and observation attribute lists,
+ * and a source may declare an attribute with no values (the response simply
+ * omits it), so `values` can be empty — always guard `values[0]`.
+ */
+export type SDMXAttribute = {
+    id: string, // concept id, e.g. "UNIT_MEASURE"
+    name: string, // human-readable concept name
+    names?: { [language: string]: string }, // localised concept names
+    roles?: string[], // SDMX role ids
+    relationship?: { dimensions?: string[] }, // dimensions this attribute is attached to
+    values: SDMXAttributeValue[],
+}
+
+/**
+ * One row of `SDMXParser.getData()`: a flat record of the observation value
+ * plus every dimension and attribute name for that observation, keyed by
+ * concept id.
+ *
+ * Keys are concept ids (`TIME_PERIOD`, `GEO_PICT`, `UNIT_MEASURE`, …), so the
+ * record is open by nature. Dimension and attribute entries are always the
+ * `name` of the matching value — strings — while `value` is the numeric
+ * OBS_VALUE. Read a dimension with a narrow, not a cast.
+ */
+export type SDMXObservation = {
+    value: number | null, // OBS_VALUE; null when the source reports no value
+    [concept: string]: string | number | null,
+}
+
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property

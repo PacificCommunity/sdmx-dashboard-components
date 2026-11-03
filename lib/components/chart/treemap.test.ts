@@ -44,7 +44,7 @@ const treemapConfig: SDMXChartConfig = {
 // the ECharts option built from the response, as the Chart component builds it
 const buildFrom = async (response: object) => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, text: async () => JSON.stringify(response) })));
-    const datasets = await loadDatasets(treemapConfig.data, treemapConfig.xAxisConcept, 'en');
+    const datasets = await loadDatasets(treemapConfig, 'en');
     return () => buildChartOptionFromDatasets(treemapConfig, 'en', datasets).option;
 };
 

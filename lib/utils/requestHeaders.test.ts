@@ -40,7 +40,7 @@ describe('data request headers', () => {
   });
 
   it('chart and table loads leave Accept to the parser', async () => {
-    await loadDatasets('https://example.org/rest/data/X,Y,1.0/all', 'TIME_PERIOD', 'en');
+    await loadDatasets({ id: 'test', data: 'https://example.org/rest/data/X,Y,1.0/all', xAxisConcept: 'TIME_PERIOD' }, 'en');
     expect(calls).toHaveLength(1);
     expect(calls[0].headers.has('accept')).toBe(false);
     expect(calls[0].headers.get('accept-language')).toBe('en');

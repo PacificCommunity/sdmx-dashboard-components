@@ -66,8 +66,8 @@ const renderOption = async (config: Partial<SDMXChartConfig>, language = 'en'): 
 describe('semantic axis titles', () => {
     it('names the x and value axes without replacing the time axis', async () => {
         const option = await renderOption({
-            xAxisTitle: { text: 'Reporting year' },
-            yAxisTitle: { text: { en: 'Population', fr: 'Population (fr)' } },
+            xAxisTitle: 'Reporting year',
+            yAxisTitle: { en: 'Population', fr: 'Population (fr)' },
         });
         expect(option.xAxis[0].name).toBe('Reporting year');
         expect(option.xAxis[0].nameLocation).toBe('middle');
@@ -78,15 +78,15 @@ describe('semantic axis titles', () => {
     });
 
     it('resolves the title in the component language', async () => {
-        const option = await renderOption({ yAxisTitle: { text: { en: 'Population', fr: 'Population (fr)' } } }, 'fr');
+        const option = await renderOption({ yAxisTitle: { en: 'Population', fr: 'Population (fr)' } }, 'fr');
         expect(option.yAxis[0].name).toBe('Population (fr)');
     });
 
     it('swaps the axes of a horizontal bar chart', async () => {
         const option = await renderOption({
             type: 'bar',
-            xAxisTitle: { text: 'Year' },
-            yAxisTitle: { text: 'People' },
+            xAxisTitle: 'Year',
+            yAxisTitle: 'People',
         });
         expect(option.yAxis[0].type).toBe('category');
         expect(option.yAxis[0].name).toBe('Year');
@@ -101,7 +101,7 @@ describe('semantic axis titles', () => {
         cleanup();
 
         const overridden = await renderOption({
-            yAxisTitle: { text: 'Population' },
+            yAxisTitle: 'Population',
             extraOptions: { yAxis: { name: 'From extraOptions' } },
         });
         expect(overridden.yAxis[0].name).toBe('From extraOptions');

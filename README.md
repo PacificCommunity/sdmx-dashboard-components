@@ -67,10 +67,10 @@ tuning belongs in `extraOptions` (see below).
 
 ### Axis titles, download, and dashboard rows
 
-`xAxisTitle` and `yAxisTitle` (`SDMXTextConfig`, a string or a per-language map, with the same text expressions as `title`) name the axis of `xAxisConcept` and the value axis. For a horizontal `bar` chart, whose category axis is vertical, they are swapped accordingly. Left unset, the axes stay unnamed; `extraOptions.xAxis.name`/`yAxis.name` still override.
+`xAxisTitle` and `yAxisTitle` (a string or a per-language map, with the same text expressions as `title`) name the axis of `xAxisConcept` and the value axis. For a horizontal `bar` chart, whose category axis is vertical, they are swapped accordingly. Left unset, the axes stay unnamed; `extraOptions.xAxis.name`/`yAxis.name` still override.
 
 ```javascript
-config={{ ..., xAxisTitle: { text: 'Year' }, yAxisTitle: { text: { en: 'Population', fr: 'Population' } } }}
+config={{ ..., xAxisTitle: 'Year', yAxisTitle: { en: 'Population', fr: 'Population' } }}
 ```
 
 `download: false` hides the chart's save-as-image button; it is shown otherwise.

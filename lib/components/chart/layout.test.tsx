@@ -143,7 +143,7 @@ describe('axis names inside the canvas', () => {
 
     it('keeps a rotated y axis name between the left edge and wide tick labels', async () => {
         const chart = await renderChart(
-            { yAxisTitle: { text: TITLE }, extraOptions: { yAxis: { axisLabel: { formatter: (v: number) => v.toLocaleString('en') } } } },
+            { yAxisTitle: TITLE, extraOptions: { yAxis: { axisLabel: { formatter: (v: number) => v.toLocaleString('en') } } } },
             largeValueResponse()
         );
         const name = textBox(chart, TITLE);
@@ -154,7 +154,7 @@ describe('axis names inside the canvas', () => {
     });
 
     it('keeps both names of a horizontal bar chart inside the canvas', async () => {
-        const chart = await renderChart({ type: 'bar', xAxisTitle: { text: 'Reporting year' }, yAxisTitle: { text: TITLE } }, largeValueResponse());
+        const chart = await renderChart({ type: 'bar', xAxisTitle: 'Reporting year', yAxisTitle: TITLE }, largeValueResponse());
         const yName = textBox(chart, 'Reporting year');
         const xName = textBox(chart, TITLE);
         const plot = gridRect(chart);

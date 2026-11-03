@@ -58,8 +58,8 @@ export type SDMXChartConfig = {
         },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
-    xAxisTitle?: SDMXTextConfig, // title of the xAxisConcept axis (the vertical axis of a horizontal bar chart)
-    yAxisTitle?: SDMXTextConfig, // title of the value axis (the horizontal axis of a horizontal bar chart)
+    xAxisTitle?: SDMXTextConfig['text'], // title of the xAxisConcept axis (the vertical axis of a horizontal bar chart): a string or a per-language map, with text expressions
+    yAxisTitle?: SDMXTextConfig['text'], // title of the value axis (the horizontal axis of a horizontal bar chart): a string or a per-language map, with text expressions
     extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
 

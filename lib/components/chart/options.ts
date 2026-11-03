@@ -37,6 +37,18 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
   return '';
 };
 
+// axis titles carry only the text payload of SDMXTextConfig: a string or a
+// per-language map, both supporting the same text expressions as the title
+const resolveAxisTitleText = (
+  title: SDMXChartConfig['xAxisTitle'],
+  dimensions: any[],
+  language: string
+): string => {
+  if (title === undefined) return '';
+  const text = typeof title === 'string' ? title : title[language];
+  return text ? parseTextExpr(text, dimensions) : '';
+};
+
 export const loadDatasets = async (
   dataExpression: SDMXChartConfig['data'],
   xAxisConcept: SDMXChartConfig['xAxisConcept'],
@@ -158,8 +170,8 @@ const toolboxTooltipFormatter = (params: any): string =>
 // leave the axis unnamed, and extraOptions, merged later, still override.
 const withAxisTitles = (config: SDMXChartConfig, context: ChartContext, parts: ChartBuildResult) => {
   const dimensions = context.datasets[context.datasets.length - 1]?.dimensions ?? [];
-  const xTitle = resolveText(config.xAxisTitle, dimensions, context.language);
-  const yTitle = resolveText(config.yAxisTitle, dimensions, context.language);
+  const xTitle = resolveAxisTitleText(config.xAxisTitle, dimensions, context.language);
+  const yTitle = resolveAxisTitleText(config.yAxisTitle, dimensions, context.language);
   const [xAxisName, yAxisName] = config.type === 'bar' ? [yTitle, xTitle] : [xTitle, yTitle];
   const xAxis = parts.xAxis && xAxisName ? { ...parts.xAxis, name: xAxisName, nameLocation: 'middle' } : parts.xAxis;
   const yAxis = parts.yAxis && yAxisName ? { ...parts.yAxis, name: yAxisName } : parts.yAxis;

@@ -62,7 +62,7 @@ const Line = () => {
             },
             legend: {
                 concept: "PROVIDER_FM_ID",
-                location: "bottom"
+                location: "top"
             },
             colSize: 4,
             decimals: 2,

@@ -88,6 +88,7 @@ export type SDMXMapConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraOptions?: any // extra options for the visualization
 } & SDMXVisualConfig
 

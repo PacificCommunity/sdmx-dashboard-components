@@ -46,6 +46,34 @@ const Line = () => {
             }
             }}
             language='en' />`
+    }, {
+        id: "key_rates_line",
+        code: `<SDMXChart
+            config={{
+            id: "key_rates_line",
+            data: "https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.DFR+MRR_FR+MLFR.LEV?dimensionAtObservation=AllDimensions&startPeriod=2014-01-01",
+            type: "line",
+            unit: {
+                text: "%",
+                location: "suffix"
+            },
+            title: {
+                text: "Key ECB Interest Rates Since 2014"
+            },
+            legend: {
+                concept: "PROVIDER_FM_ID",
+                location: "top"
+            },
+            colSize: 4,
+            decimals: 2,
+            download: true,
+            subtitle: {
+                text: "Levels at dates of change"
+            },
+            xAxisConcept: "TIME_PERIOD",
+            yAxisConcept: "OBS_VALUE"
+            }}
+            language='en' />`
     }]
     const scope = {SDMXChart}
     return (

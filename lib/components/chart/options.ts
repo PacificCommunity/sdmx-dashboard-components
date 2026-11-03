@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
 import type { SDMXChartConfig, SDMXDimension, SDMXObservation } from '../types';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -7,7 +6,7 @@ import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
-import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
+import type { BuiltChart, ChartBuilder, ChartContext, ChartType, FormatterParams, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
 import { buildLine } from './line';
 import { buildBar, buildColumn } from './columnLikeChart';
@@ -130,13 +129,13 @@ const createChartContext = (
     subtitleText = datasetSubtitleText;
 
     if (config.xAxisConcept && config.xAxisConcept !== 'MULTI') {
-      if (!dimensions.find((d: any) => d.id === config.xAxisConcept)) {
+      if (!dimensions.find((d) => d.id === config.xAxisConcept)) {
         throw new Error(`xAxisConcept ${config.xAxisConcept} not found in dataflow`);
       }
     }
     const legendConcept = config.legend?.concept;
     if (legendConcept && legendConcept !== 'MULTI') {
-      if (!dimensions.find((d: any) => d.id === legendConcept)) {
+      if (!dimensions.find((d) => d.id === legendConcept)) {
         throw new Error(`legendConcept ${legendConcept} not found in dataflow`);
       }
     }
@@ -151,8 +150,8 @@ const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
   saveAsImage: 'Save chart as image',
 };
 
-const toolboxTooltipFormatter = (params: any): string =>
-  TOOLBOX_FEATURE_LABELS[params?.name] ?? params?.title ?? '';
+const toolboxTooltipFormatter = (params: FormatterParams): string =>
+  TOOLBOX_FEATURE_LABELS[params?.name ?? ''] ?? params?.title ?? '';
 
 const assembleOption = (
   config: SDMXChartConfig,
@@ -176,9 +175,10 @@ const assembleOption = (
     series: parts.series,
   };
 
-  if (parts.grid !== undefined) (option as any).grid = parts.grid;
-  if (parts.xAxis !== undefined) (option as any).xAxis = parts.xAxis;
-  if (parts.yAxis !== undefined) (option as any).yAxis = parts.yAxis;
+  if (parts.grid !== undefined) option.grid = parts.grid;
+  // The builders pair each axis with the right kind; the union only widens them.
+  if (parts.xAxis !== undefined) option.xAxis = parts.xAxis as EChartsOption['xAxis'];
+  if (parts.yAxis !== undefined) option.yAxis = parts.yAxis as EChartsOption['yAxis'];
 
   return option;
 };

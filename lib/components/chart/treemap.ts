@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { ChartBuilder, Category } from '../../utils/chartHelpers';
 import {
   applySeriesLabels,
   buildLegend,
@@ -18,8 +17,8 @@ export const buildTreemap: ChartBuilder = (context) => {
     config.sortByValue
   );
 
-  const treemapData: any[] = [];
-  categories.forEach((category: any) => {
+  const treemapData: { name: Category; value: number | null; itemStyle?: { color: string } }[] = [];
+  categories.forEach((category) => {
     collection.entries.forEach((seriesEntry) => {
       const point = seriesEntry.valueByName.get(category);
       if (point) {

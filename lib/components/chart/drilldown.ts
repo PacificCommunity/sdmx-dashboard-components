@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { EChartsOption } from 'echarts';
-import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { EChartsOption, SeriesOption } from 'echarts';
+import type { Category, ChartBuilder, SeriesNaming } from '../../utils/chartHelpers';
+import type { SDMXObservation } from '../types';
 import {
   buildCartesianChartParts,
   buildCartesianTooltip,
@@ -16,16 +16,28 @@ import {
   withValueAxisFormatter,
 } from '../../utils/chartHelpers';
 
+// One legend series accumulated across datasets, keyed by category. The extra
+// maps carry the per-category drilldown metadata the root chart needs.
+type DrilldownSeriesEntry = SeriesNaming & {
+  baseName: string;
+  id: string;
+  legendConcept: string;
+  valueByName: Map<Category, number | null>;
+  drilldownIdByName: Map<Category, string>;
+  itemStyleByName: Map<Category, { color: string } | undefined>;
+  periodByName: Map<Category, Category>;
+};
+
 export const buildDrilldown: ChartBuilder = (context) => {
   const { config, language, datasets, titleText, subtitleText } = context;
   const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
   if (!drilldownXAxisConcept) throw new Error('No drilldown xAxis concept found');
 
   const drilldownOptions: Record<string, EChartsOption> = {};
-  const drilldownSeriesByKey = new Map<string, any>();
-  const categoryOrder: any[] = [];
-  const categorySeen = new Set<any>();
-  const categoriesWithData = new Set<any>();
+  const drilldownSeriesByKey = new Map<string, DrilldownSeriesEntry>();
+  const categoryOrder: Category[] = [];
+  const categorySeen = new Set<Category>();
+  const categoriesWithData = new Set<Category>();
   let categorySortId: string | undefined;
   let rootConcept: string | undefined;
 
@@ -35,14 +47,14 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const legendConcept = config.legend?.concept || '';
     if (!legendConcept) throw new Error('No legend concept found');
 
-    const xAxisDimension = dimensions.find((d: any) => d.id === xAxisConcept);
-    const legendDimension = dimensions.find((d: any) => d.id === legendConcept);
-    const drilldownXAxisDimension = dimensions.find((d: any) => d.id === drilldownXAxisConcept);
-    const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
+    const xAxisDimension = dimensions.find((d) => d.id === xAxisConcept);
+    const legendDimension = dimensions.find((d) => d.id === legendConcept);
+    const drilldownXAxisDimension = dimensions.find((d) => d.id === drilldownXAxisConcept);
+    const timeDimension = dimensions.find((d) => d.id === 'TIME_PERIOD');
     rootConcept = xAxisConcept;
 
     if (categorySortId === undefined) categorySortId = xAxisDimension.id;
-    xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
+    xAxisDimension.values.forEach((xAxisDimensionValue) => {
       if (!categorySeen.has(xAxisDimensionValue.name)) {
         categorySeen.add(xAxisDimensionValue.name);
         categoryOrder.push(xAxisDimensionValue.name);
@@ -50,9 +62,9 @@ export const buildDrilldown: ChartBuilder = (context) => {
     });
 
     [...legendDimension.values]
-      .sort((a: any, b: any) => a.id.localeCompare(b.id))
-      .forEach((legendDimensionValue: any) => {
-        const legendSerie = data.filter((val: any) => val[legendConcept] === legendDimensionValue.name);
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((legendDimensionValue) => {
+        const legendSerie = data.filter((val: SDMXObservation) => val[legendConcept] === legendDimensionValue.name);
 
         const seriesKey = `${datasetIndex}:${legendDimensionValue.name}`;
         let seriesEntry = drilldownSeriesByKey.get(seriesKey);
@@ -64,19 +76,19 @@ export const buildDrilldown: ChartBuilder = (context) => {
             datasetIndex,
             id: legendDimensionValue.id,
             legendConcept,
-            valueByName: new Map<any, any>(),
-            drilldownIdByName: new Map<any, string>(),
-            itemStyleByName: new Map<any, any>(),
-            periodByName: new Map<any, any>(),
+            valueByName: new Map<Category, number | null>(),
+            drilldownIdByName: new Map<Category, string>(),
+            itemStyleByName: new Map<Category, { color: string } | undefined>(),
+            periodByName: new Map<Category, Category>(),
           };
           drilldownSeriesByKey.set(seriesKey, seriesEntry);
         }
 
-        xAxisDimension.values.forEach((xAxisDimensionValue: any) => {
+        xAxisDimension.values.forEach((xAxisDimensionValue) => {
           let tmpArr = legendSerie.filter(
-            (val: any) => val[xAxisConcept] === xAxisDimensionValue.name
+            (val: SDMXObservation) => val[xAxisConcept] === xAxisDimensionValue.name
           );
-          let legendSerieDataValue: any;
+          let legendSerieDataValue: SDMXObservation | undefined;
 
           if (drilldownXAxisConcept === 'TIME_PERIOD') {
             legendSerieDataValue = selectLatestRootRow(tmpArr, timeDimension);
@@ -89,7 +101,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
             });
             if (!legendSerieDataValue) return;
             tmpArr = tmpArr.filter(
-              (val: any) =>
+              (val: SDMXObservation) =>
                 val['TIME_PERIOD'] === legendSerieDataValue['TIME_PERIOD'] &&
                 val[drilldownXAxisConcept] !== 'Total'
             );
@@ -98,10 +110,10 @@ export const buildDrilldown: ChartBuilder = (context) => {
           } else {
             tmpArr = sortByDimension(tmpArr, drilldownXAxisConcept);
             legendSerieDataValue = tmpArr.find(
-              (val: any) => val[drilldownXAxisConcept] === 'Total'
+              (val: SDMXObservation) => val[drilldownXAxisConcept] === 'Total'
             );
             tmpArr = tmpArr.filter(
-              (val: any) => val[drilldownXAxisConcept] !== 'Total'
+              (val: SDMXObservation) => val[drilldownXAxisConcept] !== 'Total'
             );
             if (!legendSerieDataValue || tmpArr.length === 0) return;
           }
@@ -121,8 +133,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
             }
           }
 
-          const childData = tmpArr.map((value: any) => {
-            const dimId = drilldownXAxisDimension.values.find((v: any) => v.name === value[drilldownXAxisConcept])?.id;
+          const childData = tmpArr.map((value: SDMXObservation) => {
+            const dimId = drilldownXAxisDimension.values.find((v) => v.name === value[drilldownXAxisConcept])?.id;
             const c = dimId ? paletteColor(config, drilldownXAxisConcept, dimId) : undefined;
             return {
               name: value[drilldownXAxisConcept],
@@ -143,7 +155,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
             grid: { containLabel: true, ...CARTESIAN_GRID_INSETS },
             xAxis: {
               type: 'category',
-              data: childData.map((d: any) => d.name),
+              data: childData.map((d) => d.name),
               ...(isTime ? {} : { axisLabel: { interval: 0 } }),
             },
             yAxis: withValueAxisFormatter({ type: 'value' }),
@@ -164,7 +176,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
                     },
                   }
                 : {}),
-            }],
+            } as SeriesOption],
           };
         });
       });
@@ -173,30 +185,30 @@ export const buildDrilldown: ChartBuilder = (context) => {
   const sortId = categorySortId ?? 'name';
   const sortedCategories = sortByDimension(
     categoryOrder
-      .filter((name: any) => categoriesWithData.has(name))
-      .map((name: any) => ({ name, [sortId]: name })),
+      .filter((name) => categoriesWithData.has(name))
+      .map((name) => ({ name, [sortId]: name })),
     sortId
   );
-  let categories = sortedCategories.map((item: any) => item.name);
+  let categories = sortedCategories.map((item) => item.name);
 
   if (config.sortByValue) {
-    const totals = new Map<any, number>();
-    drilldownSeriesByKey.forEach((seriesEntry: any) => {
-      seriesEntry.valueByName.forEach((value: any, category: any) => {
+    const totals = new Map<Category, number>();
+    drilldownSeriesByKey.forEach((seriesEntry) => {
+      seriesEntry.valueByName.forEach((value, category) => {
         totals.set(category, (totals.get(category) ?? 0) + (Number(value) || 0));
       });
     });
     categories = sortByValue(
-      categories.map((name: any) => ({ name, value: totals.get(name) ?? 0 })),
+      categories.map((name) => ({ name, value: totals.get(name) ?? 0 })),
       config.sortByValue
-    ).map((item: any) => item.name);
+    ).map((item) => item.name);
   }
 
   const entries = Array.from(drilldownSeriesByKey.values());
   const resolvedNames = resolveSeriesNames(entries);
-  const rootSeries: any[] = [];
-  entries.forEach((seriesEntry: any) => {
-    const seriesValues = categories.map((category: any) => {
+  const rootSeries: SeriesOption[] = [];
+  entries.forEach((seriesEntry) => {
+    const seriesValues = categories.map((category) => {
       const value = seriesEntry.valueByName.get(category);
       if (value == null) return null;
       const period = seriesEntry.periodByName.get(category);
@@ -216,13 +228,13 @@ export const buildDrilldown: ChartBuilder = (context) => {
       name: resolvedNames.get(seriesEntry) ?? seriesEntry.name,
       data: seriesValues,
       itemStyle: color ? { color } : undefined,
-    });
+    } as SeriesOption);
   });
-  rootSeries.sort(
-    (a: any, b: any) =>
-      b.data.filter((point: any) => point !== null).length -
-      a.data.filter((point: any) => point !== null).length
-  );
+  const pointCount = (series: SeriesOption): number => {
+    const data = (series as { data?: unknown[] }).data;
+    return Array.isArray(data) ? data.filter((point) => point !== null).length : 0;
+  };
+  rootSeries.sort((a, b) => pointCount(b) - pointCount(a));
 
   return {
     ...buildCartesianChartParts(config, language, categories, rootSeries, 'column'),

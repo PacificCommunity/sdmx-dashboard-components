@@ -25,6 +25,7 @@ export type FormatterParams = {
   seriesName?: string;
   dataIndex?: number;
   axisValueLabel?: string;
+  title?: string;
   data?: unknown;
 };
 

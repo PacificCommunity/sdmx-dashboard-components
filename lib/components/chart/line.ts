@@ -1,6 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { parseDate } from '../../utils/parseDate';
-import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { ChartBuilder, AxisOption } from '../../utils/chartHelpers';
+import type { SeriesOption } from 'echarts';
+import type { SDMXObservation } from '../types';
 import {
   applySeriesLabels,
   buildCartesianGrid,
@@ -12,21 +13,21 @@ import {
 } from '../../utils/chartHelpers';
 
 export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
-  const series: any[] = [];
-  let xAxis: any = { type: 'category', data: [] };
+  const series: SeriesOption[] = [];
+  let xAxis: AxisOption = { type: 'category', data: [] };
   let timeAxisFormat: string | undefined;
 
   datasets.forEach(({ data, dimensions }) => {
     const xAxisConcept = config.xAxisConcept || 'TIME_PERIOD';
     const legendConcept = config.legend?.concept
-      || dimensions.find((d: any) => d.id !== xAxisConcept)['id'];
+      || dimensions.find((d) => d.id !== xAxisConcept)['id'];
     if (!legendConcept) throw new Error(`No other dimension than ${xAxisConcept} found`);
 
-    const serieDimensions = dimensions.find((d: any) => d.id === legendConcept);
+    const serieDimensions = dimensions.find((d) => d.id === legendConcept);
     const isTimeAxis = xAxisConcept === 'TIME_PERIOD';
 
     if (isTimeAxis) {
-      const freqDimension = dimensions.find((d: any) => d.id === 'FREQ');
+      const freqDimension = dimensions.find((d) => d.id === 'FREQ');
       const frequency = freqDimension?.values?.[0]?.id;
       let dateFormat = '{yyyy}';
       if (frequency === 'Q' || frequency === 'M' || frequency === 'W') dateFormat = '{MMM} {yyyy}';
@@ -34,21 +35,22 @@ export const buildLine: ChartBuilder = ({ config, language, datasets }) => {
       timeAxisFormat = dateFormat;
       xAxis = { type: 'time', axisLabel: { formatter: dateFormat } };
     } else {
-      const categories = Array.from(new Set(data.map((val: any) => val[xAxisConcept])));
+      const categories = Array.from(new Set(data.map((val: SDMXObservation) => val[xAxisConcept])));
       xAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
     }
 
     [...serieDimensions.values]
-      .sort((a: any, b: any) => a.name.localeCompare(b.name))
-      .forEach((serieDimension: any) => {
-        const serieData = data.filter((val: any) => val[legendConcept] === serieDimension.name);
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((serieDimension) => {
+        const serieData = data.filter((val: SDMXObservation) => val[legendConcept] === serieDimension.name);
         if (serieData.length === 0) return;
         const sortedData = sortByDimension(serieData, xAxisConcept);
-        const points = sortedData.map((val: any) =>
-          isTimeAxis
-            ? [parseDate(val[xAxisConcept]) ?? val[xAxisConcept], val['value']]
-            : [val[xAxisConcept], val['value']]
-        );
+        const points = sortedData.map((val: SDMXObservation) => {
+          const period = val[xAxisConcept];
+          return isTimeAxis
+            ? [parseDate(period == null ? '' : String(period)) ?? period, val['value']]
+            : [period, val['value']];
+        });
         const color = paletteColor(config, legendConcept, serieDimension.id);
         series.push({
           type: 'line',

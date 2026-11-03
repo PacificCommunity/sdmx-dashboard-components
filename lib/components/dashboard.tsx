@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useEffect } from 'react';
 
@@ -6,7 +5,7 @@ import Cell from './cell';
 import Text from './text';
 
 import '../global.module.css';
-import { SDMXDashboardConfig } from './types';
+import { SDMXDashboardConfig, SDMXVisualConfig } from './types';
 
 const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }: { url?: string, config?: SDMXDashboardConfig, lang?: string}) => {
 
@@ -19,8 +18,8 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
             if (!data.colCount) {
                 data.colCount = 3;
             }
-            data.rows.forEach((row: any) => {
-              row.columns.forEach((cell: any) => {
+            data.rows.forEach((row: { columns: SDMXVisualConfig[] }) => {
+              row.columns.forEach((cell: SDMXVisualConfig) => {
                 if (!cell.colSize) {
                   cell.colSize = 1;
                 }
@@ -39,8 +38,8 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
         if (!config.colCount) {
             config.colCount = 3;
         }
-        config.rows.forEach((row: any) => {
-          row.columns.forEach((cell: any) => {
+        config.rows.forEach((row) => {
+          row.columns.forEach((cell) => {
             if (!cell.colSize) {
               cell.colSize = 1;
             }
@@ -61,10 +60,10 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
                     </div> : null
                 }
                 {
-                  pageData.rows.map((row : any, index_row : number) => (
+                  pageData.rows.map((row, index_row) => (
                     <div key={`row-${index_row}`} className="row mb-3 display-flex">
                       {
-                        row.columns.map((cell: any) => (
+                        row.columns.map((cell) => (
                           <Cell key={`col-${cell.id}`} className={`col-md-${Math.ceil((12/(pageData.colCount || 3))*cell.colSize)}`} language={lang} config={cell} />
                         ))
                       }

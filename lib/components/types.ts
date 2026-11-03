@@ -173,7 +173,7 @@ export type SDMXMapConfig = {
 export type SDMXDashboardConfig = {
     id: string, // unique identifier
     rows: Array<{
-        colums: Array<SDMXVisualConfig>
+        columns: Array<SDMXVisualConfig>
     }>,
     languages?: Array<string>, // languages available for the dashboard
     colCount?: number, // number of columns in the dashboard

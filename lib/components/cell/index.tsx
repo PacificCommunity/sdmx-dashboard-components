@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import Text from '../text';
 import Value from '../value';
@@ -77,7 +76,7 @@ const Cell = ({
 
     }
 
-    const fallbackRender = ({ error }: { error: any }) => {
+    const fallbackRender = ({ error }: { error: Error }) => {
         return (
             <div className="text-danger">
                 <p>Something went wrong:</p>

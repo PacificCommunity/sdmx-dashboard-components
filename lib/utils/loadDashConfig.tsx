@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// declare pageData type
 type pageDataType = {
     dashId: string,
-    dashConfig: Array<any>
+    dashConfig: unknown[][]
 }
 
 export const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => {

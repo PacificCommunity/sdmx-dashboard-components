@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
 import Map from 'ol/Map';
@@ -273,6 +274,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
       legendElement.current!.children[0]!.innerHTML = titleText
 
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, language, callback])
 
   useEffect(() => {

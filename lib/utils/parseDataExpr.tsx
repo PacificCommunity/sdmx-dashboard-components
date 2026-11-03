@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { parseOperandTextExpr } from "./parseTextExpr";
 import { dataRequestHeaders } from "./requestHeaders";
-// @ts-ignore
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 

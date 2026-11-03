@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
 // @ts-ignore sdmx-json-parser ships no type declarations
@@ -32,6 +31,7 @@ import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig } from '../types';
+import type { SDMXAttribute, SDMXDimension, SDMXObservation } from '../types';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
@@ -46,7 +46,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
   const [obsValueMin, setObsValueMin] = useState<number>(1e9)
   const [obsValueMax, setObsValueMax] = useState<number>(0)
 
-  const [dimensions, setDimensions] = useState<any[]>([])
+  const [dimensions, setDimensions] = useState<SDMXDimension[]>([])
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
 
@@ -54,7 +54,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
   const mapElement = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
   const dataLayerRef = useRef<MapDataLayer | null>(null)
-  const sdmxDataByGeoIdRef = useRef<{ [id: string]: any }>({})
+  const sdmxDataByGeoIdRef = useRef<Record<string, SDMXObservation>>({})
   const geojsonKeyRef = useRef<string>('')
   const tooltipElement = useRef<HTMLDivElement>(null)
   const legendElement = useRef<HTMLDivElement>(null)
@@ -144,14 +144,14 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
     return mapRef.current?.getView().getProjection() || null;
   }
 
-  const getGeoLookup = (data: any[], dimensionsFromData: any[], dataFlowKey: string) => {
-    const geoDimension = dimensionsFromData.find((dimension: any) => dimension.id === dataFlowKey);
-    const sdmxDataByGeoId: { [id: string]: any } = {};
+  const getGeoLookup = (data: SDMXObservation[], dimensionsFromData: SDMXDimension[], dataFlowKey: string) => {
+    const geoDimension = dimensionsFromData.find((dimension) => dimension.id === dataFlowKey);
+    const sdmxDataByGeoId: Record<string, SDMXObservation> = {};
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
 
-    geoDimension?.values.forEach((geoValue: any) => {
-      const sdmxData = data.find((valData: any) => valData[dataFlowKey] === geoValue.name);
+    geoDimension?.values.forEach((geoValue) => {
+      const sdmxData = data.find((valData: SDMXObservation) => valData[dataFlowKey] === geoValue.name);
       if (!sdmxData) {
         return;
       }
@@ -245,7 +245,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
       } else {
         setIndicatorName('')
       }
-      const unitAttribute = _att.find((attribute: any) => attribute.id === 'UNIT_MEASURE')
+      const unitAttribute = _att.find((attribute: SDMXAttribute) => attribute.id === 'UNIT_MEASURE')
       const detectedUnit = unitAttribute?.values?.[0]?.name || ''
       setUnit(config.unit?.text || detectedUnit)
 
@@ -333,7 +333,7 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
         features.forEach((feature: FeatureLike) => {
           const { sdmxProps } = getSDMXPropsForFeature(feature)
           tableRows = dimensions
-            .map((dimension: any) => {
+            .map((dimension) => {
               const value = sdmxProps?.[dimension.id]
               if (value === undefined || value === null || value === '') {
                 return ''

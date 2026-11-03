@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { parseOperandTextExpr } from "./parseTextExpr";
+import { dataRequestHeaders } from "./requestHeaders";
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
@@ -109,12 +110,7 @@ export const fetchDataExprOperand = (exprOperands: Array<string>, data: any, sco
     } else {
         // operand is another SDMX request
         const parser = new SDMXParser();
-        return parser.getDatasets(exprOperand, {
-            headers: new Headers({
-                Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                "Accept-Language": language
-            })
-        }).then(() => {
+        return parser.getDatasets(exprOperand, { headers: dataRequestHeaders(language) }).then(() => {
             const extraData = parser.getData();
             if (extraData.length !== data.length) {
                 throw new Error('Data length mismatch, cannot evaluate expression');

@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useRef, useEffect } from 'react';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
 import Map from 'ol/Map';
@@ -29,6 +30,7 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
@@ -308,7 +310,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
     return () => {
       cancelled = true
     }
-  }, [config, language, callback])
+  }, [config, language, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef, callback])
 
   useEffect(() => {
     const styleFunction = (feature: FeatureLike) => {

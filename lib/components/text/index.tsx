@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useEffect, useState } from "react";
 import parse from "html-react-parser";
@@ -41,6 +42,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                 setNoteStyle({...noteStyle, ...config.note})
             }
         }
+        // the style states only seed the merge; re-running on them would loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [config, language])
 
     return (

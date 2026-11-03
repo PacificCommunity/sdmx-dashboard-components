@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
+import { dataRequestHeaders } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig, SDMXVisualProps } from "../types";
@@ -37,7 +39,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
     // style is applied to value div
     // style main contain width, height, color and backgroundColor
     // other props are applied to container div
-    let { className, style, valueClassName, ...otherProps } = props;
+    const { className: _className, style, valueClassName, ...otherProps } = props;
 
     let containerClass = props.className || '';
     let containerStyle = {};
@@ -87,7 +89,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
         }
         if (containerRef.current) {
             // calculate the width of the value div in pixel, as a percentage of the container div
-            let containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
+            const containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
             // Adjust the formula as needed to fit your design
             return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
         }
@@ -249,7 +251,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
         return () => {
             cancelled = true;
         };
-    }, [language]);
+    }, [language, config, callback, onVisualRenderRef, formatValue, valueElement ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">

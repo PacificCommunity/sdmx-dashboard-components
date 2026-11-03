@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { SDMXDimension } from '../components/types';
+import type { SDMXAttribute, SDMXDimension, SDMXObservation } from '../components/types';
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -76,10 +75,10 @@ export const parseTextExpr = (textExpr: string, dimensions: SDMXDimension[]) : s
 
 }
 
-export const parseOperandTextExpr = (operandExpr: string, data : any, attributes: any[]) => {
+export const parseOperandTextExpr = (operandExpr: string, data : SDMXObservation, attributes: SDMXAttribute[]) => {
 
   const textWithValues = String(operandExpr).replace(/\{(.*?)\}/g, (_match, p1) => {
-    let valueAttribute = 'name';
+    let valueAttribute: 'name' | 'id' = 'name';
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {
       p1 = p1.substring(1);
@@ -87,14 +86,14 @@ export const parseOperandTextExpr = (operandExpr: string, data : any, attributes
       // replace {VARIABLE} with id
       valueAttribute = 'id'
     }
-    const attribute = attributes.find((item : any) => item.id === p1);
+    const attribute = attributes.find((item) => item.id === p1);
     if (!attribute) {
       throw new Error(`Attribute with id ${p1} not found`);
     } else {
-      const value = attribute.values.find((item : any) => item.name === data[attribute.id]);
+      const value = attribute.values.find((item) => item.name === data[attribute.id]);
       if (value) {
         if (attribute.id === 'UNIT_MULT') {
-          return Math.pow(10, parseInt(value[valueAttribute]));
+          return String(Math.pow(10, parseInt(value[valueAttribute])));
         }
         return value[valueAttribute];
       } else {

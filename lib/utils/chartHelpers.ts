@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import { SDMXChartConfig, type SDMXDimension } from '../components/types';
+import { SDMXChartConfig, type SDMXDimension, type SDMXObservation } from '../components/types';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
 
@@ -14,7 +14,7 @@ export type BuiltChart = {
 };
 
 export type ParsedDataset = {
-  data: any[];
+  data: SDMXObservation[];
   dimensions: SDMXDimension[];
   activeDimensions?: SDMXDimension[];
   alternateLabel?: string;
@@ -614,17 +614,24 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   return title;
 };
 
-export const sortByDimension = (data: any[], dimensionId: string) => {
-  return data.sort((a: any, b: any) => {
+// Rows sortByDimension can order: any record of comparable dimension values.
+// SDMX observations qualify, and so do the synthetic { name, <concept>: name }
+// rows the drilldown builds for category ordering.
+export type DimensionSortable = { [concept: string]: string | number | null };
+
+export const sortByDimension = <T extends DimensionSortable>(data: T[], dimensionId: string): T[] => {
+  return data.sort((a, b) => {
+    const left = String(a[dimensionId] ?? '');
+    const right = String(b[dimensionId] ?? '');
     if (dimensionId === 'TIME_PERIOD') {
-      return parseInt(a[dimensionId]) - parseInt(b[dimensionId]);
+      return parseInt(left) - parseInt(right);
     }
-    return a[dimensionId].localeCompare(b[dimensionId]);
+    return left.localeCompare(right);
   });
 };
 
-export const sortByValue = (data: any[], order: string) => {
-  data.sort((a: any, b: any) => (order === 'asc' ? a.value - b.value : b.value - a.value));
+export const sortByValue = (data: SDMXObservation[], order: string) => {
+  data.sort((a, b) => (order === 'asc' ? (a.value ?? 0) - (b.value ?? 0) : (b.value ?? 0) - (a.value ?? 0)));
   return data;
 };
 
@@ -643,37 +650,44 @@ export const isNonEmptyValue = (value: unknown): boolean => {
   return !(typeof value === 'number' && Number.isNaN(value));
 };
 
-export const timePeriodRank = (dimension: any): Map<any, number> => {
-  const ranks = new Map<any, number>();
+export const timePeriodRank = (dimension?: SDMXDimension): Map<string, number> => {
+  const ranks = new Map<string, number>();
   if (!dimension || !Array.isArray(dimension.values)) return ranks;
-  dimension.values.forEach((value: any, index: number) => {
+  dimension.values.forEach((value, index) => {
     if (value && value.name !== undefined) ranks.set(value.name, index);
   });
   return ranks;
 };
 
-const timePeriodKey = (period: any, ranks: Map<any, number>): [number, any] => {
-  const index = ranks.get(period);
+// A period that the time dimension ranks sorts before one it does not; ranked
+// periods compare by their rank index, unranked ones by their raw value.
+type TimePeriodKey = [number, string | number];
+
+const compareTimePeriodKeys = (left: TimePeriodKey, right: TimePeriodKey): number => {
+  if (left[0] !== right[0]) return left[0] - right[0];
+  if (typeof left[1] === 'number' && typeof right[1] === 'number') return left[1] - right[1];
+  if (String(left[1]) === String(right[1])) return 0;
+  return String(left[1]) < String(right[1]) ? -1 : 1;
+};
+
+const timePeriodKey = (period: unknown, ranks: Map<string, number>): TimePeriodKey => {
+  const index = ranks.get(String(period));
   return index === undefined ? [0, String(period)] : [1, index];
 };
 
 export const getLatestTimePeriodRow = (
-  data: any[],
-  timeDimension?: any
-): any | undefined => {
+  data: SDMXObservation[],
+  timeDimension?: SDMXDimension
+): SDMXObservation | undefined => {
   const ranks = timePeriodRank(timeDimension);
-  let latest: any | undefined;
-  let latestKey: [number, any] | undefined;
+  let latest: SDMXObservation | undefined;
+  let latestKey: TimePeriodKey | undefined;
   data.forEach((row) => {
     if (!isNonEmptyValue(row?.value)) return;
     const period = row?.TIME_PERIOD;
     if (period === undefined || period === null || period === '') return;
     const key = timePeriodKey(period, ranks);
-    if (
-      !latestKey ||
-      key[0] > latestKey[0] ||
-      (key[0] === latestKey[0] && key[1] > latestKey[1])
-    ) {
+    if (!latestKey || compareTimePeriodKeys(key, latestKey) > 0) {
       latest = row;
       latestKey = key;
     }
@@ -683,14 +697,14 @@ export const getLatestTimePeriodRow = (
 
 export type LatestRootOptions = {
   preferredDimension?: string;
-  preferredValue?: any;
+  preferredValue?: string | number | null;
 };
 
 export const selectLatestRootRow = (
-  rows: any[],
-  timeDimension?: any,
+  rows: SDMXObservation[],
+  timeDimension?: SDMXDimension,
   options: LatestRootOptions = {}
-): any | undefined => {
+): SDMXObservation | undefined => {
   const { preferredDimension, preferredValue = 'Total' } = options;
   if (preferredDimension) {
     const preferred = rows.filter(
@@ -707,24 +721,20 @@ export const selectLatestRootRow = (
   return getLatestTimePeriodRow(rows, timeDimension);
 };
 
-export const sortTimePeriodValues = (data: any[], timeDimension?: any): any[] => {
+export const sortTimePeriodValues = (data: SDMXObservation[], timeDimension?: SDMXDimension): SDMXObservation[] => {
   const ranks = timePeriodRank(timeDimension);
-  return [...data].sort((a, b) => {
-    const left = timePeriodKey(a?.TIME_PERIOD, ranks);
-    const right = timePeriodKey(b?.TIME_PERIOD, ranks);
-    if (left[0] !== right[0]) return left[0] - right[0];
-    if (left[1] < right[1]) return -1;
-    if (left[1] > right[1]) return 1;
-    return 0;
-  });
+  return [...data].sort((a, b) => compareTimePeriodKeys(
+    timePeriodKey(a?.TIME_PERIOD, ranks),
+    timePeriodKey(b?.TIME_PERIOD, ranks)
+  ));
 };
 
 const latestValuesByCategory = (
-  data: any[],
+  data: SDMXObservation[],
   categoryDimension: string,
-  timeDimension: any
-): any[] => {
-  const byCategory = new Map<any, any[]>();
+  timeDimension?: SDMXDimension
+): SDMXObservation[] => {
+  const byCategory = new Map<string | number | null, SDMXObservation[]>();
   data.forEach((row) => {
     if (!isNonEmptyValue(row?.value)) return;
     const category = row[categoryDimension];
@@ -734,7 +744,7 @@ const latestValuesByCategory = (
   });
   return Array.from(byCategory.values())
     .map((rows) => selectLatestRootRow(rows, timeDimension))
-    .filter((row): row is any => row !== undefined);
+    .filter((row): row is SDMXObservation => row !== undefined);
 };
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
@@ -861,18 +871,18 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
     const { data, dimensions, activeDimensions, alternateLabel, datasetIndex } = dataset;
     const legendConcept = config.legend?.concept || '';
     const legendDimension = !legendConcept
-      ? activeDimensions!.find((d: any) => d.id !== xAxisConcept)
-      : dimensions.find((d: any) => d.id === legendConcept);
-    const xAxisDimension = activeDimensions!.find((d: any) => d.id === xAxisConcept);
-    const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
+      ? activeDimensions!.find((d) => d.id !== xAxisConcept)
+      : dimensions.find((d) => d.id === legendConcept);
+    const xAxisDimension = activeDimensions!.find((d) => d.id === xAxisConcept);
+    const timeDimension = dimensions.find((d) => d.id === 'TIME_PERIOD');
     const useLatestTimePeriod = Boolean(timeDimension)
       && xAxisConcept !== 'TIME_PERIOD'
       && legendDimension?.id !== 'TIME_PERIOD';
 
     [...legendDimension.values]
-      .sort((a: any, b: any) => a.id.localeCompare(b.id))
-      .forEach((legendDimensionValue: any) => {
-        const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((legendDimensionValue) => {
+        const legendSerie = data.filter((val) => val[legendDimension.id] === legendDimensionValue.name);
         const sortedData = sortByDimension(legendSerie, xAxisConcept);
         const latestValues = useLatestTimePeriod
           ? latestValuesByCategory(sortedData, xAxisConcept, timeDimension)
@@ -894,8 +904,8 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
         }
 
         latestValues
-          .filter((val: any) => val.value !== null)
-          .forEach((val: any) => {
+          .filter((val: SDMXObservation) => val.value !== null)
+          .forEach((val: SDMXObservation) => {
             const category = val[xAxisConcept];
             if (!seen.has(category)) {
               seen.add(category);
@@ -906,7 +916,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
             const colorByPoint = config.colorPalette?.[xAxisConcept] !== undefined;
             let itemStyle: any = undefined;
             if (colorByPoint) {
-              const valXAxis = xAxisDimension.values.find((xVal: any) => xVal.name === val[xAxisConcept]);
+              const valXAxis = xAxisDimension.values.find((xVal) => xVal.name === val[xAxisConcept]);
               const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
               if (c) itemStyle = { color: c };
             }

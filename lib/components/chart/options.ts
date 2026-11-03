@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig } from '../types';
+import type { SDMXChartConfig, SDMXDimension, SDMXObservation } from '../types';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { SDMXParser } from 'sdmx-json-parser';
@@ -26,7 +26,7 @@ const builders: Record<ChartType, ChartBuilder> = {
   drilldown: buildDrilldown,
 };
 
-const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language: string): string => {
+const resolveText = (text: SDMXChartConfig['title'], dimensions: SDMXDimension[], language: string): string => {
   if (typeof text === 'string') return parseTextExpr(text, dimensions);
   if (typeof text === 'object' && text) {
     return typeof text.text === 'string'
@@ -55,18 +55,17 @@ export const loadDatasets = async (
         const data = parser.getData();
         const attributes = parser.getAttributes();
         if (dataObj.alternateLabel) {
-          data.forEach((_item: any, index: number, data: any[]) => {
+          data.forEach((_item: SDMXObservation, index: number, data: SDMXObservation[]) => {
             data[index][xAxisConcept as string] = dataObj.alternateLabel;
           });
         }
         if (dataObj.operator === 'hist') {
-          const histData: any[] = [];
-          data.forEach((_dataItem: any) => {
+          const histData: SDMXObservation[] = [];
+          data.forEach((_dataItem: SDMXObservation) => {
             const idx = histData.findIndex((item) => item.binValue === _dataItem.value);
             if (idx === -1) {
-              const histItem: any = {};
+              const histItem: SDMXObservation = { value: 1 };
               histItem[xAxisConcept as string] = _dataItem[xAxisConcept as string];
-              histItem.value = 1;
               histItem.binValue = _dataItem.value;
               histData.push(histItem);
             } else {
@@ -81,12 +80,12 @@ export const loadDatasets = async (
             datasetIndex,
           };
         } else if (dataObj.operator === 'expr') {
-          const scope: Scope = { x0: data.map((item: any) => item.value) };
+          const scope: Scope = { x0: data.map((item: SDMXObservation) => item.value) };
           const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language);
           return Promise.all(ops).then(() => {
             const astFactory = new EvalAstFactory();
             const expr = parseExpr(dataObj.expression, astFactory);
-            data.forEach((item: any, index: number) => {
+            data.forEach((item: SDMXObservation, index: number) => {
               const scopeValues: Scope = {};
               Object.keys(scope).forEach((varKey: string) => {
                 scopeValues[varKey] = scope[varKey][index];

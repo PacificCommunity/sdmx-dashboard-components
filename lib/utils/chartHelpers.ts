@@ -1,8 +1,44 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { EChartsOption } from 'echarts';
+import type {
+  EChartsOption,
+  GridComponentOption,
+  SeriesOption,
+  TitleComponentOption,
+  TooltipComponentOption,
+  XAXisComponentOption,
+  YAXisComponentOption,
+} from 'echarts';
 import { SDMXChartConfig, type SDMXDimension, type SDMXObservation } from '../components/types';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
+
+// ECharts models the x and y axis with the same component option, so one alias
+// covers both here.
+export type AxisOption = XAXisComponentOption | YAXisComponentOption;
+
+// The subset of an ECharts formatter parameter bag these helpers read. ECharts
+// does not export the real type from its root entry point.
+export type FormatterParams = {
+  value?: unknown;
+  name?: string;
+  percent?: number;
+  marker?: unknown;
+  seriesName?: string;
+  dataIndex?: number;
+  axisValueLabel?: string;
+  data?: unknown;
+};
+
+// A category label as it reaches the chart: dimension value names are strings,
+// but sorting and grouping code also passes numbers and nulls through.
+export type Category = string | number | null;
+
+// One point of a column-like series, keyed by category in valueByName.
+export type ColumnLikePoint = {
+  value: number | null;
+  name: Category;
+  itemStyle?: { color: string };
+  TIME_PERIOD?: Category;
+};
 
 export type DrilldownBundle = { options: Record<string, EChartsOption> };
 
@@ -32,31 +68,36 @@ export type ChartContext = {
 };
 
 export type ChartBuildResult = {
-  series: any[];
-  xAxis?: any;
-  yAxis?: any;
-  grid?: any;
-  tooltip?: any;
-  legend?: any;
+  series: SeriesOption[];
+  xAxis?: AxisOption | AxisOption[];
+  yAxis?: AxisOption | AxisOption[];
+  grid?: GridComponentOption;
+  tooltip?: TooltipComponentOption;
+  legend?: EChartsOption['legend'];
   drilldown?: DrilldownBundle;
 };
 
 export type ChartBuilder = (context: ChartContext) => ChartBuildResult;
 
-export type ColumnLikeEntry = {
+// The fields resolveSeriesNames reads when de-duplicating legend labels.
+export type SeriesNaming = {
   name: string;
-  baseName: string;
+  baseName?: string;
   alternateLabel?: string;
   datasetIndex: number;
+};
+
+export type ColumnLikeEntry = SeriesNaming & {
+  baseName: string;
   id: string;
   legendConcept: string;
-  valueByName: Map<any, any>;
+  valueByName: Map<Category, ColumnLikePoint>;
 };
 
 export type ColumnLikeCollection = {
-  categories: any[];
+  categories: Category[];
   entries: ColumnLikeEntry[];
-  resolvedNames: Map<any, string>;
+  resolvedNames: Map<SeriesNaming, string>;
   xAxisConcept: string;
 };
 
@@ -73,7 +114,7 @@ export const paletteColor = (config: SDMXChartConfig, concept: string, code: str
   return undefined;
 };
 
-export const resolveSeriesNames = (entries: any[]): Map<any, string> => {
+export const resolveSeriesNames = (entries: SeriesNaming[]): Map<SeriesNaming, string> => {
   if (entries.length === 0) return new Map();
 
   const baseCounts = new Map<string, number>();
@@ -158,7 +199,7 @@ export const abbreviateNumber = (value: number): string => {
   return String(numeric);
 };
 
-export const withValueAxisFormatter = (axis: any) => {
+export const withValueAxisFormatter = <T extends AxisOption>(axis: T): T => {
   if (axis && axis.type === 'value') {
     axis.axisLabel = { ...(axis.axisLabel || {}), formatter: abbreviateNumber };
   }
@@ -166,10 +207,10 @@ export const withValueAxisFormatter = (axis: any) => {
 };
 
 export const hasExplicitAxisLabelRotation = (extraOptions: EChartsOption | undefined): boolean => {
-  const xAxis = (extraOptions as any)?.xAxis;
+  const xAxis = extraOptions?.xAxis;
   if (!xAxis) return false;
   const axes = Array.isArray(xAxis) ? xAxis : [xAxis];
-  return axes.some((axis: any) => axis?.axisLabel?.rotate !== undefined);
+  return axes.some((axis) => axis?.axisLabel?.rotate !== undefined);
 };
 
 const Y_AXIS_TITLE_DEFAULT_FONT_SIZE = 12;
@@ -199,7 +240,7 @@ const measureLongestLine = (label: unknown, font: string, fallbackFontSize: numb
     .split(/\r?\n/)
     .reduce((max, line) => Math.max(max, measureTextWidth(line, font, fallbackFontSize)), 0);
 
-const axisLabelFont = (axis: any): { font: string; fontSize: number } => {
+const axisLabelFont = (axis: AxisOption): { font: string; fontSize: number } => {
   const label = axis?.axisLabel || {};
   const fontSize = Number(label.fontSize) || Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
   const fontFamily = label.fontFamily || 'sans-serif';
@@ -211,12 +252,12 @@ const axisLabelFont = (axis: any): { font: string; fontSize: number } => {
   };
 };
 
-const yAxisTitleFontSize = (axis: any): number => {
+const yAxisTitleFontSize = (axis: AxisOption): number => {
   const size = Number(axis?.nameTextStyle?.fontSize);
   return Number.isFinite(size) && size > 0 ? size : Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
 };
 
-const numericPointValue = (point: any): number | undefined => {
+const numericPointValue = (point: unknown): number | undefined => {
   if (typeof point === 'number') return Number.isFinite(point) ? point : undefined;
   if (Array.isArray(point)) {
     const candidate = point.length > 1 ? point[1] : point[0];
@@ -224,19 +265,20 @@ const numericPointValue = (point: any): number | undefined => {
     return Number.isFinite(value) ? value : undefined;
   }
   if (point && typeof point === 'object' && 'value' in point) {
-    return numericPointValue(point.value);
+    return numericPointValue((point as { value: unknown }).value);
   }
   return undefined;
 };
 
-const estimateValueAxisLabelWidth = (axis: any, series: any[]): number => {
+const estimateValueAxisLabelWidth = (axis: AxisOption, series: SeriesOption[]): number => {
   const { font, fontSize } = axisLabelFont(axis);
   const values: number[] = [];
   if (typeof axis?.min === 'number') values.push(axis.min);
   if (typeof axis?.max === 'number') values.push(axis.max);
-  series.forEach((entry: any) => {
-    if (!Array.isArray(entry?.data)) return;
-    entry.data.forEach((point: any) => {
+  series.forEach((entry) => {
+    const data = (entry as { data?: unknown }).data;
+    if (!Array.isArray(data)) return;
+    data.forEach((point) => {
       const value = numericPointValue(point);
       if (value !== undefined) values.push(value);
     });
@@ -252,7 +294,7 @@ const estimateValueAxisLabelWidth = (axis: any, series: any[]): number => {
   return measured + fontSize * 0.5;
 };
 
-const estimateYAxisLabelWidth = (axis: any, series: any[]): number => {
+const estimateYAxisLabelWidth = (axis: AxisOption, series: SeriesOption[]): number => {
   if (axis?.type === 'category' && Array.isArray(axis.data)) {
     const { font, fontSize } = axisLabelFont(axis);
     const labels = axis.data as unknown[];
@@ -267,17 +309,17 @@ const estimateYAxisLabelWidth = (axis: any, series: any[]): number => {
 
 const explicitGridSides = (extraOptions: EChartsOption | undefined): Set<string> => {
   const sides = new Set<string>();
-  const extraGrid = (extraOptions as any)?.grid;
+  const extraGrid = extraOptions?.grid;
   if (!extraGrid) return sides;
   const grids = Array.isArray(extraGrid) ? extraGrid : [extraGrid];
-  grids.forEach((grid: any) => {
+  grids.forEach((grid) => {
     if (grid?.left !== undefined) sides.add('left');
     if (grid?.right !== undefined) sides.add('right');
   });
   return sides;
 };
 
-export const applyYAxisTitleLayout = (option: any, extraOptions?: EChartsOption): boolean => {
+export const applyYAxisTitleLayout = (option: EChartsOption, extraOptions?: EChartsOption): boolean => {
   if (!option) return false;
   const axes = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis];
   const series = Array.isArray(option.series) ? option.series : [];
@@ -285,7 +327,7 @@ export const applyYAxisTitleLayout = (option: any, extraOptions?: EChartsOption)
   const lockedSides = explicitGridSides(extraOptions);
   let changed = false;
 
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis || typeof axis.name !== 'string' || axis.name.trim() === '') return;
     if (axis.nameLocation !== undefined && axis.nameLocation !== 'middle') return;
 
@@ -319,15 +361,19 @@ export const applyYAxisTitleLayout = (option: any, extraOptions?: EChartsOption)
 };
 
 const CATEGORY_LABEL_GAP = 8;
-const CATEGORY_LABEL_LAYOUT_KEY = '__sdmxCategoryLabelLayout';
 
 type CategoryLabelLayoutState = {
-  originalFormatter: any;
+  originalFormatter: unknown;
   wrapped: string[];
-  wrapper: (value: any, index: number) => string;
+  wrapper: (value: unknown, index: number) => string;
 };
 
-const formatCategoryLabel = (formatter: any, value: any, index: number): string => {
+// Layout state is attached to the axis object rather than to the option, so it
+// survives the option being rebuilt between renders. A WeakMap keeps that
+// association without stamping a private key onto the ECharts option type.
+const categoryLabelLayouts = new WeakMap<object, CategoryLabelLayoutState>();
+
+const formatCategoryLabel = (formatter: unknown, value: unknown, index: number): string => {
   if (typeof formatter === 'function') {
     try {
       return String(formatter(value, index));
@@ -376,7 +422,7 @@ const wrapCategoryLabel = (
   return lines.length > 0 ? lines : [''];
 };
 
-const categoryAxisPlotWidth = (option: any, width: number): number => {
+const categoryAxisPlotWidth = (option: EChartsOption, width: number): number => {
   const series = Array.isArray(option?.series) ? option.series : [];
   const grid = !Array.isArray(option?.grid) ? option.grid : undefined;
   let left = 0;
@@ -394,7 +440,7 @@ const categoryAxisPlotWidth = (option: any, width: number): number => {
   }
 
   const axes = Array.isArray(option?.yAxis) ? option.yAxis : [option?.yAxis];
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis) return;
     const labelWidth = estimateYAxisLabelWidth(axis, series) + 8;
     if (axis.position === 'right') right += labelWidth;
@@ -405,7 +451,7 @@ const categoryAxisPlotWidth = (option: any, width: number): number => {
 };
 
 export const applyCategoryLabelLayout = (
-  option: any,
+  option: EChartsOption,
   width: number,
   extraOptions?: EChartsOption
 ): boolean => {
@@ -416,7 +462,7 @@ export const applyCategoryLabelLayout = (
   const plotWidth = categoryAxisPlotWidth(option, width);
   let changed = false;
 
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis || axis.type !== 'category' || !Array.isArray(axis.data)) return;
     const labels = axis.data as unknown[];
     if (labels.length === 0 || axis.axisLabel?.show === false) return;
@@ -424,14 +470,14 @@ export const applyCategoryLabelLayout = (
     const { font, fontSize } = axisLabelFont(axis);
     const available = Math.max(1, plotWidth / labels.length - CATEGORY_LABEL_GAP);
 
-    let state = axis[CATEGORY_LABEL_LAYOUT_KEY] as CategoryLabelLayoutState | undefined;
+    let state = categoryLabelLayouts.get(axis);
     if (!state) {
       state = {
         originalFormatter: axis.axisLabel?.formatter,
         wrapped: [],
         wrapper: () => '',
       };
-      axis[CATEGORY_LABEL_LAYOUT_KEY] = state;
+      categoryLabelLayouts.set(axis, state);
     }
     const layoutState = state;
 
@@ -455,7 +501,7 @@ export const applyCategoryLabelLayout = (
 
     if (canWrap && didWrap) {
       layoutState.wrapped = wrapped;
-      layoutState.wrapper = (value: any, index: number) => {
+      layoutState.wrapper = (value: unknown, index: number) => {
         const wrappedValue = layoutState.wrapped[index];
         return wrappedValue !== undefined
           ? wrappedValue
@@ -471,7 +517,7 @@ export const applyCategoryLabelLayout = (
         axisChanged = true;
       }
     } else if (axisLabel.formatter !== layoutState.originalFormatter) {
-      axisLabel.formatter = layoutState.originalFormatter;
+      axisLabel.formatter = layoutState.originalFormatter as typeof axisLabel.formatter;
       axisChanged = true;
     }
 
@@ -490,7 +536,7 @@ export const applyCategoryLabelLayout = (
   return changed;
 };
 
-export const finalizeCartesianAxes = (xAxis: any, yAxis: any) => ({
+export const finalizeCartesianAxes = (xAxis: AxisOption, yAxis: AxisOption) => ({
   xAxis: withValueAxisFormatter(xAxis),
   yAxis: withValueAxisFormatter(yAxis),
 });
@@ -503,7 +549,7 @@ export const formatTooltipValue = (value: unknown, language: string): string => 
 };
 
 export const labelFormatter = (config: SDMXChartConfig, language: string, chartType: string | undefined) => {
-  return (params: any) => {
+  return (params: FormatterParams) => {
     const value = Array.isArray(params.value) ? params.value[1] : params.value;
     return config?.unit?.text === '%' && params.percent !== undefined
       ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
@@ -554,8 +600,11 @@ export const formatTimeValue = (timestamp: number, format?: string): string => {
 };
 
 export const buildTooltipFormatter = (config: SDMXChartConfig, language: string, timeFormat?: string) => {
-  const customValueFormatter = (config.extraOptions as any)?.tooltip?.valueFormatter;
-  return (params: any) => {
+  const extraTooltip = config.extraOptions?.tooltip;
+  const customValueFormatter = Array.isArray(extraTooltip)
+    ? extraTooltip[0]?.valueFormatter
+    : extraTooltip?.valueFormatter;
+  return (params: FormatterParams | FormatterParams[]) => {
     const list = Array.isArray(params) ? params : [params];
     if (list.length === 0 || !list[0]) return '';
     const first = list[0];
@@ -565,21 +614,21 @@ export const buildTooltipFormatter = (config: SDMXChartConfig, language: string,
         : Array.isArray(first.value) && typeof first.value[0] === 'number'
           ? formatTimeValue(first.value[0], timeFormat)
           : '');
-    const lines = list.map((point: any) => {
+    const lines = list.map((point) => {
       const rawValue = Array.isArray(point.value) ? point.value[1] : point.value;
       const formatted = typeof customValueFormatter === 'function'
         ? String(customValueFormatter(rawValue, point.dataIndex))
         : escapeHtml(formatTooltipValue(rawValue, language));
       const series = point.seriesName ? `${escapeHtml(point.seriesName)}: ` : '';
-      return `${point.marker || ''}${series}${formatted}`;
+      return `${point.marker ? String(point.marker) : ''}${series}${formatted}`;
     });
     return `${xValue ? `${escapeHtml(xValue)}<br/>` : ''}${lines.join('<br/>')}`;
   };
 };
 
-export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): any => {
+export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): TitleComponentOption | undefined => {
   if (!config.title && !config.subtitle) return undefined;
-  const title: any = {};
+  const title: TitleComponentOption = {};
   title.top = 0;
   if (titleText) title.text = titleText;
   if (config.title?.link) {
@@ -594,19 +643,19 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   const align = config.title?.align ?? config.subtitle?.align ?? 'center';
   title.left = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
   if (config.title) {
-    const textStyle: any = {};
+    const textStyle: NonNullable<TitleComponentOption['textStyle']> = {};
     if (config.title.size !== undefined) textStyle.fontSize = toFontSize(config.title.size, 16);
-    if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight;
-    if (config.title.style !== undefined) textStyle.fontStyle = config.title.style;
+    if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight as typeof textStyle.fontWeight;
+    if (config.title.style !== undefined) textStyle.fontStyle = config.title.style as typeof textStyle.fontStyle;
     if (config.title.color !== undefined) textStyle.color = config.title.color;
     if (config.title.font !== undefined) textStyle.fontFamily = config.title.font;
     if (Object.keys(textStyle).length > 0) title.textStyle = textStyle;
   }
   if (config.subtitle) {
-    const subtextStyle: any = {};
+    const subtextStyle: NonNullable<TitleComponentOption['subtextStyle']> = {};
     subtextStyle.fontSize = toFontSize(config.subtitle.size ?? '0.8em', 12.8);
-    if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight;
-    if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style;
+    if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight as typeof subtextStyle.fontWeight;
+    if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style as typeof subtextStyle.fontStyle;
     if (config.subtitle.color !== undefined) subtextStyle.color = config.subtitle.color;
     subtextStyle.fontFamily = config.subtitle.font ?? 'Helvetica, Arial, sans-serif';
     title.subtextStyle = subtextStyle;
@@ -635,14 +684,16 @@ export const sortByValue = (data: SDMXObservation[], order: string) => {
   return data;
 };
 
-export const getLatestValue = (data: any[], dimension: string) => {
-  let values: any[] = [];
-  values = data
-    .map((dataPoint: any) => dataPoint[dimension])
-    .map((e: any, i: number, final: any) => final.indexOf(e) === i && i)
-    .filter((e: any) => data[e])
-    .map((e: any) => data[e]);
-  return values;
+// Keeps the first row seen for each distinct value of `dimension`, in the order
+// the rows appear.
+export const getLatestValue = (data: SDMXObservation[], dimension: string): SDMXObservation[] => {
+  const seen = new Set<unknown>();
+  return data.filter((row) => {
+    const key = row[dimension];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 export const isNonEmptyValue = (value: unknown): boolean => {
@@ -749,9 +800,13 @@ const latestValuesByCategory = (
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
 
-export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
+export const buildCartesianGrid = (config: SDMXChartConfig, series: SeriesOption[]) => {
   const labels = Array.from(
-    new Set(series.map((s: any) => s.name).filter(Boolean))
+    new Set(
+      series
+        .map((s) => (s as { name?: string }).name)
+        .filter((name): name is string => Boolean(name))
+    )
   );
   return {
     containLabel: true,
@@ -777,13 +832,15 @@ export const buildLegend = (config: SDMXChartConfig, data?: string[]) => {
 };
 
 export const applySeriesLabels = (
-  series: any[],
+  series: SeriesOption[],
   config: SDMXChartConfig,
   language: string,
   chartType: ChartType
-) => {
+): SeriesOption[] => {
   if (!config.labels) return series;
-  return series.map((s: any) => {
+  // Spreading a SeriesOption and adding `label` keeps the concrete series type,
+  // but TS cannot re-narrow the union after the spread.
+  return series.map((s) => {
     if (chartType === 'lollipop' && s.type !== 'scatter') return { ...s };
     const labelPosition = s.type === 'bar'
       ? (chartType === 'bar' ? 'right' : 'top')
@@ -796,10 +853,10 @@ export const applySeriesLabels = (
         formatter: labelFormatter(config, language, chartType),
       },
     };
-  });
+  }) as SeriesOption[];
 };
 
-export const applyBarLabelLayout = (option: any): boolean => {
+export const applyBarLabelLayout = (option: EChartsOption): boolean => {
   if (!option) return false;
   const series = Array.isArray(option.series) ? option.series : [option.series];
   const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
@@ -807,7 +864,7 @@ export const applyBarLabelLayout = (option: any): boolean => {
   const horizontalBars = xAxis?.type === 'value' && yAxis?.type === 'category';
   let changed = false;
 
-  series.forEach((entry: any) => {
+  series.forEach((entry) => {
     if (!entry || entry.type !== 'bar') return;
     if (!entry.label || entry.label.show !== true) return;
     if (entry.label.position !== undefined) return;
@@ -818,9 +875,9 @@ export const applyBarLabelLayout = (option: any): boolean => {
   return changed;
 };
 
-export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {
+export const applyBarBorderRadius = (series: SeriesOption[], chartType: ChartType) => {
   const borderRadius = chartType === 'bar' ? [0, 3, 3, 0] : [3, 3, 0, 0];
-  return series.map((s: any) =>
+  return series.map((s) =>
     s.type === 'bar'
       ? { ...s, itemStyle: { ...(s.itemStyle || {}), borderRadius } }
       : s
@@ -832,8 +889,8 @@ export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {
 export const buildCartesianChartParts = (
   config: SDMXChartConfig,
   language: string,
-  categories: any[],
-  rawSeries: any[],
+  categories: Category[],
+  rawSeries: SeriesOption[],
   orientation: 'bar' | 'column'
 ) => {
   const series = applySeriesLabels(
@@ -842,8 +899,8 @@ export const buildCartesianChartParts = (
     language,
     orientation
   );
-  const categoryAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
-  const valueAxis = { type: 'value' };
+  const categoryAxis: AxisOption = { type: 'category', data: categories, axisLabel: { interval: 0 } };
+  const valueAxis: AxisOption = { type: 'value' };
   const axes = orientation === 'bar'
     ? finalizeCartesianAxes(valueAxis, categoryAxis)
     : finalizeCartesianAxes(categoryAxis, valueAxis);
@@ -863,8 +920,8 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
   const xAxisConcept = config.xAxisConcept;
   if (!xAxisConcept) throw new Error('No xAxis concept found');
 
-  const categories: any[] = [];
-  const seen = new Set<any>();
+  const categories: Category[] = [];
+  const seen = new Set<Category>();
   const byName = new Map<string, ColumnLikeEntry>();
 
   datasets.forEach((dataset) => {
@@ -898,7 +955,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
             datasetIndex,
             id: legendDimensionValue.id,
             legendConcept,
-            valueByName: new Map<any, any>(),
+            valueByName: new Map<Category, ColumnLikePoint>(),
           };
           byName.set(seriesKey, seriesEntry);
         }
@@ -914,7 +971,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
             if (seriesEntry.valueByName.has(category)) return;
 
             const colorByPoint = config.colorPalette?.[xAxisConcept] !== undefined;
-            let itemStyle: any = undefined;
+            let itemStyle: ColumnLikePoint['itemStyle'] = undefined;
             if (colorByPoint) {
               const valXAxis = xAxisDimension.values.find((xVal) => xVal.name === val[xAxisConcept]);
               const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
@@ -935,33 +992,33 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
 };
 
 export const sortColumnLikeCategories = (
-  categories: any[],
+  categories: Category[],
   entries: ColumnLikeEntry[],
   order?: string
 ) => {
   if (!order) return categories;
-  const totals = new Map<any, number>();
+  const totals = new Map<Category, number>();
   entries.forEach((seriesEntry) => {
-    seriesEntry.valueByName.forEach((point: any, category: any) => {
+    seriesEntry.valueByName.forEach((point, category) => {
       totals.set(category, (totals.get(category) ?? 0) + (Number(point.value) || 0));
     });
   });
   return sortByValue(
-    categories.map((name: any) => ({ name, value: totals.get(name) ?? 0 })),
+    categories.map((name) => ({ name, value: totals.get(name) ?? 0 })),
     order
-  ).map((item: any) => item.name);
+  ).map((item) => item.name);
 };
 
 export const buildColumnLikeSeries = (
-  categories: any[],
+  categories: Category[],
   entries: ColumnLikeEntry[],
-  resolvedNames: Map<any, string>,
+  resolvedNames: Map<SeriesNaming, string>,
   config: SDMXChartConfig
-) => {
-  const series: any[] = [];
+): SeriesOption[] => {
+  const series: SeriesOption[] = [];
   entries.forEach((seriesEntry) => {
-    const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
-    if (yAxisValue.some((point: any) => point !== null)) {
+    const yAxisValue = categories.map((category) => seriesEntry.valueByName.get(category) ?? null);
+    if (yAxisValue.some((point) => point !== null)) {
       const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
       series.push({
         type: 'bar',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNonEmptyValue, selectLatestRootRow } from './chartHelpers';
+import { getLatestValue, isNonEmptyValue, selectLatestRootRow } from './chartHelpers';
 import type { SDMXDimension, SDMXObservation } from '../components/types';
 
 const timeDimension: SDMXDimension = {
@@ -60,6 +60,22 @@ describe('selectLatestRootRow', () => {
         preferredValue: 'Total',
       })
     ).toEqual(row('Female', '2022', 58));
+  });
+});
+
+describe('getLatestValue', () => {
+  it('keeps the first row for each distinct dimension value, in order', () => {
+    const rows = [
+      row('Total', '2020', 100),
+      row('Total', '2021', 110),
+      row('15-19', '2020', 42),
+      row('15-19', '2021', 48),
+    ];
+
+    expect(getLatestValue(rows, 'AGE')).toEqual([
+      row('Total', '2020', 100),
+      row('15-19', '2020', 42),
+    ]);
   });
 });
 

@@ -188,7 +188,7 @@ describe('chart error surfacing', () => {
     it('shows a failure in a compact panel instead of the chart height', async () => {
         stubFetchWith(singleSeriesResponse());
 
-        const { container } = render(<Chart config={barConfig()} language="en" />);
+        const { container } = render(<Chart config={{ ...barConfig(), xAxisConcept: 'REF_AREA' }} language="en" />);
 
         const alert = await screen.findByRole('alert');
         // the panel is in the flow, sized by its message, not laid over the chart box

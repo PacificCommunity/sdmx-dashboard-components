@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
+import { dataRequestHeaders } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig, SDMXVisualProps } from "../types";
@@ -32,12 +34,13 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
 
     const containerRef = useRef<HTMLDivElement>(null);
     const onVisualRenderRef = useLatest(onVisualRender);
+    const callbackRef = useLatest(callback);
 
     // className is applied to container div
     // style is applied to value div
     // style main contain width, height, color and backgroundColor
     // other props are applied to container div
-    let { className, style, valueClassName, ...otherProps } = props;
+    const { className: _className, style, valueClassName, ...otherProps } = props;
 
     let containerClass = props.className || '';
     let containerStyle = {};
@@ -81,21 +84,21 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
         }
     }
 
-    const calculateFontSize = (text: string) => {
+    const calculateFontSize = useCallback((text: string) => {
         if (typeof valueDivWidth === 'number') {
             return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
         }
         if (containerRef.current) {
             // calculate the width of the value div in pixel, as a percentage of the container div
-            let containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
+            const containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
             // Adjust the formula as needed to fit your design
             return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
         }
         // default value if no container found
         return '4em';
-    };
+    }, [valueDivWidth]);
 
-    const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
+    const formatValue = useCallback((valueStr: any, config: any, data: any, attributes: any, language: string) => {
         if (config['decimals']) {
             const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
@@ -128,10 +131,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
             }
             </>
         )
-    }
+    }, [calculateFontSize]);
 
     useEffect(() => {
         let cancelled = false;
+        let renderedElement: React.JSX.Element | undefined;
         setRenderError(null);
         onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' });
         const sdmxParser = new SDMXParser();
@@ -148,10 +152,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
 
             const dataFlowUrl = dataObj.dataFlowUrl;
             return sdmxParser.getDatasets(dataFlowUrl, {
-                headers: new Headers({
-                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                    "Accept-Language": language
-                })
+                headers: dataRequestHeaders(language)
             }).then(() => {
                 const data = sdmxParser.getData();
                 if (data.length === 0) {
@@ -203,7 +204,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
                                 }
                             })
                             .filter((item: any) => item); // count number of true
-                        setValueElement(formatValue(countData.length, config, countData, attributes, language));
+                        renderedElement = formatValue(countData.length, config, countData, attributes, language);
+                        setValueElement(renderedElement);
                         setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                     } else if (dataObj.operator === "expr") {
                         const scope: Scope = {x0: valueStr}
@@ -218,12 +220,14 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
                                 }
                             })
                             valueStr = expr?.evaluate(scope)
-                            setValueElement(formatValue(valueStr, config, data, attributes, language));
+                            renderedElement = formatValue(valueStr, config, data, attributes, language);
+                            setValueElement(renderedElement);
                             setPopupStr(data[0][config.xAxisConcept])
                         }))
                     }
                 } else {
-                    setValueElement(formatValue(valueStr, config, data, attributes, language));
+                    renderedElement = formatValue(valueStr, config, data, attributes, language);
+                    setValueElement(renderedElement);
                     setPopupStr(data[0][config.xAxisConcept])
                 }
                 return Promise.all(pending).then(() => data);
@@ -236,8 +240,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
                 status: 'rendered',
                 stats: computeRenderStats(data, 1)
             })
-            if(callback) {
-                callback(valueElement)
+            if (callbackRef.current && renderedElement) {
+                callbackRef.current(renderedElement)
             }
         }).catch((err: unknown) => {
             if (cancelled) return;
@@ -249,7 +253,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
         return () => {
             cancelled = true;
         };
-    }, [language]);
+    }, [language, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">

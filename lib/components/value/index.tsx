@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
@@ -7,7 +6,7 @@ import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import { SDMXVisualConfig } from "../types";
+import type { SDMXAttribute, SDMXObservation, SDMXVisualConfig } from "../types";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
@@ -92,19 +91,24 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
         return '4em';
     };
 
-    const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
-        if (config['decimals']) {
-            const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
+    // Numbers are locale-formatted; strings pass through unchanged.
+    const formatLocalized = (value: string | number, locale: string): string =>
+        typeof value === 'number' ? value.toLocaleString(locale) : value;
+
+    const formatValue = (valueStr: string | number, config: SDMXVisualConfig, data: SDMXObservation[], attributes: SDMXAttribute[], language: string) => {
+        if (config.decimals) {
+            const decimalNumber = Number(parseOperandTextExpr(String(config.decimals), data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
         let valueLabel = '';
         let valueUnder = false;
         if (config.unit) {
             // if config.unit[text] is string, just use it as is, otherwise use the language version
-            if (typeof config.unit['text'] === 'string') {
-                valueLabel = config.unit['text'];
+            if (typeof config.unit.text === 'string') {
+                valueLabel = config.unit.text;
             } else {
-                valueLabel = config.unit['text'][language];
+                // Older configs supply a per-language map here even though the type says string.
+                valueLabel = (config.unit.text as unknown as Record<string, string>)[language];
             }
             // position the unit label
             if (config.unit['location'] === 'suffix') {
@@ -115,11 +119,11 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                 valueUnder = true;
             }
         }
-        const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
+        const valueSize = config.adaptiveTextSize ? calculateFontSize(formatLocalized(valueStr, language)) : '4em';
         const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{formatLocalized(valueStr, language)}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
@@ -166,11 +170,11 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
             if (dataObj.operator) {
                 if(dataObj.operator === "count") {
                     const countData = data
-                        .map((item: any) => {
+                        .map((item: SDMXObservation) => {
                             const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
                             const scope: Scope = {x0: item.value}
-                            if (isNaN(parseInt(dataObj.exprOperand))) {
-                                const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                            if (isNaN(parseInt(String(dataObj.exprOperand)))) {
+                                const dataPromises = fetchDataExprOperand(new Array<string>().concat(dataObj.exprOperand ?? []), data, scope, attributes, language)
                                 Promise.all(dataPromises).then(() => {
                                     Object.keys(scope).forEach((key: string) => {
                                         if (Array.isArray(scope[key])) {
@@ -178,20 +182,20 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                                         }
                                     })
                                     valueStr = expr?.evaluate(scope)
-                                    return valueStr && item;
+                                    return valueStr ? item : undefined;
                                 })
                             } else {
-                                scope['x1'] = parseInt(dataObj.exprOperand)
+                                scope['x1'] = parseInt(String(dataObj.exprOperand))
                                 valueStr = expr?.evaluate(scope)
-                                return valueStr && item;
+                                return valueStr ? item : undefined;
                             }
                         })
-                        .filter((item: any) => item); // count number of true
+                        .filter((item: SDMXObservation | undefined): item is SDMXObservation => Boolean(item)); // count number of true
                     setValueElement(formatValue(countData.length, config, countData, attributes, language));
-                    setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
+                    setPopupStr(countData.map((item) => item[config.xAxisConcept]).join(', '))
                 } else if (dataObj.operator === "expr") {
                     const scope: Scope = {x0: valueStr}
-                    const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                    const dataPromises = fetchDataExprOperand(new Array<string>().concat(dataObj.exprOperand ?? []), data, scope, attributes, language)
                     Promise.all(dataPromises).then(() => {
                         const astFactory = new EvalAstFactory();
                         const expr = parseExpr(dataObj.expression, astFactory);

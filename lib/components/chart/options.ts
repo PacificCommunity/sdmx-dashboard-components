@@ -80,7 +80,8 @@ export const loadDatasets = async (
           };
         } else if (dataObj.operator === 'expr') {
           const scope: Scope = { x0: data.map((item: SDMXObservation) => item.value) };
-          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language);
+          const operands = new Array<string>().concat(dataObj.exprOperand ?? []);
+          const ops = fetchDataExprOperand(operands, data, scope, attributes, language);
           return Promise.all(ops).then(() => {
             const astFactory = new EvalAstFactory();
             const expr = parseExpr(dataObj.expression, astFactory);

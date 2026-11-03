@@ -16,11 +16,12 @@ import {
   sortTimePeriodValues,
   withValueAxisFormatter,
 } from '../../utils/chartHelpers';
+import { SDMXRenderError } from '../../errors';
 
 export const buildDrilldown: ChartBuilder = (context) => {
   const { config, language, datasets, titleText, subtitleText } = context;
   const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
-  if (!drilldownXAxisConcept) throw new Error('No drilldown xAxis concept found');
+  if (!drilldownXAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No drilldown xAxis concept found');
 
   const drilldownOptions: Record<string, EChartsOption> = {};
   const drilldownSeriesByKey = new Map<string, any>();
@@ -34,7 +35,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const { data, dimensions, alternateLabel, datasetIndex } = dataset;
     const xAxisConcept = config.xAxisConcept;
     const legendConcept = config.legend?.concept || '';
-    if (!legendConcept) throw new Error('No legend concept found');
+    if (!legendConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No legend concept found');
 
     const xAxisDimension = dimensions.find((d: any) => d.id === xAxisConcept);
     const legendDimension = dimensions.find((d: any) => d.id === legendConcept);

@@ -1,12 +1,69 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import Cell from './cell';
 import Text from './text';
 
 import '../global.module.css';
-import { SDMXDashboardConfig } from './types';
+import { SDMXDashboardConfig, SDMXVisualProps, VisualRenderStatus } from './types';
+import { REPORTING_VISUAL_TYPES } from '../utils/renderStats';
+import { useLatest } from '../utils/useLatest';
+
+type DashboardProps = SDMXVisualProps & {
+    url?: string,
+    config?: SDMXDashboardConfig,
+    lang?: string,
+    onRenderComplete?: (all: VisualRenderStatus[]) => void, // once per config and language, after every visual settled
+}
+
+// ids of the visuals that report a render status, in layout order
+const reportingVisualIds = (pageData: SDMXDashboardConfig): string[] =>
+    pageData.rows
+        .flatMap((row: any) => row.columns ?? [])
+        .filter((cell: any) => REPORTING_VISUAL_TYPES[cell.type as keyof typeof REPORTING_VISUAL_TYPES])
+        .map((cell: any) => cell.id);
+
+type RenderTracking = {
+    pageData: SDMXDashboardConfig,
+    lang: string,
+    statuses: { [visualId: string]: VisualRenderStatus },
+    completed: boolean
+}
+
+// tracking for the rendered config and language. A new config or language
+// restarts the aggregation but keeps the last status of every visual: a
+// visual whose own config did not change does not report again, and one that
+// did reports "loading" before the dashboard checks for completion.
+const trackingFor = (
+    ref: React.MutableRefObject<RenderTracking | null>,
+    pageData: SDMXDashboardConfig,
+    lang: string
+): RenderTracking => {
+    const tracking = ref.current;
+    if (tracking && tracking.pageData === pageData && tracking.lang === lang) {
+        return tracking;
+    }
+    ref.current = { pageData, lang, statuses: tracking?.statuses ?? {}, completed: false };
+    return ref.current;
+}
+
+// fire onRenderComplete once per tracking, when every reporting visual has
+// settled (immediately, with [], when the config has none)
+const settleTracking = (tracking: RenderTracking, onRenderComplete?: (all: VisualRenderStatus[]) => void) => {
+    if (tracking.completed) {
+        return;
+    }
+    const expectedIds = reportingVisualIds(tracking.pageData);
+    const allSettled = expectedIds.every((id) => {
+        const reported = tracking.statuses[id];
+        return reported && reported.status !== 'loading';
+    });
+    if (allSettled) {
+        tracking.completed = true;
+        onRenderComplete?.(expectedIds.map((id) => tracking.statuses[id]));
+    }
+}
 
 // accept the deprecated `colums` misspelling as an alias for `columns` and
 // apply the layout defaults, so every downstream read uses `columns`
@@ -27,9 +84,26 @@ const normalizeConfig = (config: SDMXDashboardConfig): SDMXDashboardConfig => {
     return config;
 }
 
-const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }: { url?: string, config?: SDMXDashboardConfig, lang?: string}) => {
+const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", onRenderComplete, ...visualProps }: DashboardProps) => {
 
     const [pageData, setPageData] = useState<SDMXDashboardConfig>();
+
+    const onVisualRenderRef = useLatest(visualProps.onVisualRender);
+    const onRenderCompleteRef = useLatest(onRenderComplete);
+
+    // created lazily: child effects, which report first, run before any
+    // dashboard effect
+    const renderTrackingRef = useRef<RenderTracking | null>(null);
+
+    const handleVisualRender = (status: VisualRenderStatus) => {
+        onVisualRenderRef.current?.(status);
+        if (!pageData) {
+            return;
+        }
+        const tracking = trackingFor(renderTrackingRef, pageData, lang);
+        tracking.statuses[status.visualId] = status;
+        settleTracking(tracking, onRenderCompleteRef.current);
+    }
 
     useEffect(() => {
       if (url) {
@@ -47,6 +121,14 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
       }
     }, [config])
 
+    // after the children's effects of this commit have reported: settles a
+    // config without reporting visuals, or one whose visuals did not change
+    useEffect(() => {
+      if (pageData) {
+        settleTracking(trackingFor(renderTrackingRef, pageData, lang), onRenderCompleteRef.current);
+      }
+    }, [pageData, lang, onRenderCompleteRef])
+
     return (
         <>
           { pageData && Object.keys(pageData).length !== 0 ?
@@ -62,7 +144,14 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
                     <div key={`row-${index_row}`} className="row mb-3 display-flex">
                       {
                         row.columns.map((cell: any) => (
-                          <Cell key={`col-${cell.id}`} className={`col-md-${Math.ceil((12/(pageData.colCount || 3))*cell.colSize)}`} language={lang} config={cell} />
+                          <Cell
+                            {...visualProps}
+                            key={`col-${cell.id}`}
+                            className={`col-md-${Math.ceil((12/(pageData.colCount || 3))*cell.colSize)}`}
+                            language={lang}
+                            config={cell}
+                            onVisualRender={handleVisualRender}
+                          />
                         ))
                       }
                     </div>

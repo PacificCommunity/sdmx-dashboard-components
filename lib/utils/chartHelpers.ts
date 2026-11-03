@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
 import { SDMXChartConfig } from '../components/types';
+import { SDMXRenderError } from '../errors';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
 
@@ -11,6 +12,7 @@ export type BuiltChart = {
   titleText: string;
   subtitleText: string;
   drilldown?: DrilldownBundle;
+  seriesCount: number; // logical series drawn, reported in VisualRenderStatus.stats
 };
 
 export type ParsedDataset = {
@@ -39,6 +41,7 @@ export type ChartBuildResult = {
   tooltip?: any;
   legend?: any;
   drilldown?: DrilldownBundle;
+  seriesCount?: number; // logical series when it differs from series.length (treemap packs them into one)
 };
 
 export type ChartBuilder = (context: ChartContext) => ChartBuildResult;
@@ -842,7 +845,7 @@ export const buildCartesianChartParts = (
 export const collectColumnLike = (context: ChartContext): ColumnLikeCollection => {
   const { config, datasets } = context;
   const xAxisConcept = config.xAxisConcept;
-  if (!xAxisConcept) throw new Error('No xAxis concept found');
+  if (!xAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No xAxis concept found');
 
   const categories: any[] = [];
   const seen = new Set<any>();

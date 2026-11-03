@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore sdmx-json-parser ships no type declarations
@@ -8,11 +8,14 @@ import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { dataRequestHeaders } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import { SDMXVisualConfig } from "../types";
+import { SDMXVisualConfig, SDMXVisualProps } from "../types";
+import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
+import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
+import { useLatest } from "../../utils/useLatest";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
-interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualProps {
     config: SDMXVisualConfig;
     valueClassName?: string;
     placeholder?: React.JSX.Element;
@@ -20,16 +23,18 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
     language: string;
 }
 
-const Value = ({ config, placeholder, callback, language, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, onVisualRender, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
     const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
     const [subtitleText, setSubtitleText] = useState<string>(config.subtitle?'Loading...':'')
     const [isLoading, setIsLoading] = useState(true)
+    const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
 
-    const sdmxParser = new SDMXParser();
     const containerRef = useRef<HTMLDivElement>(null);
+    const onVisualRenderRef = useLatest(onVisualRender);
+    const callbackRef = useLatest(callback);
 
     // className is applied to container div
     // style is applied to value div
@@ -79,7 +84,7 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
         }
     }
 
-    const calculateFontSize = (text: string) => {
+    const calculateFontSize = useCallback((text: string) => {
         if (typeof valueDivWidth === 'number') {
             return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
         }
@@ -91,9 +96,9 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
         }
         // default value if no container found
         return '4em';
-    };
+    }, [valueDivWidth]);
 
-    const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
+    const formatValue = useCallback((valueStr: any, config: any, data: any, attributes: any, language: string) => {
         if (config['decimals']) {
             const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
@@ -126,94 +131,129 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
             }
             </>
         )
-    }
+    }, [calculateFontSize]);
 
     useEffect(() => {
-        const dataObjs = parseDataExpr(config.data);
-        if (dataObjs.length > 1) {
-            throw new Error('Multiple data expressions are not supported for Value component');
-        }
-        const dataObj = dataObjs[0];
-        dataObj.index = dataObj.index || 0;
- 
-        const dataFlowUrl = dataObj.dataFlowUrl;
-        sdmxParser.getDatasets(dataFlowUrl, { headers: dataRequestHeaders(language) }).then(() => {
-            const data = sdmxParser.getData();
-            const dimensions = sdmxParser.getDimensions();
-            const attributes = sdmxParser.getAttributes();
+        let cancelled = false;
+        let renderedElement: React.JSX.Element | undefined;
+        setRenderError(null);
+        onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' });
+        const sdmxParser = new SDMXParser();
 
-            if(config.title) {
-                if(typeof config.title == 'string') {
-                    setTitleText(parseTextExpr(config.title, dimensions))
-                } else {
-                    setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
-                }
+        // start from a resolved promise so a synchronous throw (a malformed
+        // data expression) settles the visual like a failed fetch would
+        Promise.resolve().then(() => {
+            const dataObjs = parseDataExpr(config.data);
+            if (dataObjs.length > 1) {
+                throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Value component');
             }
-            if(config.subtitle) {
-                if(typeof config.subtitle == 'string') {
-                    setSubtitleText(parseTextExpr(config.subtitle, dimensions))
-                } else {
-                    setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
-                }
-            }
+            const dataObj = dataObjs[0];
+            dataObj.index = dataObj.index || 0;
 
-            let valueStr = data[0].value;
-            // apply operation to data
-            if (dataObj.operator) {
-                if(dataObj.operator === "count") {
-                    const countData = data
-                        .map((item: any) => {
-                            const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
-                            const scope: Scope = {x0: item.value}
-                            if (isNaN(parseInt(dataObj.exprOperand))) {
-                                const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
-                                Promise.all(dataPromises).then(() => {
-                                    Object.keys(scope).forEach((key: string) => {
-                                        if (Array.isArray(scope[key])) {
-                                            scope[key] = scope[key][0]
-                                        }
-                                    })
+            const dataFlowUrl = dataObj.dataFlowUrl;
+            return sdmxParser.getDatasets(dataFlowUrl, {
+                headers: dataRequestHeaders(language)
+            }).then(() => {
+                const data = sdmxParser.getData();
+                if (data.length === 0) {
+                    throw emptyDataError(config.id, dataFlowUrl);
+                }
+                const dimensions = sdmxParser.getDimensions();
+                const attributes = sdmxParser.getAttributes();
+
+                if(config.title) {
+                    if(typeof config.title == 'string') {
+                        setTitleText(parseTextExpr(config.title, dimensions))
+                    } else {
+                        setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
+                    }
+                }
+                if(config.subtitle) {
+                    if(typeof config.subtitle == 'string') {
+                        setSubtitleText(parseTextExpr(config.subtitle, dimensions))
+                    } else {
+                        setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
+                    }
+                }
+
+                let valueStr = data[0].value;
+                // operand requests still in flight; their failures settle the visual
+                const pending: Promise<unknown>[] = [];
+                // apply operation to data
+                if (dataObj.operator) {
+                    if(dataObj.operator === "count") {
+                        const countData = data
+                            .map((item: any) => {
+                                const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
+                                const scope: Scope = {x0: item.value}
+                                if (isNaN(parseInt(dataObj.exprOperand))) {
+                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                                    pending.push(Promise.all(dataPromises).then(() => {
+                                        Object.keys(scope).forEach((key: string) => {
+                                            if (Array.isArray(scope[key])) {
+                                                scope[key] = scope[key][0]
+                                            }
+                                        })
+                                        valueStr = expr?.evaluate(scope)
+                                        return valueStr && item;
+                                    }))
+                                } else {
+                                    scope['x1'] = parseInt(dataObj.exprOperand)
                                     valueStr = expr?.evaluate(scope)
                                     return valueStr && item;
-                                })
-                            } else {
-                                scope['x1'] = parseInt(dataObj.exprOperand)
-                                valueStr = expr?.evaluate(scope)
-                                return valueStr && item;
-                            }
-                        })
-                        .filter((item: any) => item); // count number of true
-                    setValueElement(formatValue(countData.length, config, countData, attributes, language));
-                    setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
-                } else if (dataObj.operator === "expr") {
-                    const scope: Scope = {x0: valueStr}
-                    const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
-                    Promise.all(dataPromises).then(() => {
-                        const astFactory = new EvalAstFactory();
-                        const expr = parseExpr(dataObj.expression, astFactory);
-                        // fetchDataExprOperand returns an array for variables, so we need to flatten it
-                        Object.keys(scope).forEach((key: string) => {
-                            if (Array.isArray(scope[key])) {
-                                scope[key] = scope[key][0]
-                            }
-                        })
-                        valueStr = expr?.evaluate(scope)
-                        setValueElement(formatValue(valueStr, config, data, attributes, language));
-                        setPopupStr(data[0][config.xAxisConcept])
-                    })
+                                }
+                            })
+                            .filter((item: any) => item); // count number of true
+                        renderedElement = formatValue(countData.length, config, countData, attributes, language);
+                        setValueElement(renderedElement);
+                        setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
+                    } else if (dataObj.operator === "expr") {
+                        const scope: Scope = {x0: valueStr}
+                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                        pending.push(Promise.all(dataPromises).then(() => {
+                            const astFactory = new EvalAstFactory();
+                            const expr = parseExpr(dataObj.expression, astFactory);
+                            // fetchDataExprOperand returns an array for variables, so we need to flatten it
+                            Object.keys(scope).forEach((key: string) => {
+                                if (Array.isArray(scope[key])) {
+                                    scope[key] = scope[key][0]
+                                }
+                            })
+                            valueStr = expr?.evaluate(scope)
+                            renderedElement = formatValue(valueStr, config, data, attributes, language);
+                            setValueElement(renderedElement);
+                            setPopupStr(data[0][config.xAxisConcept])
+                        }))
+                    }
+                } else {
+                    renderedElement = formatValue(valueStr, config, data, attributes, language);
+                    setValueElement(renderedElement);
+                    setPopupStr(data[0][config.xAxisConcept])
                 }
-            } else {
-                setValueElement(formatValue(valueStr, config, data, attributes, language));
-                setPopupStr(data[0][config.xAxisConcept])
-            }
-            
+                return Promise.all(pending).then(() => data);
+            });
+        }).then((data) => {
+            if (cancelled) return;
             setIsLoading(false)
-            if(callback) {
-                callback(valueElement)
+            onVisualRenderRef.current?.({
+                visualId: config.id,
+                status: 'rendered',
+                stats: computeRenderStats(data, 1)
+            })
+            if (callbackRef.current && renderedElement) {
+                callbackRef.current(renderedElement)
             }
+        }).catch((err: unknown) => {
+            if (cancelled) return;
+            const valueError = toSDMXRenderError(err, config.id);
+            setRenderError(valueError);
+            setIsLoading(false);
+            onVisualRenderRef.current?.(failedRenderStatus(valueError, config.id));
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [language]);
+        return () => {
+            cancelled = true;
+        };
+    }, [language, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
@@ -256,7 +296,11 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
             className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
             {...otherProps}>
-            { isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
+            { renderError ?
+                <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
+                    {renderError.message}
+                </div>
+            :   isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }

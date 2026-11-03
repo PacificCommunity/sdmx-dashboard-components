@@ -39,6 +39,9 @@ export const buildTreemap: ChartBuilder = (context) => {
 
   return {
     series,
+    // tiles of every legend series share the one treemap; report how many
+    // series were packed into it
+    seriesCount: collection.entries.filter((entry) => entry.valueByName.size > 0).length,
     tooltip: buildValueTooltip(config, language),
     legend: buildLegend(config),
   };

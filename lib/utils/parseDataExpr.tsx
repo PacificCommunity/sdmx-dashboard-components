@@ -22,7 +22,7 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
 
   dataExprs.forEach((dataExpr: string) => {
     const parsedExpr : any = {
-      'dataFlowUrl': [],
+      'dataFlowUrl': '',
     };
 
     const tokens1 = dataExpr.split(', ');
@@ -41,7 +41,7 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
       // when we have an operation
       // we extract each operand and store exprOperand
       // note that the first operand must be a dataFlowUrl
-      parsedExpr['dataFlowUrl'].push(tokens[0].trim());
+      parsedExpr['dataFlowUrl'] = tokens[0].trim();
       parsedExpr['exprOperand'] = tokens.slice(1).map((token: string) => token.trim());
       parsedExpr['operator'] = "expr"
       parsedExpr['expression'] = dataExpr;

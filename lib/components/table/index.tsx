@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import parse from 'html-react-parser';
 import { Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { InfoCircle } from 'react-bootstrap-icons';
@@ -9,11 +9,14 @@ import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
-import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams } from '../types';
+import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXVisualProps } from '../types';
+import { SDMXRenderError, toSDMXRenderError } from '../../errors';
+import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
+import { useLatest } from '../../utils/useLatest';
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
-interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
+interface TableProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualProps {
   config: SDMXTableConfig;
   language: string;
   placeholder?: React.JSX.Element;
@@ -156,9 +159,9 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, className, style, ...props }: TableProps) => {
+const Table = ({ config, language, placeholder, callback, onVisualRender, className, style, ...props }: TableProps) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{
     key: string;
     datasets: ParsedDataset[];
@@ -171,6 +174,7 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
   const containerRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef(callback);
   const configRef = useRef(config);
+  const onVisualRenderRef = useLatest(onVisualRender);
 
   const dataKey = JSON.stringify(config.data);
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
@@ -183,25 +187,32 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
     configRef.current = config;
   });
 
+  const fail = useCallback((err: unknown) => {
+    const visualId = configRef.current.id;
+    const renderError = toSDMXRenderError(err, visualId);
+    setError(renderError);
+    setIsLoading(false);
+    onVisualRenderRef.current?.(failedRenderStatus(renderError, visualId));
+  }, [onVisualRenderRef]);
+
   useEffect(() => {
     let cancelled = false;
-    const { data, xAxisConcept } = configRef.current;
+    const currentConfig = configRef.current;
     setError(null);
-    loadDatasets(data, xAxisConcept, language)
+    onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
+    loadDatasets(currentConfig, language)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(err);
-        setError('Failed to load table.');
-        setIsLoading(false);
+        fail(err);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language]);
+  }, [loadKey, language, fail, onVisualRenderRef]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
@@ -215,12 +226,15 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
       setIsLoading(false);
       setError(null);
       callbackRef.current?.(renderTable(nextModel, config, containerRef.current));
+      onVisualRenderRef.current?.({
+        visualId: config.id,
+        status: 'rendered',
+        stats: computeRenderStats(loadedData.datasets.flatMap((dataset) => dataset.data), nextModel.columns.length),
+      });
     } catch (err) {
-      console.error(err);
-      setError('Failed to load table.');
-      setIsLoading(false);
+      fail(err);
     }
-  }, [config, language, loadKey, loadedData]);
+  }, [config, language, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>
@@ -293,7 +307,11 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
           </div>
         )
         : error
-          ? <div className="text-danger">{error}</div>
+          ? (
+            <div className="sdmx-render-error text-danger" role="alert" data-error-code={error.code}>
+              {error.message}
+            </div>
+          )
           : content}
     </div>
   );

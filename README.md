@@ -65,6 +65,41 @@ const App = () => {
 The core `config` fields are independent of the charting library; chart-specific
 tuning belongs in `extraOptions` (see below).
 
+### Error contract
+
+Every failure in a visual's data pipeline is surfaced as an `SDMXRenderError`, rendered in place of the visual with `role="alert"` and a `data-error-code` attribute. The class and its code type are exported from the package root:
+
+```typescript
+import { SDMXRenderError, SDMXRenderErrorCode } from 'sdmx-dashboard-components';
+```
+
+| Code | Meaning |
+|---|---|
+| `ERR_FETCH` | data URL unreachable or non-2xx (other than a 404 reporting no records) |
+| `ERR_PARSE` | response is not parseable SDMX-JSON |
+| `ERR_EMPTY` | query returned zero observations, either as a 200 without observations or as a 404 whose body reports no records (`.Stat Suite NoRecordsFound`, parser code `NO_RECORDS`) |
+| `ERR_NO_SERIES_DIMENSION` | bar/column/lollipop chart with no varying dimension besides the x-axis |
+| `ERR_AMBIGUOUS_SERIES` | two or more varying dimensions and no `legend.concept` to disambiguate |
+| `ERR_CONCEPT_NOT_FOUND` | `xAxisConcept` or `legend.concept` missing from the dataflow structure |
+| `ERR_ENGINE` | anything thrown by ECharts while drawing (original error kept as `cause`) |
+
+Errors carry `visualId` (the `id` of the failing visual) and, where useful, a structured `detail` object (for `ERR_CONCEPT_NOT_FOUND` it lists the available concepts; for the series-structure codes it lists the varying dimensions with their value counts). The message wording is part of the public contract and is covered by unit tests: messages name the failing concepts and state concrete fixes, so an agent or a helpful UI can correct the configuration in one step.
+
+### Render lifecycle
+
+Consumers that need to know when a dashboard is ready (live previews, PDF export, agent feedback loops) can observe render state instead of polling the DOM:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  lang="en"
+  onVisualRender={(s: VisualRenderStatus) => void}      // fires per visual, on every state change
+  onRenderComplete={(all: VisualRenderStatus[]) => void} // fires once per config when no visual is loading
+/>
+```
+
+Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rendered`, `empty`, or `error`, the `SDMXRenderError` when failed (`empty` carries `ERR_EMPTY`), and on success a `stats` block (`observationCount`, `seriesCount`, `timePeriodRange`) that lets a consumer judge whether a technically successful render is substantively thin. `onRenderComplete` fires exactly once per config and language, after the last visual settles, including the case where every visual fails and the case of a dashboard without data visuals (`[]`). The standalone `SDMXChart`, `SDMXTable`, `SDMXValue`, and `SDMXMap` accept `onVisualRender` as well. Both callbacks are optional, and inline callbacks never re-trigger data fetching.
+
 ### Axis titles, download, and dashboard rows
 
 `xAxisTitle` and `yAxisTitle` (a string or a per-language map, with the same text expressions as `title`) name the axis of `xAxisConcept` and the value axis. For a horizontal `bar` chart, whose category axis is vertical, they are swapped accordingly. Left unset, the axes stay unnamed; `extraOptions.xAxis.name`/`yAxis.name` still override.
@@ -283,4 +318,3 @@ When `VITE_DEMO_BASE_PATH` is empty (default), the demo is built for root (`/`).
 ```bash
 npm run build
 ```
-

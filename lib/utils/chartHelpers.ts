@@ -211,9 +211,14 @@ const axisLabelFont = (axis: any): { font: string; fontSize: number } => {
   };
 };
 
-const yAxisTitleFontSize = (axis: any): number => {
-  const size = Number(axis?.nameTextStyle?.fontSize);
-  return Number.isFinite(size) && size > 0 ? size : Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
+// horizontal room a rotated y axis name takes beside the tick labels: one
+// line of its font plus the gap ECharts leaves when it moves the name clear
+// of the labels (nameMoveOverlap)
+const yAxisNameExtent = (axis: { name?: unknown; nameTextStyle?: { fontSize?: unknown } }): number => {
+  if (typeof axis.name !== 'string' || axis.name.trim() === '') return 0;
+  const size = Number(axis.nameTextStyle?.fontSize);
+  const fontSize = Number.isFinite(size) && size > 0 ? size : Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
+  return fontSize * 1.5 + Y_AXIS_TITLE_LABEL_MARGIN;
 };
 
 const numericPointValue = (point: any): number | undefined => {
@@ -265,24 +270,13 @@ const estimateYAxisLabelWidth = (axis: any, series: any[]): number => {
   return estimateValueAxisLabelWidth(axis, series);
 };
 
-const explicitGridSides = (extraOptions: EChartsOption | undefined): Set<string> => {
-  const sides = new Set<string>();
-  const extraGrid = (extraOptions as any)?.grid;
-  if (!extraGrid) return sides;
-  const grids = Array.isArray(extraGrid) ? extraGrid : [extraGrid];
-  grids.forEach((grid: any) => {
-    if (grid?.left !== undefined) sides.add('left');
-    if (grid?.right !== undefined) sides.add('right');
-  });
-  return sides;
-};
-
-export const applyYAxisTitleLayout = (option: any, extraOptions?: EChartsOption): boolean => {
+// A y axis name runs along the axis, rotated. Its distance from the axis is
+// left to ECharts 6: the grid contains axis names (GRID_CONTAINS_AXIS_TEXT),
+// and nameMoveOverlap moves the name clear of the tick labels whatever their
+// real width, so the name neither overlaps the labels nor leaves the canvas.
+export const applyYAxisTitleLayout = (option: any): boolean => {
   if (!option) return false;
   const axes = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis];
-  const series = Array.isArray(option.series) ? option.series : [];
-  const grid = !Array.isArray(option.grid) ? option.grid : undefined;
-  const lockedSides = explicitGridSides(extraOptions);
   let changed = false;
 
   axes.forEach((axis: any) => {
@@ -296,22 +290,6 @@ export const applyYAxisTitleLayout = (option: any, extraOptions?: EChartsOption)
     if (axis.nameRotate === undefined) {
       axis.nameRotate = 90;
       changed = true;
-    }
-    if (axis.nameGap === undefined) {
-      axis.nameGap = estimateYAxisLabelWidth(axis, series) + Y_AXIS_TITLE_LABEL_MARGIN;
-      changed = true;
-    }
-
-    if (grid) {
-      const side = axis.position === 'right' ? 'right' : 'left';
-      if (!lockedSides.has(side)) {
-        const inset = yAxisTitleFontSize(axis) + 16;
-        const current = grid[side];
-        if (current === undefined || (typeof current === 'number' && current < inset)) {
-          grid[side] = inset;
-          changed = true;
-        }
-      }
     }
   });
 
@@ -396,7 +374,7 @@ const categoryAxisPlotWidth = (option: any, width: number): number => {
   const axes = Array.isArray(option?.yAxis) ? option.yAxis : [option?.yAxis];
   axes.forEach((axis: any) => {
     if (!axis) return;
-    const labelWidth = estimateYAxisLabelWidth(axis, series) + 8;
+    const labelWidth = estimateYAxisLabelWidth(axis, series) + 8 + yAxisNameExtent(axis);
     if (axis.position === 'right') right += labelWidth;
     else left += labelWidth;
   });
@@ -739,12 +717,25 @@ const latestValuesByCategory = (
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
 
+// ECharts 6's form of the legacy grid.containLabel, extended to axis names:
+// the grid box, axis labels and axis names included, sits at the given
+// insets (outer bounds = the grid box, with no clamp), without the
+// deprecation warning. Without axis names it places the grid exactly as a
+// containLabel grid; with them, a rotated y axis name or an x axis name stays
+// inside the canvas however wide the tick labels are.
+export const GRID_CONTAINS_AXIS_TEXT = {
+  outerBoundsMode: 'same',
+  outerBoundsContain: 'all',
+  outerBoundsClampWidth: 0,
+  outerBoundsClampHeight: 0,
+} as const;
+
 export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
   const labels = Array.from(
     new Set(series.map((s: any) => s.name).filter(Boolean))
   );
   return {
-    containLabel: true,
+    ...GRID_CONTAINS_AXIS_TEXT,
     ...CARTESIAN_GRID_INSETS,
     ...legendGridInsets(config.legend?.location, labels),
   };

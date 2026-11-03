@@ -8,7 +8,7 @@ import { parseTextExpr } from '../../utils/parseTextExpr';
 import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
 import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
-import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
+import type { BuiltChart, ChartBuilder, ChartBuildResult, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
 import { buildLine } from './line';
 import { buildBar, buildColumn } from './columnLikeChart';
@@ -35,6 +35,18 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
       : parseTextExpr(text.text[language], dimensions);
   }
   return '';
+};
+
+// axis titles carry only the text payload of SDMXTextConfig: a string or a
+// per-language map, both supporting the same text expressions as the title
+const resolveAxisTitleText = (
+  title: SDMXChartConfig['xAxisTitle'],
+  dimensions: any[],
+  language: string
+): string => {
+  if (title === undefined) return '';
+  const text = typeof title === 'string' ? title : title[language];
+  return text ? parseTextExpr(text, dimensions) : '';
 };
 
 export const loadDatasets = async (
@@ -151,6 +163,21 @@ const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
 const toolboxTooltipFormatter = (params: any): string =>
   TOOLBOX_FEATURE_LABELS[params?.name] ?? params?.title ?? '';
 
+// the semantic axis titles: xAxisTitle names the axis of xAxisConcept and
+// yAxisTitle the value axis, so a horizontal bar chart, whose category axis
+// is ECharts' yAxis, swaps them. The x axis name sits centred under the
+// axis; the y axis name is laid out by applyYAxisTitleLayout. Unset titles
+// leave the axis unnamed, and extraOptions, merged later, still override.
+const withAxisTitles = (config: SDMXChartConfig, context: ChartContext, parts: ChartBuildResult) => {
+  const dimensions = context.datasets[context.datasets.length - 1]?.dimensions ?? [];
+  const xTitle = resolveAxisTitleText(config.xAxisTitle, dimensions, context.language);
+  const yTitle = resolveAxisTitleText(config.yAxisTitle, dimensions, context.language);
+  const [xAxisName, yAxisName] = config.type === 'bar' ? [yTitle, xTitle] : [xTitle, yTitle];
+  const xAxis = parts.xAxis && xAxisName ? { ...parts.xAxis, name: xAxisName, nameLocation: 'middle' } : parts.xAxis;
+  const yAxis = parts.yAxis && yAxisName ? { ...parts.yAxis, name: yAxisName } : parts.yAxis;
+  return { xAxis, yAxis };
+};
+
 const assembleOption = (
   config: SDMXChartConfig,
   context: ChartContext,
@@ -160,6 +187,8 @@ const assembleOption = (
     aria: { enabled: true },
     title: buildEchartsTitle(config, context.titleText, context.subtitleText),
     toolbox: {
+      // download: false hides the save-as-image control
+      show: config.download !== false,
       showTitle: false,
       tooltip: {
         show: true,
@@ -173,9 +202,10 @@ const assembleOption = (
     series: parts.series,
   };
 
+  const { xAxis, yAxis } = withAxisTitles(config, context, parts);
   if (parts.grid !== undefined) (option as any).grid = parts.grid;
-  if (parts.xAxis !== undefined) (option as any).xAxis = parts.xAxis;
-  if (parts.yAxis !== undefined) (option as any).yAxis = parts.yAxis;
+  if (xAxis !== undefined) (option as any).xAxis = xAxis;
+  if (yAxis !== undefined) (option as any).yAxis = yAxis;
 
   return option;
 };

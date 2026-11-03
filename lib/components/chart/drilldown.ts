@@ -6,7 +6,7 @@ import {
   buildCartesianTooltip,
   buildEchartsTitle,
   CARTESIAN_GRID_INSETS,
-  GRID_CONTAINS_LABELS,
+  GRID_CONTAINS_AXIS_TEXT,
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
@@ -141,7 +141,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
               dataset.subtitleText ?? subtitleText
             ),
             tooltip: buildCartesianTooltip(config, language),
-            grid: { ...GRID_CONTAINS_LABELS, ...CARTESIAN_GRID_INSETS },
+            grid: { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
             xAxis: {
               type: 'category',
               data: childData.map((d: any) => d.name),

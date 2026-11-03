@@ -70,6 +70,11 @@ const Line = () => {
             subtitle: {
                 text: "Levels at dates of change"
             },
+            xAxisTitle: "Date (days)",
+            yAxisTitle: {
+                en: "Interest Rate (%)",
+                fr: "Taux d'intérêt (%)"
+            },
             xAxisConcept: "TIME_PERIOD",
             yAxisConcept: "OBS_VALUE"
             }}

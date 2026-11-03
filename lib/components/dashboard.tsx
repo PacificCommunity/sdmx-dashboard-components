@@ -8,6 +8,25 @@ import Text from './text';
 import '../global.module.css';
 import { SDMXDashboardConfig } from './types';
 
+// accept the deprecated `colums` misspelling as an alias for `columns` and
+// apply the layout defaults, so every downstream read uses `columns`
+const normalizeConfig = (config: SDMXDashboardConfig): SDMXDashboardConfig => {
+    if (!config.colCount) {
+        config.colCount = 3;
+    }
+    (config.rows || []).forEach((row) => {
+        if (!row.columns) {
+            row.columns = row.colums ?? [];
+        }
+        row.columns.forEach((cell) => {
+            if (!cell.colSize) {
+                cell.colSize = 1;
+            }
+        })
+    })
+    return config;
+}
+
 const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }: { url?: string, config?: SDMXDashboardConfig, lang?: string}) => {
 
     const [pageData, setPageData] = useState<SDMXDashboardConfig>();
@@ -15,19 +34,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
     useEffect(() => {
       if (url) {
         fetch(url).then(response => response.json()).then((data) => {
-            // set default values
-            if (!data.colCount) {
-                data.colCount = 3;
-            }
-            data.rows.forEach((row: any) => {
-              row.columns.forEach((cell: any) => {
-                if (!cell.colSize) {
-                  cell.colSize = 1;
-                }
-              })
-            })
-            setPageData(data)
-
+            setPageData(normalizeConfig(data))
         }).catch((e) => {
             console.log(e)
         })
@@ -36,17 +43,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en" }
 
     useEffect(() => {
       if(config) {
-        if (!config.colCount) {
-            config.colCount = 3;
-        }
-        config.rows.forEach((row: any) => {
-          row.columns.forEach((cell: any) => {
-            if (!cell.colSize) {
-              cell.colSize = 1;
-            }
-          })
-        })
-        setPageData(config)
+        setPageData(normalizeConfig(config))
       }
     }, [config])
 

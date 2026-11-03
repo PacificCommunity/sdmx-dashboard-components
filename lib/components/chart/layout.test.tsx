@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, onTestFinished } from 'vitest';
 import React from 'react';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import type { EChartsType } from 'echarts/core';
 import type { EChartsOption } from 'echarts';
 import Chart from './index';
 import { echarts } from './register';
-import { CARTESIAN_GRID_INSETS, GRID_CONTAINS_LABELS } from '../../utils/chartHelpers';
+import { platformApi, setPlatformAPI } from 'zrender/lib/core/platform';
+import { CARTESIAN_GRID_INSETS, GRID_CONTAINS_AXIS_TEXT, applyYAxisTitleLayout } from '../../utils/chartHelpers';
 import type { SDMXChartConfig } from '../types';
 
 afterEach(() => {
@@ -63,8 +64,8 @@ const gridRect = (chart: EChartsType) => {
     return { x, y, width, height };
 };
 
-const renderChart = async (config: Partial<SDMXChartConfig>) => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, text: async () => JSON.stringify(multiSeriesResponse()) })));
+const renderChart = async (config: Partial<SDMXChartConfig>, response: object = multiSeriesResponse()) => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, text: async () => JSON.stringify(response) })));
     let chart: EChartsType | undefined;
     render(
         <Chart
@@ -90,7 +91,7 @@ describe('grid label containment', () => {
         const chart = await renderChart({});
         const grid = (chart.getOption() as unknown as RenderedOption).grid[0];
         expect(grid.containLabel).toBeFalsy();
-        expect(grid).toMatchObject(GRID_CONTAINS_LABELS);
+        expect(grid).toMatchObject(GRID_CONTAINS_AXIS_TEXT);
         expect(log.mock.calls.flat().join(' ')).not.toContain('containLabel');
     });
 
@@ -109,7 +110,94 @@ describe('grid label containment', () => {
             return rect;
         };
         vi.spyOn(console, 'log').mockImplementation(() => { });
-        expect(draw(GRID_CONTAINS_LABELS)).toEqual(draw({ containLabel: true }));
+        expect(draw(GRID_CONTAINS_AXIS_TEXT)).toEqual(draw({ containLabel: true }));
+    });
+});
+
+type TextElement = {
+    style?: { text?: unknown },
+    getBoundingRect: () => { clone: () => { applyTransform: (m: unknown) => void, x: number, y: number, width: number, height: number } },
+    updateTransform?: () => void,
+    transform?: unknown,
+};
+
+// the drawn box of the text element showing `text`, in canvas pixels
+const textBox = (chart: EChartsType, text: string) => {
+    const zr = chart.getZr() as unknown as { storage: { getDisplayList: (update: boolean) => TextElement[] } };
+    const element = zr.storage.getDisplayList(true).find((el) => el.style?.text === text);
+    if (!element) throw new Error(`no text element "${text}"`);
+    const rect = element.getBoundingRect().clone();
+    element.updateTransform?.();
+    if (element.transform) rect.applyTransform(element.transform);
+    return { left: rect.x, right: rect.x + rect.width, top: rect.y, bottom: rect.y + rect.height };
+};
+
+const largeValueResponse = () => {
+    const response = multiSeriesResponse();
+    response.data.dataSets[0].observations = { '0:0:0': [1234567], '0:1:0': [1100000], '0:0:1': [50], '0:1:1': [52] };
+    return response;
+};
+
+describe('axis names inside the canvas', () => {
+    const TITLE = 'Rate (% per annum)';
+
+    it('keeps a rotated y axis name between the left edge and wide tick labels', async () => {
+        const chart = await renderChart(
+            { yAxisTitle: TITLE, extraOptions: { yAxis: { axisLabel: { formatter: (v: number) => v.toLocaleString('en') } } } },
+            largeValueResponse()
+        );
+        const name = textBox(chart, TITLE);
+        const label = textBox(chart, '1,200,000');
+        expect(name.left).toBeGreaterThanOrEqual(0);
+        expect(name.right).toBeLessThanOrEqual(label.left);
+        expect(label.right).toBeLessThanOrEqual(gridRect(chart).x);
+    });
+
+    it('keeps both names of a horizontal bar chart inside the canvas', async () => {
+        const chart = await renderChart({ type: 'bar', xAxisTitle: 'Reporting year', yAxisTitle: TITLE }, largeValueResponse());
+        const yName = textBox(chart, 'Reporting year');
+        const xName = textBox(chart, TITLE);
+        const plot = gridRect(chart);
+        expect(yName.left).toBeGreaterThanOrEqual(0);
+        expect(yName.right).toBeLessThan(plot.x);
+        expect(xName.top).toBeGreaterThan(plot.y + plot.height);
+        expect(xName.bottom).toBeLessThanOrEqual(chart.getHeight());
+    });
+
+    it('grows the left inset with the name gap and the name font size', () => {
+        // the canvas mock measures every font alike; size text by its font
+        // so the name's line height follows nameTextStyle.fontSize. zrender
+        // keeps one measuring context across tests, so swap its measurer
+        const originalMeasure = platformApi.measureText;
+        setPlatformAPI({
+            measureText: (text: string, font?: string) => {
+                const size = Number(/(\d+(?:\.\d+)?)px/.exec(font ?? '')?.[1] ?? 12);
+                return { width: text.length * size * 0.6 };
+            },
+        });
+        onTestFinished(() => setPlatformAPI({ measureText: originalMeasure }));
+        const draw = (yAxis: Record<string, unknown>) => {
+            const container = document.createElement('div');
+            const chart = echarts.init(container, undefined, { width: 600, height: 400 });
+            const option = {
+                grid: { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
+                xAxis: { type: 'category', data: ['2020', '2021'] },
+                yAxis: { type: 'value', name: TITLE, ...yAxis },
+                series: [{ type: 'line', data: [1234567, 1100000] }],
+                animation: false,
+            };
+            applyYAxisTitleLayout(option);
+            chart.setOption(option as EChartsOption);
+            const result = { plotLeft: gridRect(chart).x, nameLeft: textBox(chart, TITLE).left };
+            chart.dispose();
+            return result;
+        };
+        const base = draw({});
+        const wideGap = draw({ nameGap: 120 });
+        const bigFont = draw({ nameGap: 120, nameTextStyle: { fontSize: 31 } });
+        expect(wideGap.plotLeft).toBeGreaterThan(base.plotLeft);
+        expect(bigFont.plotLeft).toBeGreaterThan(wideGap.plotLeft);
+        [base, wideGap, bigFont].forEach(({ nameLeft }) => expect(nameLeft).toBeGreaterThanOrEqual(0));
     });
 });
 

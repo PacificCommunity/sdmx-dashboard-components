@@ -157,6 +157,27 @@ describe('onVisualRender on the other visuals', () => {
         expect(statuses.at(-1)).toMatchObject({ visualId: 'kpi-2', status: 'error', error: { code: 'ERR_FETCH' } });
     });
 
+    it('value loads once and does not refetch when the parent rerenders', async () => {
+        const fetchMock = vi.fn(async () => ({ status: 200, text: async () => JSON.stringify(lineResponse()) }));
+        vi.stubGlobal('fetch', fetchMock);
+        const statuses: VisualRenderStatus[] = [];
+        const config = { id: 'kpi-3', type: 'value', xAxisConcept: 'GEO_PICT', data: 'https://example.org/rest/data/X,Y,1.0/all' } as const;
+
+        const { rerender } = render(<Value config={config} language="en" onVisualRender={(s) => statuses.push(s)} />);
+
+        await waitFor(() => {
+            expect(statuses.map((s) => s.status)).toEqual(['loading', 'rendered']);
+        });
+        const callsAfterMount = fetchMock.mock.calls.length;
+
+        // a new inline callback is a new prop, not a reason to reload the data
+        rerender(<Value config={config} language="en" onVisualRender={(s) => statuses.push(s)} />);
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        expect(fetchMock.mock.calls.length).toBe(callsAfterMount);
+        expect(statuses.map((s) => s.status)).toEqual(['loading', 'rendered']);
+    });
+
     it('map catches its fetch failure and reports ERR_FETCH', async () => {
         failingFetch();
         const statuses: VisualRenderStatus[] = [];

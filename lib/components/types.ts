@@ -1,6 +1,11 @@
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 import type { SDMXRenderError } from '../errors';
+import type { FetchTelemetry } from '../utils/transport';
+
+// drop-in replacement for the global fetch; lets consumers add
+// authentication, proxying, caching, or retries to every data request
+export type SDMXFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
 // per-visual render state reported through onVisualRender/onRenderComplete;
 // `stats` lets a consumer judge substantive quality ("rendered, but one
@@ -23,6 +28,8 @@ export type SDMXVisualProps = {
     renderLoading?: (visualId: string) => ReactNode, // replaces the built-in loading state
     renderEmpty?: (visualId: string) => ReactNode, // replaces the error state when the query returned no observations (ERR_EMPTY)
     renderError?: (error: SDMXRenderError) => ReactNode, // replaces the built-in error state for every other failure
+    fetcher?: SDMXFetcher, // every data request goes through it (wrapped in the transport: dedup, cache, retry)
+    onDataFetch?: (telemetry: FetchTelemetry) => void, // once per settled data request
 }
 
 export type SDMXTextConfig = {
@@ -82,6 +89,8 @@ export type SDMXChartConfig = {
         },
     },
     colorPalette?: SDMXColorPalette, // color palette used for the visualization`
+    xAxisTitle?: SDMXTextConfig['text'], // title of the xAxisConcept axis (the vertical axis of a horizontal bar chart): a string or a per-language map, with text expressions
+    yAxisTitle?: SDMXTextConfig['text'], // title of the value axis (the horizontal axis of a horizontal bar chart): a string or a per-language map, with text expressions
     extraOptions?: EChartsOption // extra options for the visualization (native ECharts option)
 } & SDMXVisualConfig
 
@@ -110,15 +119,20 @@ export type SDMXMapConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraOptions?: any // extra options for the visualization
 } & SDMXVisualConfig
 
 
+export type SDMXDashboardRow = {
+    columns?: Array<SDMXVisualConfig>, // visuals in this row
+    /** @deprecated misspelling kept as an alias for one major version; use `columns` */
+    colums?: Array<SDMXVisualConfig>,
+}
+
 export type SDMXDashboardConfig = {
     id: string, // unique identifier
-    rows: Array<{
-        colums: Array<SDMXVisualConfig>
-    }>,
+    rows: Array<SDMXDashboardRow>,
     languages?: Array<string>, // languages available for the dashboard
     colCount?: number, // number of columns in the dashboard
     header?: {

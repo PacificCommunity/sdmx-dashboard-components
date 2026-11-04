@@ -4,11 +4,10 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "paths": {
       // zrender's package exports hide this subpath from TypeScript, though
       // its declaration file ships in the package
-      "zrender/lib/core/platform": ["node_modules/zrender/lib/core/platform.d.ts"]
+      "zrender/lib/core/platform": ["./node_modules/zrender/lib/core/platform.d.ts"]
     },
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],

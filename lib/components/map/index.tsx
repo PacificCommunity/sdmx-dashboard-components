@@ -32,14 +32,15 @@ import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { dataRequestOptions } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
-import { SDMXMapConfig, SDMXVisualProps } from '../types';
+import { SDMXMapConfig, SDMXMapInstance, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
 import { failureSlot } from '../../utils/slots';
 import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
-import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
+import { buildGeoLookup, findGeoRow, isMapValue, normaliseMapValue, type GeoLookup } from '../../utils/mapData';
+import { createBasemapLayer, mapToImage } from '../../utils/basemap';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
 import TileGrid from 'ol/tilegrid/TileGrid';
 
@@ -48,15 +49,16 @@ type MapDataLayer = VectorLayer<VectorSource> | VectorTileLayer
 type MapProps = SDMXVisualProps & {
   config: SDMXMapConfig,
   language: string,
-  callback?: (map: Map) => void,
+  callback?: (map: SDMXMapInstance) => void,
 }
+
+const EMPTY_LOOKUP: GeoLookup = { byCode: {}, byLabel: {}, min: 0, max: 0, hasValues: false }
 
 const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
-  const [obsValueMin, setObsValueMin] = useState<number>(1e9)
-  const [obsValueMax, setObsValueMax] = useState<number>(0)
+  const [valueRange, setValueRange] = useState<{ min: number, max: number } | null>(null)
 
   const [dimensions, setDimensions] = useState<any[]>([])
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
@@ -71,29 +73,24 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
 
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<Map | null>(null)
+  const mapRef = useRef<SDMXMapInstance | null>(null)
+  const basemapRef = useRef<{ key: string, layer: TileLayer<XYZ> | null } | null>(null)
   const dataLayerRef = useRef<MapDataLayer | null>(null)
-  const sdmxDataByGeoIdRef = useRef<{ [id: string]: any }>({})
+  const geoLookupRef = useRef<GeoLookup>(EMPTY_LOOKUP)
   const geojsonKeyRef = useRef<string>('')
   const tooltipElement = useRef<HTMLDivElement>(null)
   const legendElement = useRef<HTMLDivElement>(null)
 
+  // the observation joined to a feature (by code, then by label), and the
+  // value to colour it by; a feature with no joined row keeps its own value
   const getSDMXPropsForFeature = (feature: FeatureLike) => {
     const geojsonKey = geojsonKeyRef.current
-    let geoId = geojsonKey ? feature.get(geojsonKey) : undefined
-    let featureValue = feature.get('value')
-    let sdmxProps = null
-    if (geoId && !featureValue) {
-      if (isISO3Code(String(geoId))) {
-        geoId = isoCountryCode3To2(String(geoId))
-      }
-      sdmxProps = sdmxDataByGeoIdRef.current[String(geoId)] || null
-      if (sdmxProps && !(feature instanceof RenderFeature)) {
-        const vectorFeature = feature as Feature
-        vectorFeature.setProperties({ ...sdmxProps, ...feature.getProperties() }, true)
-      }
-      featureValue = sdmxProps?.['value']
+    const sdmxProps = geojsonKey ? findGeoRow(geoLookupRef.current, feature.get(geojsonKey)) : null
+    if (sdmxProps && !(feature instanceof RenderFeature)) {
+      const vectorFeature = feature as Feature
+      vectorFeature.setProperties({ ...sdmxProps, ...feature.getProperties() }, true)
     }
+    const featureValue = sdmxProps ? sdmxProps['value'] : feature.get('value')
     return { sdmxProps, featureValue }
   }
 
@@ -128,26 +125,16 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
 
   const initMapIfNeeded = (geojsonProj: Projection | null) => {
     if (mapElement.current && !mapRef.current) {
-      mapRef.current = new Map({
+      const map = new Map({
         target: mapElement.current || '',
-        layers: [
-          new TileLayer({
-            source: new XYZ({
-              attributions:
-                'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +
-                'rest/services/World_Imagery/MapServer">ArcGIS</a>',
-              url:
-                'https://server.arcgisonline.com/ArcGIS/rest/services/' +
-                'World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            }),
-          }),
-        ],
+        layers: [],
         view: new View({
           center: [0, 0],
           zoom: 2,
           projection: geojsonProj || 'EPSG:3857'
         })
       });
+      mapRef.current = Object.assign(map, { toImage: () => mapToImage(map) });
       mapRef.current.addControl(new Control({
         element: legendElement.current || undefined
       }));
@@ -163,35 +150,22 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     return mapRef.current?.getView().getProjection() || null;
   }
 
-  const getGeoLookup = (data: any[], dimensionsFromData: any[], dataFlowKey: string) => {
-    const geoDimension = dimensionsFromData.find((dimension: any) => dimension.id === dataFlowKey);
-    const sdmxDataByGeoId: { [id: string]: any } = {};
-    let min = Number.POSITIVE_INFINITY;
-    let max = Number.NEGATIVE_INFINITY;
-
-    geoDimension?.values.forEach((geoValue: any) => {
-      const sdmxData = data.find((valData: any) => valData[dataFlowKey] === geoValue.name);
-      if (!sdmxData) {
-        return;
-      }
-      sdmxDataByGeoId[geoValue.id] = {
-        ...sdmxData,
-        name: sdmxData[dataFlowKey]
-      };
-      const obsValue = sdmxData.value;
-      if (max < obsValue) {
-        max = obsValue;
-      }
-      if (min > obsValue) {
-        min = obsValue;
-      }
-    });
-
-    return {
-      sdmxDataByGeoId,
-      min: min === Number.POSITIVE_INFINITY ? 0 : min,
-      max: max === Number.NEGATIVE_INFINITY ? 0 : max
-    };
+  // the background tiles, under every data layer; replaced when the
+  // configured basemap changes
+  const syncBasemap = (basemap: string | undefined) => {
+    const map = mapRef.current
+    const key = basemap || 'satellite'
+    if (!map || basemapRef.current?.key === key) {
+      return
+    }
+    if (basemapRef.current?.layer) {
+      map.removeLayer(basemapRef.current.layer)
+    }
+    const layer = createBasemapLayer(key)
+    if (layer) {
+      map.getLayers().insertAt(0, layer)
+    }
+    basemapRef.current = { key, layer }
   }
 
   const createInitialFeaturesLayer = useCallback((geojsonUrl: string, projection: string | null) => {
@@ -254,6 +228,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
       const dataObj = getSingleMapDataObj();
       const geojsonProj = resolveGeojsonProjection(dataObj.geojsonProjection);
       initMapIfNeeded(geojsonProj);
+      syncBasemap(config.basemap);
 
       const dataFlowUrl = dataObj.dataFlowUrl;
       return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
@@ -281,10 +256,9 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
         }
 
         geojsonKeyRef.current = dataObj.geojsonKey
-        const { sdmxDataByGeoId, min, max } = getGeoLookup(data, _dim, dataObj.dataFlowKey)
-        sdmxDataByGeoIdRef.current = sdmxDataByGeoId
-        setObsValueMax(max)
-        setObsValueMin(min)
+        const lookup = buildGeoLookup(data, _dim, dataObj.dataFlowKey)
+        geoLookupRef.current = lookup
+        setValueRange(lookup.hasValues ? { min: lookup.min, max: lookup.max } : null)
 
         if (dataLayerRef.current && mapRef.current) {
           mapRef.current.removeLayer(dataLayerRef.current)
@@ -323,8 +297,9 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
 
       let fillColor = 'transparent';
       let strokeColor = 'transparent';
-      if(featureValue) {
-        const normalisedValue = (featureValue - obsValueMin)/obsValueMax;
+      // zero is a value like any other; only a missing one stays unfilled
+      if (valueRange && isMapValue(featureValue)) {
+        const normalisedValue = normaliseMapValue(Number(featureValue), valueRange.min, valueRange.max);
         fillColor = getColorSchemeFunction(config.colorScheme)(normalisedValue);
         strokeColor = fillColor
       }
@@ -350,11 +325,11 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
       })
     }
     featuresLayer?.setStyle(styleFunction);
-    if (obsValueMax !== 0) {
-      legendElement.current!.children[1]!.innerHTML = `${Math.floor(obsValueMin).toLocaleString()} <img src="${getColorSchemePreview(config.colorScheme)}"/> ${Math.ceil(obsValueMax).toLocaleString()} ${indicatorName}`
-    }
+    legendElement.current!.children[1]!.innerHTML = valueRange
+      ? `${Math.floor(valueRange.min).toLocaleString()} <img src="${getColorSchemePreview(config.colorScheme)}"/> ${Math.ceil(valueRange.max).toLocaleString()} ${indicatorName}`
+      : ''
 
-  }, [config.colorScheme, featuresLayer, obsValueMax, obsValueMin, indicatorName])
+  }, [config.colorScheme, featuresLayer, valueRange, indicatorName])
 
   useEffect(() => {
     const displayFeatureInfo = (evt: MapBrowserEvent<UIEvent>) => {

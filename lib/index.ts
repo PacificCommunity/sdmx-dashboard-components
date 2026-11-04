@@ -15,6 +15,7 @@ import {
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
+  type SDMXMapInstance,
   type SDMXTheme,
   type VisualRenderStatus,
   type VisualInteraction,
@@ -45,6 +46,7 @@ export {
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
+  SDMXMapInstance,
   SDMXTheme,
   SDMXDashboardRow,
 };

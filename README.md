@@ -291,6 +291,18 @@ through `extraOptions` (for example `dataZoom`), register the corresponding
 component from `echarts/components` in your application before rendering the
 chart.
 
+### Maps
+
+`SDMXMap` draws on a background chosen with `basemap`: `"satellite"` (the default, ArcGIS World Imagery), `"none"`, or an XYZ tile URL template such as `"https://tile.openstreetmap.org/{z}/{x}/{y}.png"`. Tiles are requested with CORS (`crossOrigin: "anonymous"`), so the map canvas stays readable for export; a tile server that sends no CORS headers will not show its tiles.
+
+Areas are coloured on `colorScheme` by `(value - min) / (max - min)` over the joined observations; an area whose value is 0 is filled, only areas without a value stay transparent. A map feature is joined to its observation by code (the feature's `geojsonKey` property against the codes of the geo dimension, ISO alpha-3 keys converted to alpha-2), then by label.
+
+The `callback` receives the OpenLayers map as an `SDMXMapInstance`, with `toImage(): Promise<string>`, a PNG data URL of the data and basemap layers once rendering completes (the HTML legend and tooltip are not drawn):
+
+```typescript
+<SDMXMap config={mapConfig} language="en" callback={async (map) => { const png = await map.toImage(); }} />
+```
+
 ### Sorting data by value
 
 For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the data is sorted alphabetically by default. The data can be sorted by value with the `sortByValue` config parameter in ascending or descending order. The sorting is done on the x-axis dimension.

@@ -18,13 +18,14 @@ const Maps = () => {
                 text: "Total fuel imports as % of GDP — geographic vulnerability map"
               },
               note: {
-                text: "Darker shading = higher fuel import dependency = greater vulnerability to price shocks."
+                text: "Brighter shading = higher fuel import dependency = greater vulnerability to price shocks."
               },
               legend: {
                 concept: "INDICATOR"
               },
               xAxisConcept: "GEO_PICT",
-              colorScheme: "Oranges",
+              colorScheme: "Viridis",
+              basemap: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
               data: "https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_ENERGY/A...ENERGY_IND_011?dimensionAtObservation=AllDimensions&lastNObservations=1, {GEO_PICT} | https://geonode.pacificdata.org/geoserver/gwc/service/tms/1.0.0/geonode%3Aglobal_eez_200nm_split@EPSG%3A3832@pbf/{z}/{x}/{-y}.pbf, EPSG:3832, {iso_ter1}"
             }}
             language='en' />`

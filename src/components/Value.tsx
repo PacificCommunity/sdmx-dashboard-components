@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react"
 import { SDMXValue } from "../../lib"
 import { LiveEditor, LivePreview, LiveProvider } from "react-live"

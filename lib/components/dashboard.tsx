@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useEffect, useRef, useMemo } from 'react';
 
@@ -65,6 +66,25 @@ const settleTracking = (tracking: RenderTracking, onRenderComplete?: (all: Visua
     }
 }
 
+// accept the deprecated `colums` misspelling as an alias for `columns` and
+// apply the layout defaults, so every downstream read uses `columns`
+const normalizeConfig = (config: SDMXDashboardConfig): SDMXDashboardConfig => {
+    if (!config.colCount) {
+        config.colCount = 3;
+    }
+    (config.rows || []).forEach((row) => {
+        if (!row.columns) {
+            row.columns = row.colums ?? [];
+        }
+        row.columns.forEach((cell) => {
+            if (!cell.colSize) {
+                cell.colSize = 1;
+            }
+        })
+    })
+    return config;
+}
+
 const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", onRenderComplete, fetcher, onDataFetch, ...visualProps }: DashboardProps) => {
 
     const [pageData, setPageData] = useState<SDMXDashboardConfig>();
@@ -115,7 +135,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
                 }
               })
             })
-            setPageData(data)
+            setPageData(normalizeConfig(data))
 
         }).catch((e) => {
             console.log(e)
@@ -129,17 +149,7 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
     const configKey = config ? JSON.stringify(config) : undefined
     useEffect(() => {
       if(config) {
-        if (!config.colCount) {
-            config.colCount = 3;
-        }
-        config.rows.forEach((row: any) => {
-          row.columns.forEach((cell: any) => {
-            if (!cell.colSize) {
-              cell.colSize = 1;
-            }
-          })
-        })
-        setPageData(config)
+        setPageData(normalizeConfig(config))
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [configKey])

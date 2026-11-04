@@ -58,6 +58,7 @@ const Line = () => {
                     <code className="small">{error.code}</code>
                 </div>
             )}
+            onUserInteraction={(event) => window.alert(JSON.stringify(event, null, 2))}
             language='en' />`
     }, {
         id: "key_rates_line",

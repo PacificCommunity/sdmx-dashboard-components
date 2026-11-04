@@ -102,6 +102,21 @@ Consumers that need to know when a dashboard is ready (live previews, PDF export
 
 Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rendered`, `empty`, or `error`, the `SDMXRenderError` when failed (`empty` carries `ERR_EMPTY`), and on success a `stats` block (`observationCount`, `seriesCount`, `timePeriodRange`) that lets a consumer judge whether a technically successful render is substantively thin. `onRenderComplete` fires exactly once per config and language, after the last visual settles, including the case where every visual fails and the case of a dashboard without data visuals (`[]`). The standalone `SDMXChart`, `SDMXTable`, `SDMXValue`, and `SDMXMap` accept `onVisualRender` as well. Both callbacks are optional, and inline callbacks never re-trigger data fetching.
 
+### Interaction callback
+
+Clicks on chart elements are exposed through `onUserInteraction`, on the dashboard and on `SDMXChart`:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  onUserInteraction={(e: VisualInteraction) => void}
+  // { visualId, kind: "point-click" | "series-click" | "legend-click",
+  //   concepts: { REF_AREA: "WS", INDICATOR: "POP", ... }, value?, timePeriod? }
+/>
+```
+
+A click on a data point gives `point-click` with the observation's full coordinate, its value and its time period; a click on the line of a line series gives `series-click`, and toggling a legend item `legend-click`, both with the coordinate the series shares (the legend dimension). The `concepts` map gives dimension id to code, enough to reconstruct the SDMX query for the clicked slice without engine knowledge on the consumer side. The callback is optional and adds no behaviour when absent.
+
 ### Custom data transport
 
 All components accept an optional `fetcher` prop with the signature of the global `fetch` (`(url, init?) => Promise<Response>`, exported as `SDMXFetcher`). When provided, every request made by the library (the dashboard configuration and all SDMX data queries) goes through it, so the integrating application can add authentication headers, route requests through a proxy, or apply caching and retries without touching the global `fetch`. When absent, the global `fetch` is used. The fetcher's identity does not matter: an inline function, new on every render, neither refetches nor discards the response cache, and a replaced fetcher serves the next request.

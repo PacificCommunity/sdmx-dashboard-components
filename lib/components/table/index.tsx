@@ -161,7 +161,8 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
+// onUserInteraction is taken off the DOM props: only charts report interactions
+const Table = ({ config, language, placeholder, callback, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{

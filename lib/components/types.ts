@@ -226,7 +226,6 @@ export type SDMXMapConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraOptions?: Record<string, unknown> // reserved for OpenLayers options; the map renderer does not read this yet
     // background tiles: "satellite" (default, ArcGIS World Imagery), "none",
     // or an XYZ tile URL template ({z}, {x}, {y}); tiles are requested with

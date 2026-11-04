@@ -14,8 +14,8 @@ const countriesResponse = (withOtherDimensions = true) => ({
                 name: 'Test flow',
                 names: { en: 'Test flow' },
                 dimensions: {
-                    dataSet: [],
-                    series: [],
+                    dataSet: [] as unknown[],
+                    series: [] as unknown[],
                     observation: [
                         { id: 'GEO_PICT', name: 'Country', keyPosition: 0, values: [{ id: 'FJ', name: 'Fiji' }, { id: 'WS', name: 'Samoa' }] },
                         ...(withOtherDimensions ? [
@@ -24,7 +24,7 @@ const countriesResponse = (withOtherDimensions = true) => ({
                         ] : []),
                     ]
                 },
-                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+                attributes: { dataSet: [] as unknown[], dimensionGroup: [] as unknown[], series: [] as unknown[], observation: [] as unknown[] }
             }
         ],
         dataSets: [{

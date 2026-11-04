@@ -14,7 +14,7 @@ import {
 } from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
-import { SDMXChartConfig, SDMXTheme, SDMXVisualProps, VisualInteraction } from '../types';
+import { SDMXChartConfig, SDMXTableConfig, SDMXTheme, SDMXVisualProps, VisualInteraction } from '../types';
 import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
@@ -319,7 +319,7 @@ const buildA11yTable = (
   titleText: string
 ): { model: TableModel; caption: string } | null => {
   try {
-    const tableConfig = {
+    const tableConfig: SDMXTableConfig = {
       ...config,
       type: 'table' as const,
       xAxisConcept: config.xAxisConcept || 'TIME_PERIOD',

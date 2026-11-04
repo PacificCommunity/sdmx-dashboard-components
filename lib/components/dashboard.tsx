@@ -5,7 +5,7 @@ import Cell from './cell';
 import Text from './text';
 
 import '../global.module.css';
-import { SDMXDashboardConfig, SDMXVisualConfig, SDMXTheme, SDMXFetcher, SDMXVisualProps, VisualRenderStatus } from './types';
+import { SDMXDashboardConfig, SDMXTheme, SDMXFetcher, SDMXVisualProps, VisualRenderStatus, SDMXDashboardRow } from './types';
 import { REPORTING_VISUAL_TYPES } from '../utils/renderStats';
 import { useLatest } from '../utils/useLatest';
 import { createTransport } from '../utils/transport';
@@ -22,9 +22,9 @@ type DashboardProps = SDMXVisualProps & {
 // ids of the visuals that report a render status, in layout order
 const reportingVisualIds = (pageData: SDMXDashboardConfig): string[] =>
     pageData.rows
-        .flatMap((row: any) => row.columns ?? [])
-        .filter((cell: any) => REPORTING_VISUAL_TYPES[cell.type as keyof typeof REPORTING_VISUAL_TYPES])
-        .map((cell: any) => cell.id);
+        .flatMap((row: SDMXDashboardRow) => row.columns ?? [])
+        .filter((cell) => REPORTING_VISUAL_TYPES[cell.type])
+        .map((cell) => cell.id);
 
 type RenderTracking = {
     pageData: SDMXDashboardConfig,

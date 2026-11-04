@@ -27,7 +27,7 @@ export const failedRenderStatus = (error: SDMXRenderError, visualId: string): Vi
  * @param seriesCount number of series the visual draws
  */
 export const computeRenderStats = (
-    data: ReadonlyArray<{ TIME_PERIOD?: unknown }>,
+    data: ReadonlyArray<Record<string, unknown>>,
     seriesCount: number
 ): NonNullable<VisualRenderStatus['stats']> => {
     const timePeriods = data

@@ -17,15 +17,15 @@ const lineResponse = () => ({
                 name: 'Test flow',
                 names: { en: 'Test flow' },
                 dimensions: {
-                    dataSet: [],
-                    series: [],
+                    dataSet: [] as unknown[],
+                    series: [] as unknown[],
                     observation: [
                         { id: 'FREQ', name: 'Frequency', keyPosition: 0, values: [{ id: 'A', name: 'Annual' }] },
                         { id: 'TIME_PERIOD', name: 'Time', keyPosition: 1, values: [{ id: '2020', name: '2020' }, { id: '2021', name: '2021' }] },
                         { id: 'GEO_PICT', name: 'Country', keyPosition: 2, values: [{ id: 'FJ', name: 'Fiji' }] }
                     ]
                 },
-                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+                attributes: { dataSet: [] as unknown[], dimensionGroup: [] as unknown[], series: [] as unknown[], observation: [] as unknown[] }
             }
         ],
         dataSets: [{ action: 'Information', observations: { '0:0:0': [100], '0:1:0': [110] } }]

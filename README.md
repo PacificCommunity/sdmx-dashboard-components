@@ -85,6 +85,8 @@ import { SDMXRenderError, SDMXRenderErrorCode } from 'sdmx-dashboard-components'
 
 Errors carry `visualId` (the `id` of the failing visual) and, where useful, a structured `detail` object (for `ERR_CONCEPT_NOT_FOUND` it lists the available concepts; for the series-structure codes it lists the varying dimensions with their value counts). The message wording is part of the public contract and is covered by unit tests: messages name the failing concepts and state concrete fixes, so an agent or a helpful UI can correct the configuration in one step.
 
+A dashboard whose `url` config fails to load shows the failure in place of the dashboard, through `renderError` when given and otherwise in the same alert panel, and logs it with `console.error`. A non-2xx response or a network failure gives `ERR_FETCH`, a body that is not JSON `ERR_PARSE`; the error has no `visualId`, and its `detail` holds the `url` and, when a response arrived, its HTTP `status`. A new `url` clears the error.
+
 ### Render lifecycle
 
 Consumers that need to know when a dashboard is ready (live previews, PDF export, agent feedback loops) can observe render state instead of polling the DOM:
@@ -99,6 +101,81 @@ Consumers that need to know when a dashboard is ready (live previews, PDF export
 ```
 
 Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rendered`, `empty`, or `error`, the `SDMXRenderError` when failed (`empty` carries `ERR_EMPTY`), and on success a `stats` block (`observationCount`, `seriesCount`, `timePeriodRange`) that lets a consumer judge whether a technically successful render is substantively thin. `onRenderComplete` fires exactly once per config and language, after the last visual settles, including the case where every visual fails and the case of a dashboard without data visuals (`[]`). The standalone `SDMXChart`, `SDMXTable`, `SDMXValue`, and `SDMXMap` accept `onVisualRender` as well. Both callbacks are optional, and inline callbacks never re-trigger data fetching.
+
+### Interaction callback
+
+Clicks on chart elements are exposed through `onUserInteraction`, on the dashboard and on `SDMXChart`:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  onUserInteraction={(e: VisualInteraction) => void}
+  // { visualId, kind: "point-click" | "series-click" | "legend-click",
+  //   concepts: { REF_AREA: "WS", INDICATOR: "POP", ... }, value?, timePeriod? }
+/>
+```
+
+A click on a data point gives `point-click` with the observation's full coordinate, its value and its time period; a click on the line of a line series gives `series-click`, and toggling a legend item `legend-click`, both with the coordinate the series shares (the legend dimension). The `concepts` map gives dimension id to code, enough to reconstruct the SDMX query for the clicked slice without engine knowledge on the consumer side. The callback is optional and adds no behaviour when absent.
+
+### Custom data transport
+
+All components accept an optional `fetcher` prop with the signature of the global `fetch` (`(url, init?) => Promise<Response>`, exported as `SDMXFetcher`). When provided, every request made by the library (the dashboard configuration and all SDMX data queries) goes through it, so the integrating application can add authentication headers, route requests through a proxy, or apply caching and retries without touching the global `fetch`. When absent, the global `fetch` is used. The fetcher's identity does not matter: an inline function, new on every render, neither refetches nor discards the response cache, and a replaced fetcher serves the next request.
+
+```javascript
+const proxyFetcher = (url, init) =>
+  fetch(url.replace('https://stats-sdmx-disseminate.pacificdata.org', '/api/sdmx-proxy'), init);
+
+<SDMXDashboard url='path/to/dashboard.json' fetcher={proxyFetcher} />
+```
+
+Data requests send `Accept-Language` only: the parser picks the SDMX-JSON dialect (`format=jsondata`, then `Accept` negotiation), which providers such as ECB, IMF and BIS require. Routing the SDMX data queries through the fetcher requires sdmx-json-parser 0.4.1 or later, whose `getDatasets` accepts the `fetcher` option; older parser versions fall back to the global `fetch`. The GeoJSON layers of `SDMXMap` are loaded by OpenLayers and do not go through the fetcher.
+
+### Request dedup, caching, retry, and telemetry
+
+The library wraps its data requests in a transport layer, on top of the provided `fetcher` or the global `fetch`:
+
+- identical in-flight requests (same URL, `Accept` and `Accept-Language`) across the visuals of a dashboard share one network request;
+- 2xx responses are cached for the lifetime of the rendered config (a config or language change invalidates); other responses are never cached, so the parser's `Accept` negotiation is not replayed;
+- network errors and 5xx responses are retried once with a short backoff, 4xx fails immediately.
+
+Operators can observe endpoint behaviour through the `onDataFetch` callback, available on the dashboard and the standalone components:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  onDataFetch={(t: FetchTelemetry) => void} // { url, host, status, durationMs, fromCache, retried }
+/>
+```
+
+It fires once per settled request, including deduplicated cache hits (`fromCache: true`), with no double counting of the underlying network exchange.
+
+### Custom loading, empty, and error states
+
+The built-in loading, empty, and error presentations can be replaced per state with render slots, on the dashboard and on the standalone components:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  renderLoading={(visualId) => <BrandedSpinner />}
+  renderEmpty={(visualId) => <BrandedNoDataCard />}
+  renderError={(e: SDMXRenderError) => <BrandedErrorCard code={e.code} message={e.message} />}
+/>
+```
+
+Defaults reproduce the built-in behaviour. `renderEmpty` applies when a query returns zero observations (`ERR_EMPTY`); other failures, and `ERR_EMPTY` when no `renderEmpty` is given, go to `renderError`. The map has no loading presentation of its own and shows `renderLoading` only when given.
+
+
+### Axis titles, download, and dashboard rows
+
+`xAxisTitle` and `yAxisTitle` (a string or a per-language map, with the same text expressions as `title`) name the axis of `xAxisConcept` and the value axis. For a horizontal `bar` chart, whose category axis is vertical, they are swapped accordingly. Left unset, the axes stay unnamed; `extraOptions.xAxis.name`/`yAxis.name` still override.
+
+```javascript
+config={{ ..., xAxisTitle: 'Year', yAxisTitle: { en: 'Population', fr: 'Population' } }}
+```
+
+`download: false` hides the chart's save-as-image button; it is shown otherwise.
+
+Dashboard rows list their visuals under `columns` (type `SDMXDashboardRow`). The earlier misspelling `colums` is still accepted as a deprecated alias for this major version; migrate to `columns`.
 
 ### Theming and native ECharts options
 
@@ -196,7 +273,7 @@ Accessibility (`aria.enabled`) and image export
 (`toolbox.feature.saveAsImage`) are enabled by default. Hovering the download
 button shows a "Save chart as image" tooltip above the icon. Both features can
 be overridden or disabled through `extraOptions`, for example
-`aria: { enabled: false }` or `toolbox: { show: false }`. CSV/data export is
+`aria: { enabled: false }`, or the config's `download: false`. CSV/data export is
 **not** provided because ECharts has no equivalent; `saveAsImage` exports the
 rendered chart image only.
 
@@ -328,4 +405,3 @@ When `VITE_DEMO_BASE_PATH` is empty (default), the demo is built for root (`/`).
 ```bash
 npm run build
 ```
-

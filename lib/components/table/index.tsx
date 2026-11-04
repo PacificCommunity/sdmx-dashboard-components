@@ -14,6 +14,8 @@ import { resolveNumberLocale } from '../../utils/theme';
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
@@ -161,7 +163,8 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: TableProps) => {
+// onUserInteraction is taken off the DOM props: only charts report interactions
+const Table = ({ config, language, placeholder, callback, theme, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
   const numberLocale = resolveNumberLocale(theme, language);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
@@ -181,6 +184,9 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
 
   const dataKey = JSON.stringify(config.data);
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config);
+  const transport = useTransport(fetcher, onDataFetch, loadKey);
 
   useEffect(() => {
     callbackRef.current = callback;
@@ -203,7 +209,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
     const currentConfig = configRef.current;
     setError(null);
     onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
-    loadDatasets(currentConfig, language)
+    loadDatasets(currentConfig, language, transport)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
@@ -215,7 +221,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language, fail, onVisualRenderRef]);
+  }, [loadKey, language, transport, fail, onVisualRenderRef]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
@@ -237,7 +243,9 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
     } catch (err) {
       fail(err);
     }
-  }, [config, language, numberLocale, loadKey, loadedData, fail, onVisualRenderRef]);
+    // config is read at its configKey; its identity alone must not rebuild
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey, language, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>
@@ -296,6 +304,8 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
     </>
   );
 
+  const errorSlot = error ? failureSlot(error, config.id, { renderEmpty, renderError }) : undefined;
+
   return (
     <div
       ref={containerRef}
@@ -304,13 +314,13 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
       {...props}
     >
       {isLoading
-        ? placeholder || (
+        ? (renderLoading ? renderLoading(config.id) : placeholder) || (
           <div className="opacity-50 d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}>
             <span>Loading...</span>
           </div>
         )
         : error
-          ? (
+          ? errorSlot !== undefined ? errorSlot : (
             <div className="sdmx-render-error text-danger" role="alert" data-error-code={error.code}>
               {error.message}
             </div>

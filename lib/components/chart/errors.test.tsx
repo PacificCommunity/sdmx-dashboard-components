@@ -47,7 +47,67 @@ const stubFetchWith = (body: object) => {
     })));
 };
 
+// two countries and two indicators vary besides TIME_PERIOD
+const twoVaryingResponse = () => ({
+    data: {
+        structures: [
+            {
+                name: 'Test flow',
+                names: { en: 'Test flow' },
+                dimensions: {
+                    dataSet: [],
+                    series: [],
+                    observation: [
+                        { id: 'TIME_PERIOD', name: 'Time', keyPosition: 0, values: [{ id: '2020', name: '2020' }, { id: '2021', name: '2021' }] },
+                        { id: 'GEO_PICT', name: 'Country', keyPosition: 1, values: [{ id: 'FJ', name: 'Fiji' }, { id: 'WS', name: 'Samoa' }] },
+                        { id: 'INDICATOR', name: 'Indicator', keyPosition: 2, values: [{ id: 'POP', name: 'Population' }, { id: 'GDP', name: 'GDP' }] }
+                    ]
+                },
+                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+            }
+        ],
+        dataSets: [{
+            action: 'Information',
+            observations: {
+                '0:0:0': [1], '0:1:0': [2], '0:0:1': [3], '0:1:1': [4],
+                '1:0:0': [5], '1:1:0': [6], '1:0:1': [7], '1:1:1': [8]
+            }
+        }]
+    }
+});
+
 describe('chart error surfacing', () => {
+    it('renders ERR_NO_SERIES_DIMENSION in the panel for a bar chart over a single-series query', async () => {
+        stubFetchWith(singleSeriesResponse());
+
+        render(<Chart config={barConfig()} language="en" />);
+
+        const alert = await screen.findByRole('alert');
+        expect(alert.getAttribute('data-error-code')).toBe('ERR_NO_SERIES_DIMENSION');
+        expect(alert.textContent).toContain('needs at least one other varying dimension');
+        expect(alert.textContent).toContain('Only TIME_PERIOD varies in this query');
+    });
+
+    it('renders ERR_AMBIGUOUS_SERIES for a line chart over two varying dimensions', async () => {
+        stubFetchWith(twoVaryingResponse());
+
+        render(<Chart config={{ ...barConfig(), type: 'line' }} language="en" />);
+
+        const alert = await screen.findByRole('alert');
+        expect(alert.getAttribute('data-error-code')).toBe('ERR_AMBIGUOUS_SERIES');
+        expect(alert.textContent).toContain('GEO_PICT (2 values), INDICATOR (2 values)');
+    });
+
+    it('renders the same query once legend.concept disambiguates it', async () => {
+        stubFetchWith(twoVaryingResponse());
+        const statuses: string[] = [];
+
+        render(<Chart config={{ ...barConfig(), type: 'line', legend: { concept: 'INDICATOR' } }} language="en" onVisualRender={(s) => statuses.push(s.status)} />);
+
+        await waitFor(() => expect(statuses).toContain('rendered'));
+        expect(screen.queryByRole('alert')).toBeNull();
+    });
+
     it('renders ERR_FETCH when the data URL is unreachable', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => {
             throw new TypeError('fetch failed');
@@ -128,7 +188,7 @@ describe('chart error surfacing', () => {
     it('shows a failure in a compact panel instead of the chart height', async () => {
         stubFetchWith(singleSeriesResponse());
 
-        const { container } = render(<Chart config={barConfig()} language="en" />);
+        const { container } = render(<Chart config={{ ...barConfig(), xAxisConcept: 'REF_AREA' }} language="en" />);
 
         const alert = await screen.findByRole('alert');
         // the panel is in the flow, sized by its message, not laid over the chart box

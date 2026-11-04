@@ -28,6 +28,24 @@ const Table = () => {
             },
             "decimals": 1
         }}
+        renderLoading={() => (
+            <div className="d-flex flex-column align-items-center justify-content-center gap-2 text-muted py-5">
+                <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                <small>Loading table…</small>
+            </div>
+        )}
+        renderEmpty={() => (
+            <div className="d-flex flex-column align-items-center justify-content-center gap-1 text-muted py-5">
+                <span className="fs-3" aria-hidden="true">∅</span>
+                <small>No observations for this query</small>
+            </div>
+        )}
+        renderError={(error) => (
+            <div className="alert alert-danger m-0" role="alert">
+                <div className="fw-semibold">Could not load this table</div>
+                <div className="small">{error.message}</div>
+            </div>
+        )}
         language='en'
     />`
     }, {

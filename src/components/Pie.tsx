@@ -30,7 +30,27 @@ const Pie = () => {
                 },
                 tooltip: { formatter: (p) => \`\${p.data.binValue === 1 ? 'Yes' : 'No'}\` }
             }
-        }} language='en'/>`
+        }}
+        renderLoading={() => (
+            <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                <small>Loading the distribution…</small>
+            </div>
+        )}
+        renderEmpty={() => (
+            <div className="d-flex flex-column align-items-center justify-content-center gap-1 text-muted" style={{ minHeight: 400 }}>
+                <span className="fs-3" aria-hidden="true">∅</span>
+                <small>No observations for this query</small>
+            </div>
+        )}
+        renderError={(error) => (
+            <div className="alert alert-danger m-3" role="alert">
+                <div className="fw-semibold">Could not load this chart</div>
+                <div className="small">{error.message}</div>
+                <code className="small">{error.code}</code>
+            </div>
+        )}
+        language='en'/>`
     }]
     const scope = {SDMXChart}
     return (

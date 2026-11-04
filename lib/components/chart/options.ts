@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig, SDMXTheme } from '../types';
+import type { SDMXChartConfig, SDMXTheme, SDMXFetcher } from '../types';
 import { merge } from 'ts-deepmerge';
 import { resolveNumberLocale, themeChartOptions } from '../../utils/theme';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -8,10 +8,12 @@ import { resolveNumberLocale, themeChartOptions } from '../../utils/theme';
 import { SDMXParser } from 'sdmx-json-parser';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestOptions } from '../../utils/requestHeaders';
 import { SDMXRenderError, emptyDataError } from '../../errors';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
-import type { BuiltChart, ChartBuilder, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
+import type { BuiltChart, ChartBuilder, ChartBuildResult, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
+import { validateSeriesDimensions } from '../../utils/validateChartData';
 import { buildLine } from './line';
 import { buildBar, buildColumn } from './columnLikeChart';
 import { buildLollipop } from './lollipop';
@@ -39,20 +41,28 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
   return '';
 };
 
+// axis titles carry only the text payload of SDMXTextConfig: a string or a
+// per-language map, both supporting the same text expressions as the title
+const resolveAxisTitleText = (
+  title: SDMXChartConfig['xAxisTitle'],
+  dimensions: any[],
+  language: string
+): string => {
+  if (title === undefined) return '';
+  const text = typeof title === 'string' ? title : title[language];
+  return text ? parseTextExpr(text, dimensions) : '';
+};
+
 export const loadDatasets = async (
   { id, data: dataExpression, xAxisConcept }: Pick<SDMXChartConfig, 'id' | 'data' | 'xAxisConcept'>,
-  language: string
+  language: string,
+  fetcher?: SDMXFetcher
 ): Promise<ParsedDataset[]> => {
   const dataObjs = parseDataExpr(dataExpression);
   const dataPromises = dataObjs.map((dataObj, datasetIndex) => {
     const parser = new SDMXParser();
     return parser
-      .getDatasets(dataObj.dataFlowUrl, {
-        headers: new Headers({
-          Accept: 'application/vnd.sdmx.data+json;version=2.0.0',
-          'Accept-Language': language,
-        }),
-      })
+      .getDatasets(dataObj.dataFlowUrl, dataRequestOptions(language, fetcher))
       .then(() => {
         const data = parser.getData();
         if (data.length === 0) throw emptyDataError(id, dataObj.dataFlowUrl);
@@ -82,10 +92,11 @@ export const loadDatasets = async (
             dimensions: parser.getDimensions(),
             alternateLabel: dataObj.alternateLabel,
             datasetIndex,
+            operator: dataObj.operator,
           };
         } else if (dataObj.operator === 'expr') {
           const scope: Scope = { x0: data.map((item: any) => item.value) };
-          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language);
+          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, fetcher);
           return Promise.all(ops).then(() => {
             const astFactory = new EvalAstFactory();
             const expr = parseExpr(dataObj.expression, astFactory);
@@ -102,6 +113,7 @@ export const loadDatasets = async (
               activeDimensions: parser.getActiveDimensions(),
               alternateLabel: dataObj.alternateLabel,
               datasetIndex,
+              operator: dataObj.operator,
             };
           });
         }
@@ -111,6 +123,7 @@ export const loadDatasets = async (
           activeDimensions: parser.getActiveDimensions(),
           alternateLabel: dataObj.alternateLabel,
           datasetIndex,
+          operator: dataObj.operator,
         };
       });
   });
@@ -155,6 +168,20 @@ const createChartContext = (
       }
     }
 
+    // fail with a descriptive error instead of a blank panel or a misleading
+    // single merged series (see-saw plot). A histogram is single-series by
+    // construction: its rows no longer carry the source dimensions, so the
+    // active-dimension check does not apply.
+    if (dataset.operator !== 'hist') {
+      validateSeriesDimensions(
+        config.type,
+        config.xAxisConcept || (config.type === 'line' ? 'TIME_PERIOD' : ''),
+        legendConcept ?? '',
+        dataset.data,
+        dataset.activeDimensions ?? []
+      );
+    }
+
     return { ...dataset, titleText: datasetTitleText, subtitleText: datasetSubtitleText };
   });
 
@@ -168,6 +195,21 @@ const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
 const toolboxTooltipFormatter = (params: any): string =>
   TOOLBOX_FEATURE_LABELS[params?.name] ?? params?.title ?? '';
 
+// the semantic axis titles: xAxisTitle names the axis of xAxisConcept and
+// yAxisTitle the value axis, so a horizontal bar chart, whose category axis
+// is ECharts' yAxis, swaps them. The x axis name sits centred under the
+// axis; the y axis name is laid out by applyYAxisTitleLayout. Unset titles
+// leave the axis unnamed, and extraOptions, merged later, still override.
+const withAxisTitles = (config: SDMXChartConfig, context: ChartContext, parts: ChartBuildResult) => {
+  const dimensions = context.datasets[context.datasets.length - 1]?.dimensions ?? [];
+  const xTitle = resolveAxisTitleText(config.xAxisTitle, dimensions, context.language);
+  const yTitle = resolveAxisTitleText(config.yAxisTitle, dimensions, context.language);
+  const [xAxisName, yAxisName] = config.type === 'bar' ? [yTitle, xTitle] : [xTitle, yTitle];
+  const xAxis = parts.xAxis && xAxisName ? { ...parts.xAxis, name: xAxisName, nameLocation: 'middle' } : parts.xAxis;
+  const yAxis = parts.yAxis && yAxisName ? { ...parts.yAxis, name: yAxisName } : parts.yAxis;
+  return { xAxis, yAxis };
+};
+
 const assembleOption = (
   config: SDMXChartConfig,
   context: ChartContext,
@@ -177,6 +219,8 @@ const assembleOption = (
     aria: { enabled: true },
     title: buildEchartsTitle(config, context.titleText, context.subtitleText),
     toolbox: {
+      // download: false hides the save-as-image control
+      show: config.download !== false,
       showTitle: false,
       tooltip: {
         show: true,
@@ -190,9 +234,10 @@ const assembleOption = (
     series: parts.series,
   };
 
+  const { xAxis, yAxis } = withAxisTitles(config, context, parts);
   if (parts.grid !== undefined) (option as any).grid = parts.grid;
-  if (parts.xAxis !== undefined) (option as any).xAxis = parts.xAxis;
-  if (parts.yAxis !== undefined) (option as any).yAxis = parts.yAxis;
+  if (xAxis !== undefined) (option as any).xAxis = xAxis;
+  if (yAxis !== undefined) (option as any).yAxis = yAxis;
 
   return option;
 };

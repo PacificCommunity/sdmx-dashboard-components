@@ -9,6 +9,16 @@ export const resolveNumberLocale = (theme: SDMXTheme | undefined, language: stri
     theme?.numberFormat?.locale || language;
 
 /**
+ * Font a theme assigns to a role: display for titles and subtitles, data for
+ * axes, labels, legends, tooltips, table cells and value numbers. Returns
+ * undefined when the theme does not set it, so the browser default applies.
+ */
+export const resolveThemeFont = (
+    theme: SDMXTheme | undefined,
+    role: 'display' | 'data'
+): string | undefined => theme?.fontFamily?.[role];
+
+/**
  * ECharts options derived from a theme. They are merged under the built
  * chart option, so everything the chart sets itself (per-series colours
  * from a colorPalette, title fonts from the title config) and extraOptions

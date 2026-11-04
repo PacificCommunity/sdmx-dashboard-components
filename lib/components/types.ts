@@ -13,8 +13,8 @@ export type SDMXFetcher = (url: string, init?: RequestInit) => Promise<Response>
 export type SDMXTheme = {
     palette?: string[], // series colours in order
     fontFamily?: {
-        display?: string, // titles and subtitles
-        data?: string, // axes, labels, legends, tooltips
+        display?: string, // titles and subtitles of charts, tables and values
+        data?: string, // axes, labels, legends, tooltips, table cells and value numbers
     },
     numberFormat?: {
         locale?: string, // overrides the component language for number formatting

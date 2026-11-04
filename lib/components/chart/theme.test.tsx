@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup, within } from '@testing-library/react
 import { getInstanceByDom, type EChartsType } from 'echarts/core';
 import Chart from './index';
 import Table from '../table';
+import Value from '../value';
 import Dashboard from '../dashboard';
 import type { SDMXChartConfig, SDMXTheme } from '../types';
 
@@ -128,6 +129,26 @@ describe('number locale', () => {
         stub();
         render(<Table config={{ ...config(), type: 'table' }} language="en" theme={{ numberFormat: { locale: 'de-DE' } }} />);
         expect(await screen.findByText('1.000,5')).toBeTruthy();
+    });
+});
+
+describe('theme fonts on the table and the value', () => {
+    it('applies the data font to table cells and the display font to the table title', async () => {
+        stub();
+        render(<Table config={{ ...config(), type: 'table' }} language="en" theme={theme} />);
+        const table = await screen.findByRole('table');
+        expect(table.style.fontFamily).toBe('Inter');
+        const title = screen.getByRole('heading', { level: 2 });
+        expect(title.style.fontFamily).toBe('Georgia');
+    });
+
+    it('applies the display font to the value title and the data font to the value number', async () => {
+        stub();
+        render(<Value config={{ ...config(), type: 'value' }} language="en" theme={theme} />);
+        const title = await screen.findByRole('heading', { level: 2 });
+        expect(title.style.fontFamily).toBe('Georgia');
+        const numberBox = document.querySelector('.value-node')?.lastElementChild as HTMLElement | null;
+        expect(numberBox?.style.fontFamily).toBe('Inter');
     });
 });
 

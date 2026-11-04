@@ -10,7 +10,7 @@ import { parseTextExpr } from '../../utils/parseTextExpr';
 import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
 import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXTheme, SDMXVisualProps } from '../types';
-import { resolveNumberLocale } from '../../utils/theme';
+import { resolveNumberLocale, resolveThemeFont } from '../../utils/theme';
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
@@ -24,7 +24,7 @@ interface TableProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (table: React.JSX.Element) => void;
-  theme?: SDMXTheme; // only numberFormat applies to a table
+  theme?: SDMXTheme; // numberFormat and fontFamily apply to a table
 }
 
 const alignClass = (align?: string): string =>
@@ -71,6 +71,7 @@ const TableCellValue = ({
   tooltipId,
   container,
   config,
+  fontFamily,
 }: {
   cell: TableCell;
   category: string;
@@ -78,6 +79,7 @@ const TableCellValue = ({
   tooltipId: string;
   container?: HTMLElement | null;
   config: SDMXTableConfig;
+  fontFamily?: string;
 }) => {
   const tooltip = config.tooltip;
   const formatter = tooltip?.formatter;
@@ -106,7 +108,7 @@ const TableCellValue = ({
       trigger={['hover', 'focus']}
       container={container ?? undefined}
       overlay={
-        <Tooltip id={tooltipId}>
+        <Tooltip id={tooltipId} style={fontFamily ? { fontFamily } : undefined}>
           {typeof content === 'string' ? parse(sanitizeTooltipHtml(content, marker)) : content}
         </Tooltip>
       }
@@ -119,11 +121,13 @@ const TableCellValue = ({
 const renderTable = (
   model: TableModel,
   config: SDMXTableConfig,
+  theme: SDMXTheme | undefined,
   container?: HTMLElement | null
 ): React.JSX.Element => {
   const tableId = String(config.id ?? 'table').replace(/[^\w-]/g, '-');
+  const dataFont = resolveThemeFont(theme, 'data');
   const table = (
-    <table className={styles.table}>
+    <table className={styles.table} style={dataFont ? { fontFamily: dataFont } : undefined}>
       <thead>
         <tr>
           <th scope="col" className={styles.headerCell}>{model.categoryLabel}</th>
@@ -145,6 +149,7 @@ const renderTable = (
                   tooltipId={`${tableId}-tooltip-${rowIndex}-${columnIndex}`}
                   container={container}
                   config={config}
+                  fontFamily={dataFont}
                 />
               </td>
             ))}
@@ -166,6 +171,7 @@ const renderTable = (
 // onUserInteraction is taken off the DOM props: only charts report interactions
 const Table = ({ config, language, placeholder, callback, theme, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
   const numberLocale = resolveNumberLocale(theme, language);
+  const displayFont = resolveThemeFont(theme, 'display');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{
@@ -186,6 +192,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
   // keyed on content, not identity: see the chart component
   const configKey = JSON.stringify(config);
+  const themeKey = JSON.stringify(theme ?? null);
   const transport = useTransport(fetcher, onDataFetch, loadKey);
 
   useEffect(() => {
@@ -234,7 +241,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
       setNoteText(resolveText(config.note, dimensions, language));
       setIsLoading(false);
       setError(null);
-      callbackRef.current?.(renderTable(nextModel, config, containerRef.current));
+      callbackRef.current?.(renderTable(nextModel, config, theme, containerRef.current));
       onVisualRenderRef.current?.({
         visualId: config.id,
         status: 'rendered',
@@ -245,7 +252,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
     }
     // config is read at its configKey; its identity alone must not rebuild
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configKey, language, loadKey, loadedData, fail, onVisualRenderRef]);
+  }, [configKey, themeKey, language, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>
@@ -262,7 +269,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
           style={{
             fontSize: config.title?.size,
             color: config.title?.color,
-            fontFamily: config.title?.font,
+            fontFamily: config.title?.font ?? displayFont,
             fontStyle: config.title?.style,
             fontWeight: config.title?.weight,
           }}
@@ -278,7 +285,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
           style={{
             fontSize: config.subtitle?.size,
             color: config.subtitle?.color,
-            fontFamily: config.subtitle?.font,
+            fontFamily: config.subtitle?.font ?? displayFont,
             fontStyle: config.subtitle?.style,
           }}
         >
@@ -293,14 +300,14 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
           style={{
             fontSize: config.note?.size,
             color: config.note?.color,
-            fontFamily: config.note?.font,
+            fontFamily: config.note?.font ?? displayFont,
             fontStyle: config.note?.style,
           }}
         >
           {parse(noteText)}
         </p>
       )}
-      {!isLoading && !error && model && renderTable(model, config, containerRef.current)}
+      {!isLoading && !error && model && renderTable(model, config, theme, containerRef.current)}
     </>
   );
 

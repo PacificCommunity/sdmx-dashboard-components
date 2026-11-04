@@ -265,7 +265,7 @@ const spcTheme: SDMXTheme = {
 <SDMXDashboard config={config} theme={spcTheme} />
 ```
 
-The theme sits under everything a chart sets itself: a visual's `colorPalette`, the title config and `extraOptions` win, and the ECharts theme in force (the dark theme under `data-bs-theme="dark"`, or the one named by `SDMXChart`'s string `theme`) supplies anything the theme leaves unset. `fontFamily.display` applies to titles and subtitles, `fontFamily.data` to axes, labels, legends and tooltips. `numberFormat.locale` overrides the component language for number formatting (tooltips, data labels, table cells, values) while translated text stays on the component language. `SDMXChart` still accepts `theme` as the name of a registered ECharts theme.
+The theme sits under everything a chart sets itself: a visual's `colorPalette`, the title config and `extraOptions` win, and the ECharts theme in force (the dark theme under `data-bs-theme="dark"`, or the one named by `SDMXChart`'s string `theme`) supplies anything the theme leaves unset. `fontFamily.display` applies to the titles and subtitles of charts, tables and values, `fontFamily.data` to axes, labels, legends, tooltips, table cells and value numbers. `numberFormat.locale` overrides the component language for number formatting (tooltips, data labels, table cells, values) while translated text stays on the component language. `SDMXChart` still accepts `theme` as the name of a registered ECharts theme.
 
 ### Accessibility, export, and registered components
 

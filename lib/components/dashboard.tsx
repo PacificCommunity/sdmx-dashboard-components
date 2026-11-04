@@ -158,46 +158,14 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
     }
 
     useEffect(() => {
+      setConfigError(null);
       if (!url) {
         return;
-      } else {
-        (fetcherRef.current ?? fetch)(url).then(response => response.json()).then((data) => {
-            // set default values
-            if (!data.colCount) {
-                data.colCount = 3;
-            }
-            data.rows.forEach((row: any) => {
-              row.columns.forEach((cell: any) => {
-                if (!cell.colSize) {
-                  cell.colSize = 1;
-                }
-              })
-            })
-            setPageData(normalizeConfig(data))
-
-        }).catch((e) => {
-            console.log(e)
-        })
       }
       let cancelled = false;
-      setConfigError(null);
       loadDashboardConfig(fetcherRef.current ?? fetch, url).then((loaded) => {
         if (cancelled) return;
-        const data = loaded as SDMXDashboardConfig;
-        // set default values
-        if (!data.colCount) {
-            data.colCount = 3;
-        }
-        // configs list their cells under `columns`; SDMXDashboardConfig still spells it `colums`
-        const rows = data.rows as unknown as Array<{ columns: Array<{ colSize?: number }> }>;
-        rows.forEach((row) => {
-          row.columns.forEach((cell) => {
-            if (!cell.colSize) {
-              cell.colSize = 1;
-            }
-          })
-        })
-        setPageData(data)
+        setPageData(normalizeConfig(loaded as SDMXDashboardConfig));
       }).catch((error: SDMXRenderError) => {
         if (cancelled) return;
         console.error(error);

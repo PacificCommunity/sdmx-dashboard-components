@@ -8,6 +8,7 @@ import type {
   YAXisComponentOption,
 } from 'echarts';
 import { SDMXChartConfig, type SDMXDimension, type SDMXObservation } from '../components/types';
+import { SDMXRenderError } from '../errors';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
 
@@ -48,12 +49,14 @@ export type BuiltChart = {
   titleText: string;
   subtitleText: string;
   drilldown?: DrilldownBundle;
+  seriesCount: number; // logical series drawn, reported in VisualRenderStatus.stats
 };
 
 export type ParsedDataset = {
   data: SDMXObservation[];
   dimensions: SDMXDimension[];
   activeDimensions?: SDMXDimension[];
+  operator?: 'hist' | 'expr' | 'count';
   alternateLabel?: string;
   datasetIndex: number;
   titleText?: string;
@@ -62,7 +65,8 @@ export type ParsedDataset = {
 
 export type ChartContext = {
   config: SDMXChartConfig;
-  language: string;
+  language: string; // translated text
+  numberLocale: string; // number formatting: the theme's locale, else the language
   datasets: ParsedDataset[];
   titleText: string;
   subtitleText: string;
@@ -76,6 +80,7 @@ export type ChartBuildResult = {
   tooltip?: TooltipComponentOption;
   legend?: EChartsOption['legend'];
   drilldown?: DrilldownBundle;
+  seriesCount?: number; // logical series when it differs from series.length (treemap packs them into one)
 };
 
 export type ChartBuilder = (context: ChartContext) => ChartBuildResult;
@@ -253,9 +258,14 @@ const axisLabelFont = (axis: AxisOption): { font: string; fontSize: number } => 
   };
 };
 
-const yAxisTitleFontSize = (axis: AxisOption): number => {
-  const size = Number(axis?.nameTextStyle?.fontSize);
-  return Number.isFinite(size) && size > 0 ? size : Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
+// horizontal room a rotated y axis name takes beside the tick labels: one
+// line of its font plus the gap ECharts leaves when it moves the name clear
+// of the labels (nameMoveOverlap)
+const yAxisNameExtent = (axis: { name?: unknown; nameTextStyle?: { fontSize?: unknown } }): number => {
+  if (typeof axis.name !== 'string' || axis.name.trim() === '') return 0;
+  const size = Number(axis.nameTextStyle?.fontSize);
+  const fontSize = Number.isFinite(size) && size > 0 ? size : Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
+  return fontSize * 1.5 + Y_AXIS_TITLE_LABEL_MARGIN;
 };
 
 const numericPointValue = (point: unknown): number | undefined => {
@@ -308,24 +318,13 @@ const estimateYAxisLabelWidth = (axis: AxisOption, series: SeriesOption[]): numb
   return estimateValueAxisLabelWidth(axis, series);
 };
 
-const explicitGridSides = (extraOptions: EChartsOption | undefined): Set<string> => {
-  const sides = new Set<string>();
-  const extraGrid = extraOptions?.grid;
-  if (!extraGrid) return sides;
-  const grids = Array.isArray(extraGrid) ? extraGrid : [extraGrid];
-  grids.forEach((grid) => {
-    if (grid?.left !== undefined) sides.add('left');
-    if (grid?.right !== undefined) sides.add('right');
-  });
-  return sides;
-};
-
-export const applyYAxisTitleLayout = (option: EChartsOption, extraOptions?: EChartsOption): boolean => {
+// A y axis name runs along the axis, rotated. Its distance from the axis is
+// left to ECharts 6: the grid contains axis names (GRID_CONTAINS_AXIS_TEXT),
+// and nameMoveOverlap moves the name clear of the tick labels whatever their
+// real width, so the name neither overlaps the labels nor leaves the canvas.
+export const applyYAxisTitleLayout = (option: EChartsOption): boolean => {
   if (!option) return false;
   const axes = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis];
-  const series = Array.isArray(option.series) ? option.series : [];
-  const grid = !Array.isArray(option.grid) ? option.grid : undefined;
-  const lockedSides = explicitGridSides(extraOptions);
   let changed = false;
 
   axes.forEach((axis) => {
@@ -339,22 +338,6 @@ export const applyYAxisTitleLayout = (option: EChartsOption, extraOptions?: ECha
     if (axis.nameRotate === undefined) {
       axis.nameRotate = 90;
       changed = true;
-    }
-    if (axis.nameGap === undefined) {
-      axis.nameGap = estimateYAxisLabelWidth(axis, series) + Y_AXIS_TITLE_LABEL_MARGIN;
-      changed = true;
-    }
-
-    if (grid) {
-      const side = axis.position === 'right' ? 'right' : 'left';
-      if (!lockedSides.has(side)) {
-        const inset = yAxisTitleFontSize(axis) + 16;
-        const current = grid[side];
-        if (current === undefined || (typeof current === 'number' && current < inset)) {
-          grid[side] = inset;
-          changed = true;
-        }
-      }
     }
   });
 
@@ -443,7 +426,7 @@ const categoryAxisPlotWidth = (option: EChartsOption, width: number): number => 
   const axes = Array.isArray(option?.yAxis) ? option.yAxis : [option?.yAxis];
   axes.forEach((axis) => {
     if (!axis) return;
-    const labelWidth = estimateYAxisLabelWidth(axis, series) + 8;
+    const labelWidth = estimateYAxisLabelWidth(axis, series) + 8 + yAxisNameExtent(axis);
     if (axis.position === 'right') right += labelWidth;
     else left += labelWidth;
   });
@@ -801,6 +784,19 @@ const latestValuesByCategory = (
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
 
+// ECharts 6's form of the legacy grid.containLabel, extended to axis names:
+// the grid box, axis labels and axis names included, sits at the given
+// insets (outer bounds = the grid box, with no clamp), without the
+// deprecation warning. Without axis names it places the grid exactly as a
+// containLabel grid; with them, a rotated y axis name or an x axis name stays
+// inside the canvas however wide the tick labels are.
+export const GRID_CONTAINS_AXIS_TEXT = {
+  outerBoundsMode: 'same',
+  outerBoundsContain: 'all',
+  outerBoundsClampWidth: 0,
+  outerBoundsClampHeight: 0,
+} as const;
+
 export const buildCartesianGrid = (config: SDMXChartConfig, series: SeriesOption[]) => {
   const labels = Array.from(
     new Set(
@@ -810,7 +806,7 @@ export const buildCartesianGrid = (config: SDMXChartConfig, series: SeriesOption
     )
   );
   return {
-    containLabel: true,
+    ...GRID_CONTAINS_AXIS_TEXT,
     ...CARTESIAN_GRID_INSETS,
     ...legendGridInsets(config.legend?.location, labels),
   };
@@ -919,7 +915,7 @@ export const buildCartesianChartParts = (
 export const collectColumnLike = (context: ChartContext): ColumnLikeCollection => {
   const { config, datasets } = context;
   const xAxisConcept = config.xAxisConcept;
-  if (!xAxisConcept) throw new Error('No xAxis concept found');
+  if (!xAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No xAxis concept found');
 
   const categories: Category[] = [];
   const seen = new Set<Category>();
@@ -928,10 +924,23 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
   datasets.forEach((dataset) => {
     const { data, dimensions, activeDimensions, alternateLabel, datasetIndex } = dataset;
     const legendConcept = config.legend?.concept || '';
-    const legendDimension = !legendConcept
-      ? activeDimensions!.find((d) => d.id !== xAxisConcept)
-      : dimensions.find((d) => d.id === legendConcept);
-    const xAxisDimension = activeDimensions!.find((d) => d.id === xAxisConcept);
+    // hist datasets have no activeDimensions; fall back to the full dimension
+    // list so a missing list cannot crash the builder
+    const active = activeDimensions ?? dimensions;
+    // without legend.concept the series come from the other varying
+    // dimension or, when only the x axis varies (a treemap or table of one
+    // series), from any other dimension, which then holds a single value
+    const legendDimension = legendConcept
+      ? dimensions.find((d) => d.id === legendConcept)
+      : active.find((d) => d.id !== xAxisConcept)
+        ?? dimensions.find((d) => d.id !== xAxisConcept);
+    if (!legendDimension) {
+      throw new Error(
+        `Chart type=${config.type} with xAxis=${xAxisConcept} needs a dimension besides ${xAxisConcept} to group its series, and the dataflow has none. Fix: set xAxisConcept to another dimension of the dataflow.`
+      );
+    }
+    const xAxisDimension = active.find((d) => d.id === xAxisConcept)
+      ?? dimensions.find((d) => d.id === xAxisConcept);
     const timeDimension = dimensions.find((d) => d.id === 'TIME_PERIOD');
     const useLatestTimePeriod = Boolean(timeDimension)
       && xAxisConcept !== 'TIME_PERIOD'

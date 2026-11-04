@@ -1,33 +1,51 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
+import { dataRequestOptions } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import type { SDMXAttribute, SDMXObservation, SDMXVisualConfig } from "../types";
+import { SDMXAttribute, SDMXDimension, SDMXObservation, SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from "../types";
+import { resolveNumberLocale, resolveThemeFont } from "../../utils/theme";
+import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
+import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
+import { useLatest } from "../../utils/useLatest";
+import { failureSlot } from "../../utils/slots";
+import { useTransport } from "../../utils/transport";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
-interface ValueProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualProps {
     config: SDMXVisualConfig;
     valueClassName?: string;
     placeholder?: React.JSX.Element;
     callback?: (value: React.JSX.Element) => void;
     language: string;
+    theme?: SDMXTheme; // numberFormat and fontFamily apply to a value
 }
 
-const Value = ({ config, placeholder, callback, language, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, theme, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
 
+    const numberLocale = resolveNumberLocale(theme, language);
+    const displayFont = resolveThemeFont(theme, 'display');
+    const dataFont = resolveThemeFont(theme, 'data');
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
     const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
     const [subtitleText, setSubtitleText] = useState<string>(config.subtitle?'Loading...':'')
     const [isLoading, setIsLoading] = useState(true)
+    const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
 
-    const sdmxParser = new SDMXParser();
     const containerRef = useRef<HTMLDivElement>(null);
+    const onVisualRenderRef = useLatest(onVisualRender);
+    // the same load key as the chart: a new data URL, language or x-axis
+    // concept gets a fresh transport and so a fresh request; any other config
+    // change re-renders from the transport's cache
+    const loadKey = `${JSON.stringify(config.data)}|${language}|${config.xAxisConcept ?? ''}`;
+    const transport = useTransport(fetcher, onDataFetch, loadKey);
+    const callbackRef = useLatest(callback);
 
     // className is applied to container div
     // style is applied to value div
@@ -44,6 +62,8 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
     if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
         config.adaptiveTextSize = true;
     }
+    // after the in-place default above, so that default does not change the key
+    const configKey = JSON.stringify(config);
 
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
@@ -77,7 +97,7 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
         }
     }
 
-    const calculateFontSize = (text: string) => {
+    const calculateFontSize = useCallback((text: string) => {
         if (typeof valueDivWidth === 'number') {
             return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
         }
@@ -89,15 +109,12 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
         }
         // default value if no container found
         return '4em';
-    };
+    }, [valueDivWidth]);
 
-    // Numbers are locale-formatted; strings pass through unchanged.
-    const formatLocalized = (value: string | number, locale: string): string =>
-        typeof value === 'number' ? value.toLocaleString(locale) : value;
-
-    const formatValue = (valueStr: string | number, config: SDMXVisualConfig, data: SDMXObservation[], attributes: SDMXAttribute[], language: string) => {
-        if (config.decimals) {
-            const decimalNumber = Number(parseOperandTextExpr(String(config.decimals), data[0], attributes));
+    const formatValue = useCallback((rawValue: string | number | null, config: SDMXVisualConfig, data: SDMXObservation[], attributes: SDMXAttribute[], language: string) => {
+        let valueStr: string | number = rawValue ?? '';
+        if (config['decimals']) {
+            const decimalNumber = Number(parseOperandTextExpr(String(config['decimals']), data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
         let valueLabel = '';
@@ -119,109 +136,141 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                 valueUnder = true;
             }
         }
-        const valueSize = config.adaptiveTextSize ? calculateFontSize(formatLocalized(valueStr, language)) : '4em';
+        const formattedValue = typeof valueStr === 'number' ? valueStr.toLocaleString(numberLocale) : valueStr;
+        const valueSize = config.adaptiveTextSize ? calculateFontSize(formattedValue) : '4em';
         const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{formatLocalized(valueStr, language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{formattedValue}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
             </>
         )
-    }
+    }, [calculateFontSize, numberLocale]);
 
     useEffect(() => {
-        const dataObjs = parseDataExpr(config.data);
-        if (dataObjs.length > 1) {
-            throw new Error('Multiple data expressions are not supported for Value component');
-        }
-        const dataObj = dataObjs[0];
-        dataObj.index = dataObj.index || 0;
- 
-        const dataFlowUrl = dataObj.dataFlowUrl;
-        sdmxParser.getDatasets(dataFlowUrl, {
-            headers: new Headers({
-                Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                "Accept-Language": language
-            })
-        }).then(() => {
-            const data = sdmxParser.getData();
-            const dimensions = sdmxParser.getDimensions();
-            const attributes = sdmxParser.getAttributes();
+        let cancelled = false;
+        let renderedElement: React.JSX.Element | undefined;
+        setRenderError(null);
+        onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' });
+        const sdmxParser = new SDMXParser();
 
-            if(config.title) {
-                if(typeof config.title == 'string') {
-                    setTitleText(parseTextExpr(config.title, dimensions))
-                } else {
-                    setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
-                }
+        // start from a resolved promise so a synchronous throw (a malformed
+        // data expression) settles the visual like a failed fetch would
+        Promise.resolve().then(() => {
+            const dataObjs = parseDataExpr(config.data);
+            if (dataObjs.length > 1) {
+                throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Value component');
             }
-            if(config.subtitle) {
-                if(typeof config.subtitle == 'string') {
-                    setSubtitleText(parseTextExpr(config.subtitle, dimensions))
-                } else {
-                    setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
-                }
-            }
+            const dataObj = dataObjs[0];
+            dataObj.index = dataObj.index || 0;
 
-            let valueStr = data[0].value;
-            // apply operation to data
-            if (dataObj.operator) {
-                if(dataObj.operator === "count") {
-                    const countData = data
-                        .map((item: SDMXObservation) => {
-                            const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
-                            const scope: Scope = {x0: item.value}
-                            if (isNaN(parseInt(String(dataObj.exprOperand)))) {
-                                const dataPromises = fetchDataExprOperand(new Array<string>().concat(dataObj.exprOperand ?? []), data, scope, attributes, language)
-                                Promise.all(dataPromises).then(() => {
-                                    Object.keys(scope).forEach((key: string) => {
-                                        if (Array.isArray(scope[key])) {
-                                            scope[key] = scope[key][0]
-                                        }
-                                    })
+            const dataFlowUrl = dataObj.dataFlowUrl;
+            return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
+                const data = sdmxParser.getData() as SDMXObservation[];
+                if (data.length === 0) {
+                    throw emptyDataError(config.id, dataFlowUrl);
+                }
+                const dimensions = sdmxParser.getDimensions() as SDMXDimension[];
+                const attributes = sdmxParser.getAttributes() as SDMXAttribute[];
+
+                if(config.title) {
+                    if(typeof config.title == 'string') {
+                        setTitleText(parseTextExpr(config.title, dimensions))
+                    } else {
+                        setTitleText(typeof config.title.text == 'string'? parseTextExpr(config.title.text, dimensions) : parseTextExpr(config.title.text[language], dimensions))
+                    }
+                }
+                if(config.subtitle) {
+                    if(typeof config.subtitle == 'string') {
+                        setSubtitleText(parseTextExpr(config.subtitle, dimensions))
+                    } else {
+                        setSubtitleText(typeof config.subtitle.text == 'string'? parseTextExpr(config.subtitle.text, dimensions) : parseTextExpr(config.subtitle.text[language], dimensions))
+                    }
+                }
+
+                let valueStr = data[0].value;
+                // operand requests still in flight; their failures settle the visual
+                const pending: Promise<unknown>[] = [];
+                // apply operation to data
+                if (dataObj.operator) {
+                    if(dataObj.operator === "count") {
+                        const exprOperand = Array.isArray(dataObj.exprOperand) ? dataObj.exprOperand[0] : dataObj.exprOperand ?? '';
+                        const countData = data
+                            .map((item: SDMXObservation) => {
+                                const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
+                                const scope: Scope = {x0: item.value}
+                                if (isNaN(parseInt(exprOperand))) {
+                                    const dataPromises = fetchDataExprOperand([exprOperand], data, scope, attributes, language, transport)
+                                    pending.push(Promise.all(dataPromises).then(() => {
+                                        Object.keys(scope).forEach((key: string) => {
+                                            if (Array.isArray(scope[key])) {
+                                                scope[key] = scope[key][0]
+                                            }
+                                        })
+                                        valueStr = expr?.evaluate(scope)
+                                        return valueStr && item;
+                                    }))
+                                } else {
+                                    scope['x1'] = parseInt(exprOperand)
                                     valueStr = expr?.evaluate(scope)
-                                    return valueStr ? item : undefined;
-                                })
-                            } else {
-                                scope['x1'] = parseInt(String(dataObj.exprOperand))
-                                valueStr = expr?.evaluate(scope)
-                                return valueStr ? item : undefined;
-                            }
-                        })
-                        .filter((item: SDMXObservation | undefined): item is SDMXObservation => Boolean(item)); // count number of true
-                    setValueElement(formatValue(countData.length, config, countData, attributes, language));
-                    setPopupStr(countData.map((item: SDMXObservation) => item[config.xAxisConcept]).join(', '))
-                } else if (dataObj.operator === "expr") {
-                    const scope: Scope = {x0: valueStr}
-                    const dataPromises = fetchDataExprOperand(new Array<string>().concat(dataObj.exprOperand ?? []), data, scope, attributes, language)
-                    Promise.all(dataPromises).then(() => {
-                        const astFactory = new EvalAstFactory();
-                        const expr = parseExpr(dataObj.expression, astFactory);
-                        // fetchDataExprOperand returns an array for variables, so we need to flatten it
-                        Object.keys(scope).forEach((key: string) => {
-                            if (Array.isArray(scope[key])) {
-                                scope[key] = scope[key][0]
-                            }
-                        })
-                        valueStr = expr?.evaluate(scope)
-                        setValueElement(formatValue(valueStr, config, data, attributes, language));
-                        setPopupStr(data[0][config.xAxisConcept])
-                    })
+                                    return valueStr && item;
+                                }
+                            })
+                            .filter((item: SDMXObservation | undefined) => item); // count number of true
+                        renderedElement = formatValue(countData.length, config, countData, attributes, language);
+                        setValueElement(renderedElement);
+                        setPopupStr(countData.map((item: SDMXObservation) => item[config.xAxisConcept]).join(', '))
+                    } else if (dataObj.operator === "expr") {
+                        const operands = Array.isArray(dataObj.exprOperand) ? dataObj.exprOperand : dataObj.exprOperand ? [dataObj.exprOperand] : [];
+                        const scope: Scope = {x0: valueStr}
+                        const dataPromises = fetchDataExprOperand(operands, data, scope, attributes, language, transport)
+                        pending.push(Promise.all(dataPromises).then(() => {
+                            const astFactory = new EvalAstFactory();
+                            const expr = parseExpr(dataObj.expression, astFactory);
+                            // fetchDataExprOperand returns an array for variables, so we need to flatten it
+                            Object.keys(scope).forEach((key: string) => {
+                                if (Array.isArray(scope[key])) {
+                                    scope[key] = scope[key][0]
+                                }
+                            })
+                            valueStr = expr?.evaluate(scope)
+                            renderedElement = formatValue(valueStr, config, data, attributes, language);
+                            setValueElement(renderedElement);
+                            setPopupStr(String(data[0][config.xAxisConcept] ?? ''))
+                        }))
+                    }
+                } else {
+                    renderedElement = formatValue(valueStr, config, data, attributes, language);
+                    setValueElement(renderedElement);
+                    setPopupStr(String(data[0][config.xAxisConcept] ?? ''))
                 }
-            } else {
-                setValueElement(formatValue(valueStr, config, data, attributes, language));
-                setPopupStr(data[0][config.xAxisConcept])
-            }
-            
+                return Promise.all(pending).then(() => data);
+            });
+        }).then((data) => {
+            if (cancelled) return;
             setIsLoading(false)
-            if(callback) {
-                callback(valueElement)
+            onVisualRenderRef.current?.({
+                visualId: config.id,
+                status: 'rendered',
+                stats: computeRenderStats(data, 1)
+            })
+            if (callbackRef.current && renderedElement) {
+                callbackRef.current(renderedElement)
             }
+        }).catch((err: unknown) => {
+            if (cancelled) return;
+            const valueError = toSDMXRenderError(err, config.id);
+            setRenderError(valueError);
+            setIsLoading(false);
+            onVisualRenderRef.current?.(failedRenderStatus(valueError, config.id));
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [language]);
+        return () => {
+            cancelled = true;
+        };
+        // config is read at its configKey; its identity alone must not refetch
+    }, [configKey, language, numberLocale, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
@@ -230,7 +279,8 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                     className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`}
                     style={{
                         fontSize: config.title.size,
-                        color: config.title?.color
+                        color: config.title?.color,
+                        fontFamily: config.title?.font ?? displayFont
                     }}>
                     {titleText}
                     {config.metadataLink &&
@@ -245,18 +295,21 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
                     className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`}
                     style={{
                         fontSize: config.subtitle.size,
-                        textAlign: config.subtitle?.align
+                        textAlign: config.subtitle?.align,
+                        fontFamily: config.subtitle?.font ?? displayFont
                     }}>
                     {parse(subtitleText)}
                 </h4>
             }
             <div
                 className={`${valueClassName || ''} flex-grow-1 d-flex flex-column align-items-center justify-content-center`}
-                style={valueStyle}
+                style={dataFont ? { fontFamily: dataFont, ...valueStyle } : valueStyle}
                 title={popupStr}>
                 {valueElement}
             </div>
         </div>
+
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined;
 
     return (
         <div
@@ -264,7 +317,12 @@ const Value = ({ config, placeholder, callback, language, ...props }: ValueProps
             className={`${containerClass || ''} ${config.frame ? "border" : ""}`}
             style={containerStyle}
             {...otherProps}>
-            { isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
+            { renderError ?
+                errorSlot !== undefined ? errorSlot :
+                <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
+                    {renderError.message}
+                </div>
+            :   isLoading ? (renderLoading ? renderLoading(config.id) : placeholder) || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }

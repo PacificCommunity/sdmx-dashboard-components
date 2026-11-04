@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
@@ -29,66 +29,82 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestOptions } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
-import { SDMXMapConfig } from '../types';
-import type { SDMXAttribute, SDMXDimension, SDMXObservation } from '../types';
+import type { SDMXAttribute, SDMXDimension } from '../types';
+import { SDMXMapConfig, SDMXMapInstance, SDMXVisualProps } from '../types';
+import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
+import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
+import { useLatest } from '../../utils/useLatest';
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
-import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
+import { buildGeoLookup, findGeoRow, isMapValue, normaliseMapValue, type GeoLookup } from '../../utils/mapData';
+import { createBasemapLayer, mapToImage } from '../../utils/basemap';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
 import TileGrid from 'ol/tilegrid/TileGrid';
 
 type MapDataLayer = VectorLayer<VectorSource> | VectorTileLayer
 
-const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, language: string, callback?: (map: Map) => void }) => {
+type MapProps = SDMXVisualProps & {
+  config: SDMXMapConfig,
+  language: string,
+  callback?: (map: SDMXMapInstance) => void,
+}
+
+const EMPTY_LOOKUP: GeoLookup = { byCode: {}, byLabel: {}, min: 0, max: 0, hasValues: false }
+
+const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
-  const [obsValueMin, setObsValueMin] = useState<number>(1e9)
-  const [obsValueMax, setObsValueMax] = useState<number>(0)
+  const [valueRange, setValueRange] = useState<{ min: number, max: number } | null>(null)
 
   const [dimensions, setDimensions] = useState<SDMXDimension[]>([])
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
+  const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const onVisualRenderRef = useLatest(onVisualRender)
+  const callbackRef = useLatest(callback)
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config)
+  const transport = useTransport(fetcher, onDataFetch, `${configKey}|${language}`)
 
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<Map | null>(null)
+  const mapRef = useRef<SDMXMapInstance | null>(null)
+  const basemapRef = useRef<{ key: string, layer: TileLayer<XYZ> | null } | null>(null)
   const dataLayerRef = useRef<MapDataLayer | null>(null)
-  const sdmxDataByGeoIdRef = useRef<Record<string, SDMXObservation>>({})
+  const geoLookupRef = useRef<GeoLookup>(EMPTY_LOOKUP)
   const geojsonKeyRef = useRef<string>('')
   const tooltipElement = useRef<HTMLDivElement>(null)
   const legendElement = useRef<HTMLDivElement>(null)
 
+  // the observation joined to a feature (by code, then by label), and the
+  // value to colour it by; a feature with no joined row keeps its own value
   const getSDMXPropsForFeature = (feature: FeatureLike) => {
     const geojsonKey = geojsonKeyRef.current
-    let geoId = geojsonKey ? feature.get(geojsonKey) : undefined
-    let featureValue = feature.get('value')
-    let sdmxProps = null
-    if (geoId && !featureValue) {
-      if (isISO3Code(String(geoId))) {
-        geoId = isoCountryCode3To2(String(geoId))
-      }
-      sdmxProps = sdmxDataByGeoIdRef.current[String(geoId)] || null
-      if (sdmxProps && !(feature instanceof RenderFeature)) {
-        const vectorFeature = feature as Feature
-        vectorFeature.setProperties({ ...sdmxProps, ...feature.getProperties() }, true)
-      }
-      featureValue = sdmxProps?.['value']
+    const sdmxProps = geojsonKey ? findGeoRow(geoLookupRef.current, feature.get(geojsonKey)) : null
+    if (sdmxProps && !(feature instanceof RenderFeature)) {
+      const vectorFeature = feature as Feature
+      vectorFeature.setProperties({ ...sdmxProps, ...feature.getProperties() }, true)
     }
+    const featureValue = sdmxProps ? sdmxProps['value'] : feature.get('value')
     return { sdmxProps, featureValue }
   }
 
-  const isVectorTileUrl = (url: string) => {
+  const isVectorTileUrl = useCallback((url: string) => {
     return /\{z\}.*\{x\}.*\{y\}/.test(url) || /\.(mvt|pbf)(\?|$)/i.test(url)
-  }
+  }, [])
 
-  const getSingleMapDataObj = () => {
+  const getSingleMapDataObj = useCallback(() => {
     const dataObjs = parseDataExpr(config.data);
     if (dataObjs.length > 1) {
-      throw new Error('Multiple data expressions are not supported for Value component');
+      throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Map component');
     }
     return dataObjs[0];
-  }
+  }, [config.data])
 
   const resolveGeojsonProjection = (projectionCode: string) => {
     let geojsonProj = get(projectionCode);
@@ -109,26 +125,16 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
 
   const initMapIfNeeded = (geojsonProj: Projection | null) => {
     if (mapElement.current && !mapRef.current) {
-      mapRef.current = new Map({
+      const map = new Map({
         target: mapElement.current || '',
-        layers: [
-          new TileLayer({
-            source: new XYZ({
-              attributions:
-                'Tiles © <a href="https://services.arcgisonline.com/ArcGIS/' +
-                'rest/services/World_Imagery/MapServer">ArcGIS</a>',
-              url:
-                'https://server.arcgisonline.com/ArcGIS/rest/services/' +
-                'World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            }),
-          }),
-        ],
+        layers: [],
         view: new View({
           center: [0, 0],
           zoom: 2,
           projection: geojsonProj || 'EPSG:3857'
         })
       });
+      mapRef.current = Object.assign(map, { toImage: () => mapToImage(map) });
       mapRef.current.addControl(new Control({
         element: legendElement.current || undefined
       }));
@@ -144,38 +150,25 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
     return mapRef.current?.getView().getProjection() || null;
   }
 
-  const getGeoLookup = (data: SDMXObservation[], dimensionsFromData: SDMXDimension[], dataFlowKey: string) => {
-    const geoDimension = dimensionsFromData.find((dimension) => dimension.id === dataFlowKey);
-    const sdmxDataByGeoId: Record<string, SDMXObservation> = {};
-    let min = Number.POSITIVE_INFINITY;
-    let max = Number.NEGATIVE_INFINITY;
-
-    geoDimension?.values.forEach((geoValue) => {
-      const sdmxData = data.find((valData: SDMXObservation) => valData[dataFlowKey] === geoValue.name);
-      if (!sdmxData) {
-        return;
-      }
-      sdmxDataByGeoId[geoValue.id] = {
-        ...sdmxData,
-        name: sdmxData[dataFlowKey]
-      };
-      const obsValue = sdmxData.value;
-      if (max < obsValue) {
-        max = obsValue;
-      }
-      if (min > obsValue) {
-        min = obsValue;
-      }
-    });
-
-    return {
-      sdmxDataByGeoId,
-      min: min === Number.POSITIVE_INFINITY ? 0 : min,
-      max: max === Number.NEGATIVE_INFINITY ? 0 : max
-    };
+  // the background tiles, under every data layer; replaced when the
+  // configured basemap changes
+  const syncBasemap = (basemap: string | undefined) => {
+    const map = mapRef.current
+    const key = basemap || 'satellite'
+    if (!map || basemapRef.current?.key === key) {
+      return
+    }
+    if (basemapRef.current?.layer) {
+      map.removeLayer(basemapRef.current.layer)
+    }
+    const layer = createBasemapLayer(key)
+    if (layer) {
+      map.getLayers().insertAt(0, layer)
+    }
+    basemapRef.current = { key, layer }
   }
 
-  const createInitialFeaturesLayer = (geojsonUrl: string, projection: string | null) => {
+  const createInitialFeaturesLayer = useCallback((geojsonUrl: string, projection: string | null) => {
     let initialLayer: MapDataLayer;
     if (isVectorTileUrl(geojsonUrl)) {
       // handle special case for EPSG:3832 used with a vector tile source - need to create custom tile grid and set it on the source for tiles to load correctly
@@ -198,8 +191,8 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
         source: vectorTileSource,
       });
       vectorTileSource.once('tileloadend', () => {
-        if (callback && mapRef.current) {
-          callback(mapRef.current);
+        if (callbackRef.current && mapRef.current) {
+          callbackRef.current(mapRef.current);
         }
       });
     } else {
@@ -208,8 +201,8 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
         url: geojsonUrl
       });
       vectorSource.on('featuresloadend', () => {
-        if (callback && mapRef.current) {
-          callback(mapRef.current);
+        if (callbackRef.current && mapRef.current) {
+          callbackRef.current(mapRef.current);
         }
       });
       initialLayer = new VectorLayer({
@@ -217,65 +210,86 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
       });
     }
     return initialLayer;
-  }
+  }, [isVectorTileUrl, callbackRef])
 
 
   useEffect(() => {
+    let cancelled = false
     let titleText = config.title ? 'Loading...' : '';
+    setRenderError(null)
+    setIsLoading(true)
+    onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' })
 
     const sdmxParser = new SDMXParser();
-    const dataObj = getSingleMapDataObj();
-    const geojsonProj = resolveGeojsonProjection(dataObj.geojsonProjection);
-    initMapIfNeeded(geojsonProj);
+    // start from a resolved promise so a synchronous throw (a malformed data
+    // expression, a projection OpenLayers rejects) settles the visual like a
+    // failed fetch would
+    Promise.resolve().then(() => {
+      const dataObj = getSingleMapDataObj();
+      const geojsonProj = resolveGeojsonProjection(dataObj.geojsonProjection);
+      initMapIfNeeded(geojsonProj);
+      syncBasemap(config.basemap);
 
+      const dataFlowUrl = dataObj.dataFlowUrl;
+      return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
+        if (cancelled) return;
+        const data = sdmxParser.getData();
+        if (data.length === 0) {
+          throw emptyDataError(config.id, dataFlowUrl)
+        }
+        const _dim = sdmxParser.getDimensions();
+        const _att = sdmxParser.getAttributes();
+        setDimensions(_dim)
+        if (config.legend?.concept) {
+          setIndicatorName(data[0][config.legend.concept])
+        } else {
+          setIndicatorName('')
+        }
+        const unitAttribute = _att.find((attribute: SDMXAttribute) => attribute.id === 'UNIT_MEASURE')
+        const detectedUnit = unitAttribute?.values?.[0]?.name || ''
+        setUnit(config.unit?.text || detectedUnit)
 
-    const dataFlowUrl = dataObj.dataFlowUrl;
-    sdmxParser.getDatasets(dataFlowUrl, {
-      headers: new Headers({
-        Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-        "Accept-Language": language
-      })
-    }).then(() => {
-      const data = sdmxParser.getData();
-      const _dim = sdmxParser.getDimensions();
-      const _att = sdmxParser.getAttributes();
-      setDimensions(_dim)
-      if (config.legend?.concept) {
-        setIndicatorName(data.length > 0 ? data[0][config.legend.concept] : '')
-      } else {
-        setIndicatorName('')
-      }
-      const unitAttribute = _att.find((attribute: SDMXAttribute) => attribute.id === 'UNIT_MEASURE')
-      const detectedUnit = unitAttribute?.values?.[0]?.name || ''
-      setUnit(config.unit?.text || detectedUnit)
+        if (typeof config.title == 'string') {
+          titleText = parseTextExpr(config.title, _dim)
+        } else if (typeof config.title === 'object') {
+          titleText = typeof config.title.text == 'string' ? parseTextExpr(config.title.text, _dim) : parseTextExpr(config.title.text[language], _dim)
+        }
 
-      if (typeof config.title == 'string') {
-        titleText = parseTextExpr(config.title, _dim)
-      } else if (typeof config.title === 'object') {
-        titleText = typeof config.title.text == 'string' ? parseTextExpr(config.title.text, _dim) : parseTextExpr(config.title.text[language], _dim)
-      }
+        geojsonKeyRef.current = dataObj.geojsonKey
+        const lookup = buildGeoLookup(data, _dim, dataObj.dataFlowKey)
+        geoLookupRef.current = lookup
+        setValueRange(lookup.hasValues ? { min: lookup.min, max: lookup.max } : null)
 
-      geojsonKeyRef.current = dataObj.geojsonKey
-      const { sdmxDataByGeoId, min, max } = getGeoLookup(data, _dim, dataObj.dataFlowKey)
-      sdmxDataByGeoIdRef.current = sdmxDataByGeoId
-      setObsValueMax(max)
-      setObsValueMin(min)
+        if (dataLayerRef.current && mapRef.current) {
+          mapRef.current.removeLayer(dataLayerRef.current)
+        }
 
-      if (dataLayerRef.current && mapRef.current) {
-        mapRef.current.removeLayer(dataLayerRef.current)
-      }
+        const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl, dataObj.geojsonProjection)
 
-      const initalFeaturesLayer = createInitialFeaturesLayer(dataObj.geojsonUrl, dataObj.geojsonProjection)
+        setFeaturesLayer(initalFeaturesLayer)
+        dataLayerRef.current = initalFeaturesLayer
+        mapRef.current?.addLayer(initalFeaturesLayer)
 
-      setFeaturesLayer(initalFeaturesLayer)
-      dataLayerRef.current = initalFeaturesLayer
-      mapRef.current?.addLayer(initalFeaturesLayer)
+        legendElement.current!.children[0]!.innerHTML = titleText
 
-      legendElement.current!.children[0]!.innerHTML = titleText
-
+        setIsLoading(false)
+        onVisualRenderRef.current?.({
+          visualId: config.id,
+          status: 'rendered',
+          stats: computeRenderStats(data, 1)
+        })
+      });
+    }).catch((err: unknown) => {
+      if (cancelled) return;
+      const mapError = toSDMXRenderError(err, config.id)
+      setRenderError(mapError)
+      setIsLoading(false)
+      onVisualRenderRef.current?.(failedRenderStatus(mapError, config.id))
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, language, callback])
+    return () => {
+      cancelled = true
+    }
+  }, [config, language, transport, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef])
 
   useEffect(() => {
     const styleFunction = (feature: FeatureLike) => {
@@ -283,8 +297,9 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
 
       let fillColor = 'transparent';
       let strokeColor = 'transparent';
-      if(featureValue) {
-        const normalisedValue = (featureValue - obsValueMin)/obsValueMax;
+      // zero is a value like any other; only a missing one stays unfilled
+      if (valueRange && isMapValue(featureValue)) {
+        const normalisedValue = normaliseMapValue(Number(featureValue), valueRange.min, valueRange.max);
         fillColor = getColorSchemeFunction(config.colorScheme)(normalisedValue);
         strokeColor = fillColor
       }
@@ -310,11 +325,11 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
       })
     }
     featuresLayer?.setStyle(styleFunction);
-    if (obsValueMax !== 0) {
-      legendElement.current!.children[1]!.innerHTML = `${Math.floor(obsValueMin).toLocaleString()} <img src="${getColorSchemePreview(config.colorScheme)}"/> ${Math.ceil(obsValueMax).toLocaleString()} ${indicatorName}`
-    }
+    legendElement.current!.children[1]!.innerHTML = valueRange
+      ? `${Math.floor(valueRange.min).toLocaleString()} <img src="${getColorSchemePreview(config.colorScheme)}"/> ${Math.ceil(valueRange.max).toLocaleString()} ${indicatorName}`
+      : ''
 
-  }, [config.colorScheme, featuresLayer, obsValueMax, obsValueMin, indicatorName])
+  }, [config.colorScheme, featuresLayer, valueRange, indicatorName])
 
   useEffect(() => {
     const displayFeatureInfo = (evt: MapBrowserEvent<UIEvent>) => {
@@ -384,9 +399,21 @@ const MapComponent = ({ config, language, callback }: { config: SDMXMapConfig, l
     }
   }, [dimensions, unit])
 
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined
+
     return (
       <div className={`${config.frame ? "border" : "" }`}>
-        <div id={`map-${config.id || 'id'}`} ref={mapElement} className={`map ${styles.minCellHeight}`}></div>
+        {/* no built-in loading presentation: the map draws progressively */}
+        {isLoading && !renderError && renderLoading ? renderLoading(config.id) : null}
+        {renderError && errorSlot !== undefined && errorSlot}
+        {renderError && errorSlot === undefined && (
+          <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
+            {renderError.message}
+          </div>
+        )}
+        {/* the map and overlay divs stay mounted on error: the OpenLayers
+            effects hold refs into them and a config change retries in place */}
+        <div id={`map-${config.id || 'id'}`} ref={mapElement} className={`map ${styles.minCellHeight}`} style={renderError ? { display: 'none' } : undefined}></div>
         <div ref={tooltipElement} className={styles.mapTooltip}>
           <div className={styles.mapTooltipHeader} id="map-tooltip-header"></div>
           <div id="map-tooltip-content"></div>

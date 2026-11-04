@@ -1,5 +1,7 @@
 import type { SDMXAttribute, SDMXObservation } from "../components/types";
 import { parseOperandTextExpr } from "./parseTextExpr";
+import { dataRequestOptions } from "./requestHeaders";
+import type { SDMXFetcher } from "../components/types";
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
@@ -27,7 +29,7 @@ export type ParsedDataExpr = {
 /**
  * Process the data expression
  * Example: 'https://www.ilo.org/sdmx/rest/data/ILO,DF_EES_TEES_SEX_MJH_NB,1.0/CHL.A..SEX_T.MJH_AGGREGATE_MULTI?endPeriod=2022&lastNObservations=1 * {UNIT_MULT}',
- * 
+ *
  * @param {String} dataExpr
  * @returns {Object}
  */
@@ -61,7 +63,7 @@ export const parseDataExpr = (dataExprs: string | Array<string>): ParsedDataExpr
       // when we have an operation
       // we extract each operand and store exprOperand
       // note that the first operand must be a dataFlowUrl
-      if (Array.isArray(parsedExpr.dataFlowUrl)) parsedExpr.dataFlowUrl.push(tokens[0].trim());
+      parsedExpr['dataFlowUrl'] = tokens[0].trim();
       parsedExpr['exprOperand'] = tokens.slice(1).map((token: string) => token.trim());
       parsedExpr['operator'] = "expr"
       parsedExpr['expression'] = dataExpr;
@@ -100,7 +102,7 @@ export const parseDataExpr = (dataExprs: string | Array<string>): ParsedDataExpr
       parsedExpr['exprOperator'] = expression.match(/ [/[=!]== /g)![0].trim()
       parsedExpr['exprOperand'] = tokens[1].trim();
     }
-    
+
     results.push(parsedExpr);
   });
 
@@ -116,9 +118,10 @@ export const parseDataExpr = (dataExprs: string | Array<string>): ParsedDataExpr
  * @param {Record<string, unknown>} scope
  * @param {Array<SDMXAttribute>} attributes
  * @param {string} language
- * @returns {Promise<Array<unknown>>}
+ * @param {Function} fetcher custom fetch implementation for the data requests (optional)
+ * @returns {Promise<Array<any>>}
  */
-export const fetchDataExprOperand = (exprOperands: Array<string>, data: SDMXObservation[], scope: Record<string, unknown>, attributes: SDMXAttribute[], language: string) => {
+export const fetchDataExprOperand = (exprOperands: Array<string>, data: SDMXObservation[], scope: Record<string, unknown>, attributes: SDMXAttribute[], language: string, fetcher?: SDMXFetcher) => {
 
   return exprOperands.map((exprOperand: string, index: number) => {
     if (exprOperand.startsWith('{')) {
@@ -132,12 +135,7 @@ export const fetchDataExprOperand = (exprOperands: Array<string>, data: SDMXObse
     } else {
         // operand is another SDMX request
         const parser = new SDMXParser();
-        return parser.getDatasets(exprOperand, {
-            headers: new Headers({
-                Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                "Accept-Language": language
-            })
-        }).then(() => {
+        return parser.getDatasets(exprOperand, dataRequestOptions(language, fetcher)).then(() => {
             const extraData = parser.getData();
             if (extraData.length !== data.length) {
                 throw new Error('Data length mismatch, cannot evaluate expression');

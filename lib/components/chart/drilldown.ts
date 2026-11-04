@@ -6,6 +6,7 @@ import {
   buildCartesianTooltip,
   buildEchartsTitle,
   CARTESIAN_GRID_INSETS,
+  GRID_CONTAINS_AXIS_TEXT,
   labelFormatter,
   paletteColor,
   resolveSeriesNames,
@@ -15,6 +16,7 @@ import {
   sortTimePeriodValues,
   withValueAxisFormatter,
 } from '../../utils/chartHelpers';
+import { SDMXRenderError } from '../../errors';
 
 // One legend series accumulated across datasets, keyed by category. The extra
 // maps carry the per-category drilldown metadata the root chart needs.
@@ -29,9 +31,9 @@ type DrilldownSeriesEntry = SeriesNaming & {
 };
 
 export const buildDrilldown: ChartBuilder = (context) => {
-  const { config, language, datasets, titleText, subtitleText } = context;
+  const { config, numberLocale, datasets, titleText, subtitleText } = context;
   const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
-  if (!drilldownXAxisConcept) throw new Error('No drilldown xAxis concept found');
+  if (!drilldownXAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No drilldown xAxis concept found');
 
   const drilldownOptions: Record<string, EChartsOption> = {};
   const drilldownSeriesByKey = new Map<string, DrilldownSeriesEntry>();
@@ -45,7 +47,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const { data, dimensions, alternateLabel, datasetIndex } = dataset;
     const xAxisConcept = config.xAxisConcept;
     const legendConcept = config.legend?.concept || '';
-    if (!legendConcept) throw new Error('No legend concept found');
+    if (!legendConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No legend concept found');
 
     const xAxisDimension = dimensions.find((d) => d.id === xAxisConcept);
     const legendDimension = dimensions.find((d) => d.id === legendConcept);
@@ -151,8 +153,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
               dataset.titleText ?? titleText,
               dataset.subtitleText ?? subtitleText
             ),
-            tooltip: buildCartesianTooltip(config, language),
-            grid: { containLabel: true, ...CARTESIAN_GRID_INSETS },
+            tooltip: buildCartesianTooltip(config, numberLocale),
+            grid: { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
             xAxis: {
               type: 'category',
               data: childData.map((d) => d.name),
@@ -172,7 +174,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
                     label: {
                       show: true,
                       position: 'top',
-                      formatter: labelFormatter(config, language, isTime ? 'line' : 'column'),
+                      formatter: labelFormatter(config, numberLocale, isTime ? 'line' : 'column'),
                     },
                   }
                 : {}),
@@ -237,7 +239,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
   rootSeries.sort((a, b) => pointCount(b) - pointCount(a));
 
   return {
-    ...buildCartesianChartParts(config, language, categories, rootSeries, 'column'),
+    ...buildCartesianChartParts(config, numberLocale, categories, rootSeries, 'column'),
     drilldown: { options: drilldownOptions },
   };
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import parse from 'html-react-parser';
 import { Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { InfoCircle } from 'react-bootstrap-icons';
@@ -8,15 +8,22 @@ import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
-import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXDimension } from '../types';
+import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXDimension, SDMXTheme, SDMXVisualProps } from '../types';
+import { resolveNumberLocale, resolveThemeFont } from '../../utils/theme';
+import { SDMXRenderError, toSDMXRenderError } from '../../errors';
+import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
+import { useLatest } from '../../utils/useLatest';
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
-interface TableProps extends React.HTMLAttributes<HTMLDivElement> {
+interface TableProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualProps {
   config: SDMXTableConfig;
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (table: React.JSX.Element) => void;
+  theme?: SDMXTheme; // numberFormat and fontFamily apply to a table
 }
 
 const alignClass = (align?: string): string =>
@@ -63,6 +70,7 @@ const TableCellValue = ({
   tooltipId,
   container,
   config,
+  fontFamily,
 }: {
   cell: TableCell;
   category: string;
@@ -70,6 +78,7 @@ const TableCellValue = ({
   tooltipId: string;
   container?: HTMLElement | null;
   config: SDMXTableConfig;
+  fontFamily?: string;
 }) => {
   const tooltip = config.tooltip;
   const formatter = tooltip?.formatter;
@@ -98,7 +107,7 @@ const TableCellValue = ({
       trigger={['hover', 'focus']}
       container={container ?? undefined}
       overlay={
-        <Tooltip id={tooltipId}>
+        <Tooltip id={tooltipId} style={fontFamily ? { fontFamily } : undefined}>
           {typeof content === 'string' ? parse(sanitizeTooltipHtml(content, marker)) : content}
         </Tooltip>
       }
@@ -111,11 +120,13 @@ const TableCellValue = ({
 const renderTable = (
   model: TableModel,
   config: SDMXTableConfig,
+  theme: SDMXTheme | undefined,
   container?: HTMLElement | null
 ): React.JSX.Element => {
   const tableId = String(config.id ?? 'table').replace(/[^\w-]/g, '-');
+  const dataFont = resolveThemeFont(theme, 'data');
   const table = (
-    <table className={styles.table}>
+    <table className={styles.table} style={dataFont ? { fontFamily: dataFont } : undefined}>
       <thead>
         <tr>
           <th scope="col" className={styles.headerCell}>{model.categoryLabel}</th>
@@ -137,6 +148,7 @@ const renderTable = (
                   tooltipId={`${tableId}-tooltip-${rowIndex}-${columnIndex}`}
                   container={container}
                   config={config}
+                  fontFamily={dataFont}
                 />
               </td>
             ))}
@@ -155,9 +167,12 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, className, style, ...props }: TableProps) => {
+// onUserInteraction is taken off the DOM props: only charts report interactions
+const Table = ({ config, language, placeholder, callback, theme, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
+  const numberLocale = resolveNumberLocale(theme, language);
+  const displayFont = resolveThemeFont(theme, 'display');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{
     key: string;
     datasets: ParsedDataset[];
@@ -170,9 +185,14 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
   const containerRef = useRef<HTMLDivElement>(null);
   const callbackRef = useRef(callback);
   const configRef = useRef(config);
+  const onVisualRenderRef = useLatest(onVisualRender);
 
   const dataKey = JSON.stringify(config.data);
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config);
+  const themeKey = JSON.stringify(theme ?? null);
+  const transport = useTransport(fetcher, onDataFetch, loadKey);
 
   useEffect(() => {
     callbackRef.current = callback;
@@ -182,30 +202,37 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
     configRef.current = config;
   });
 
+  const fail = useCallback((err: unknown) => {
+    const visualId = configRef.current.id;
+    const renderError = toSDMXRenderError(err, visualId);
+    setError(renderError);
+    setIsLoading(false);
+    onVisualRenderRef.current?.(failedRenderStatus(renderError, visualId));
+  }, [onVisualRenderRef]);
+
   useEffect(() => {
     let cancelled = false;
-    const { data, xAxisConcept } = configRef.current;
+    const currentConfig = configRef.current;
     setError(null);
-    loadDatasets(data, xAxisConcept, language)
+    onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
+    loadDatasets(currentConfig, language, transport)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(err);
-        setError('Failed to load table.');
-        setIsLoading(false);
+        fail(err);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language]);
+  }, [loadKey, language, transport, fail, onVisualRenderRef]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
     try {
-      const nextModel = buildTableModel(config, language, loadedData.datasets);
+      const nextModel = buildTableModel(config, numberLocale, loadedData.datasets);
       const dimensions = loadedData.datasets[0]?.dimensions ?? [];
       setModel(nextModel);
       setTitleText(resolveText(config.title, dimensions, language));
@@ -213,13 +240,18 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
       setNoteText(resolveText(config.note, dimensions, language));
       setIsLoading(false);
       setError(null);
-      callbackRef.current?.(renderTable(nextModel, config, containerRef.current));
+      callbackRef.current?.(renderTable(nextModel, config, theme, containerRef.current));
+      onVisualRenderRef.current?.({
+        visualId: config.id,
+        status: 'rendered',
+        stats: computeRenderStats(loadedData.datasets.flatMap((dataset) => dataset.data), nextModel.columns.length),
+      });
     } catch (err) {
-      console.error(err);
-      setError('Failed to load table.');
-      setIsLoading(false);
+      fail(err);
     }
-  }, [config, language, loadKey, loadedData]);
+    // config is read at its configKey; its identity alone must not rebuild
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey, themeKey, language, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>
@@ -236,7 +268,7 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
           style={{
             fontSize: config.title?.size,
             color: config.title?.color,
-            fontFamily: config.title?.font,
+            fontFamily: config.title?.font ?? displayFont,
             fontStyle: config.title?.style,
             fontWeight: config.title?.weight,
           }}
@@ -252,7 +284,7 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
           style={{
             fontSize: config.subtitle?.size,
             color: config.subtitle?.color,
-            fontFamily: config.subtitle?.font,
+            fontFamily: config.subtitle?.font ?? displayFont,
             fontStyle: config.subtitle?.style,
           }}
         >
@@ -267,16 +299,18 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
           style={{
             fontSize: config.note?.size,
             color: config.note?.color,
-            fontFamily: config.note?.font,
+            fontFamily: config.note?.font ?? displayFont,
             fontStyle: config.note?.style,
           }}
         >
           {parse(noteText)}
         </p>
       )}
-      {!isLoading && !error && model && renderTable(model, config, containerRef.current)}
+      {!isLoading && !error && model && renderTable(model, config, theme, containerRef.current)}
     </>
   );
+
+  const errorSlot = error ? failureSlot(error, config.id, { renderEmpty, renderError }) : undefined;
 
   return (
     <div
@@ -286,13 +320,17 @@ const Table = ({ config, language, placeholder, callback, className, style, ...p
       {...props}
     >
       {isLoading
-        ? placeholder || (
+        ? (renderLoading ? renderLoading(config.id) : placeholder) || (
           <div className="opacity-50 d-flex align-items-center justify-content-center" style={{ minHeight: 200 }}>
             <span>Loading...</span>
           </div>
         )
         : error
-          ? <div className="text-danger">{error}</div>
+          ? errorSlot !== undefined ? errorSlot : (
+            <div className="sdmx-render-error text-danger" role="alert" data-error-code={error.code}>
+              {error.message}
+            </div>
+          )
           : content}
     </div>
   );

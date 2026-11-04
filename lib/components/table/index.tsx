@@ -13,8 +13,13 @@ import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMX
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+<<<<<<< HEAD
 import { useTransport } from '../../utils/transport';
 import { failureSlot } from '../../utils/slots';
+=======
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
+>>>>>>> origin
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 

@@ -18,8 +18,8 @@ import { SDMXChartConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
-import { useTransport } from '../../utils/transport';
 import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import { merge } from 'ts-deepmerge';
 import styles from '../../global.module.css';
 
@@ -118,8 +118,9 @@ const baseGridTop = new WeakMap<EChartsOption, number>();
 
 const TITLE_GRID_GAP = 20;
 const TOOLBOX_GRID_GAP = 8;
+const TITLE_LEGEND_GAP = 8;
 
-type ChartComponent = 'title' | 'toolbox';
+type ChartComponent = 'title' | 'toolbox' | 'legend';
 
 const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   const internals = chart as unknown as EChartsInternals;
@@ -144,12 +145,38 @@ const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   return bottom;
 };
 
-const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
+type LegendLike = { show?: boolean; top?: unknown; bottom?: unknown; orient?: string; [key: string]: unknown };
+
+const baseLegendTop = new WeakMap<EChartsOption, number>();
+
+// a horizontal legend at the top (legend.location "top") is laid out from
+// the chart's top edge, where the title also sits: move it under the title,
+// again on every resize, since the title rewraps. A legend that
+// extraOptions position is left where it was put.
+const placeTopLegendBelowTitle = (chart: EChartsType, option: EChartsOption, titleBottom: number, legendLocked: boolean): number => {
+  if (legendLocked || titleBottom <= 0) return 0;
+  const legend = (option as unknown as { legend?: LegendLike | LegendLike[] }).legend;
+  if (!legend || Array.isArray(legend) || legend.show === false || legend.orient === 'vertical') return 0;
+  if (typeof legend.top !== 'number' || legend.bottom !== undefined) return 0;
+  if (!baseLegendTop.has(option)) baseLegendTop.set(option, legend.top);
+  const top = Math.max(baseLegendTop.get(option) ?? 0, Math.ceil(titleBottom + TITLE_LEGEND_GAP));
+  if (legend.top !== top) {
+    const nextLegend = { ...legend, top };
+    (option as unknown as { legend?: LegendLike }).legend = nextLegend;
+    chart.setOption({ legend: nextLegend } as unknown as EChartsOption);
+  }
+  return componentBottom(chart, 'legend');
+};
+
+// keep the plot below the title, the toolbox and a top legend
+const reserveTopSpace = (chart: EChartsType, option: EChartsOption, legendLocked: boolean) => {
   const titleBottom = componentBottom(chart, 'title');
   const toolboxBottom = componentBottom(chart, 'toolbox');
+  const legendBottom = placeTopLegendBelowTitle(chart, option, titleBottom, legendLocked);
   const required = Math.max(
     titleBottom > 0 ? titleBottom + TITLE_GRID_GAP : 0,
-    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0
+    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0,
+    legendBottom > 0 ? legendBottom + TITLE_GRID_GAP : 0
   );
   if (required <= 0) return;
   const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
@@ -162,6 +189,13 @@ const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
   const nextGrid = { ...grid, top };
   (option as unknown as { grid?: GridLike }).grid = nextGrid;
   chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+// extraOptions that position the legend opt out of the title offset
+const hasExplicitLegendTop = (config: SDMXChartConfig): boolean => {
+  const legend: unknown = config.extraOptions?.legend;
+  const entries = Array.isArray(legend) ? legend : [legend];
+  return entries.some((entry) => entry && typeof entry === 'object' && ('top' in entry || 'bottom' in entry));
 };
 
 const LEGEND_GRID_GAP = 8;
@@ -328,7 +362,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       const currentConfig = configRef.current;
       if (!hasExplicitTitleLayout(currentConfig)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
       const mergedChild = mergeExtraOptions(child, currentConfig.extraOptions);
-      applyYAxisTitleLayout(mergedChild, currentConfig.extraOptions);
+      applyYAxisTitleLayout(mergedChild);
       applyBarLabelLayout(mergedChild);
       applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
       // Child options are built without the shared chrome; carry it over so drilldowns keep
@@ -341,7 +375,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       try {
         runEngine(currentConfig.id, () => {
           chart.setOption(withChrome, { notMerge: true });
-          reserveTopSpace(chart, withChrome);
+          reserveTopSpace(chart, withChrome, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(chart, withChrome);
         });
       } catch (err) {
@@ -391,7 +425,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
             const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
             if (title) chart.setOption({ title } as unknown as EChartsOption);
           }
-          reserveTopSpace(chart, current);
+          reserveTopSpace(chart, current, hasExplicitLegendTop(config));
           reserveLegendSpace(chart, current);
         });
       } catch (err) {
@@ -405,7 +439,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
 
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, container.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
-      applyYAxisTitleLayout(merged, config.extraOptions);
+      applyYAxisTitleLayout(merged);
       applyBarLabelLayout(merged);
       applyCategoryLabelLayout(merged, container.clientWidth, config.extraOptions);
       if (config.type === 'pie') {
@@ -423,7 +457,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           chartRef.current = chart;
         }
         chart.setOption(merged, { notMerge: true });
-        reserveTopSpace(chart, merged);
+        reserveTopSpace(chart, merged, hasExplicitLegendTop(config));
         reserveLegendSpace(chart, merged);
       });
       setIsLoading(false);
@@ -465,7 +499,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
         chartRef.current = nextChart;
         if (current) {
           nextChart.setOption(current, { notMerge: true });
-          reserveTopSpace(nextChart, current);
+          reserveTopSpace(nextChart, current, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(nextChart, current);
         }
       });

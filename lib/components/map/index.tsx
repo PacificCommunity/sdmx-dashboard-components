@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { useState, useRef, useEffect } from 'react';
-// @ts-ignore
+import { useState, useRef, useEffect, useCallback } from 'react';
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
 import Map from 'ol/Map';
@@ -35,8 +36,8 @@ import { SDMXMapConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
-import { useTransport } from '../../utils/transport';
 import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
@@ -96,17 +97,17 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     return { sdmxProps, featureValue }
   }
 
-  const isVectorTileUrl = (url: string) => {
+  const isVectorTileUrl = useCallback((url: string) => {
     return /\{z\}.*\{x\}.*\{y\}/.test(url) || /\.(mvt|pbf)(\?|$)/i.test(url)
-  }
+  }, [])
 
-  const getSingleMapDataObj = () => {
+  const getSingleMapDataObj = useCallback(() => {
     const dataObjs = parseDataExpr(config.data);
     if (dataObjs.length > 1) {
       throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Map component');
     }
     return dataObjs[0];
-  }
+  }, [config.data])
 
   const resolveGeojsonProjection = (projectionCode: string) => {
     let geojsonProj = get(projectionCode);
@@ -193,7 +194,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     };
   }
 
-  const createInitialFeaturesLayer = (geojsonUrl: string, projection: string | null) => {
+  const createInitialFeaturesLayer = useCallback((geojsonUrl: string, projection: string | null) => {
     let initialLayer: MapDataLayer;
     if (isVectorTileUrl(geojsonUrl)) {
       // handle special case for EPSG:3832 used with a vector tile source - need to create custom tile grid and set it on the source for tiles to load correctly
@@ -235,7 +236,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
       });
     }
     return initialLayer;
-  }
+  }, [isVectorTileUrl, callbackRef])
 
 
   useEffect(() => {
@@ -314,7 +315,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     return () => {
       cancelled = true
     }
-  }, [configKey, language, transport])
+  }, [config, language, transport, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef])
 
   useEffect(() => {
     const styleFunction = (feature: FeatureLike) => {

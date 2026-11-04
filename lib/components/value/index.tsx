@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { dataRequestOptions } from "../../utils/requestHeaders";
@@ -11,8 +12,8 @@ import { SDMXVisualConfig, SDMXVisualProps } from "../types";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
-import { useTransport } from "../../utils/transport";
 import { failureSlot } from "../../utils/slots";
+import { useTransport } from "../../utils/transport";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
@@ -40,12 +41,13 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
     // change re-renders from the transport's cache
     const loadKey = `${JSON.stringify(config.data)}|${language}|${config.xAxisConcept ?? ''}`;
     const transport = useTransport(fetcher, onDataFetch, loadKey);
+    const callbackRef = useLatest(callback);
 
     // className is applied to container div
     // style is applied to value div
     // style main contain width, height, color and backgroundColor
     // other props are applied to container div
-    let { className, style, valueClassName, ...otherProps } = props;
+    const { className: _className, style, valueClassName, ...otherProps } = props;
 
     let containerClass = props.className || '';
     let containerStyle = {};
@@ -91,21 +93,21 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
         }
     }
 
-    const calculateFontSize = (text: string) => {
+    const calculateFontSize = useCallback((text: string) => {
         if (typeof valueDivWidth === 'number') {
             return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
         }
         if (containerRef.current) {
             // calculate the width of the value div in pixel, as a percentage of the container div
-            let containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
+            const containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
             // Adjust the formula as needed to fit your design
             return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
         }
         // default value if no container found
         return '4em';
-    };
+    }, [valueDivWidth]);
 
-    const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
+    const formatValue = useCallback((valueStr: any, config: any, data: any, attributes: any, language: string) => {
         if (config['decimals']) {
             const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
@@ -138,10 +140,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
             }
             </>
         )
-    }
+    }, [calculateFontSize]);
 
     useEffect(() => {
         let cancelled = false;
+        let renderedElement: React.JSX.Element | undefined;
         setRenderError(null);
         onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' });
         const sdmxParser = new SDMXParser();
@@ -208,7 +211,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
                                 }
                             })
                             .filter((item: any) => item); // count number of true
-                        setValueElement(formatValue(countData.length, config, countData, attributes, language));
+                        renderedElement = formatValue(countData.length, config, countData, attributes, language);
+                        setValueElement(renderedElement);
                         setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                     } else if (dataObj.operator === "expr") {
                         const scope: Scope = {x0: valueStr}
@@ -223,12 +227,14 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
                                 }
                             })
                             valueStr = expr?.evaluate(scope)
-                            setValueElement(formatValue(valueStr, config, data, attributes, language));
+                            renderedElement = formatValue(valueStr, config, data, attributes, language);
+                            setValueElement(renderedElement);
                             setPopupStr(data[0][config.xAxisConcept])
                         }))
                     }
                 } else {
-                    setValueElement(formatValue(valueStr, config, data, attributes, language));
+                    renderedElement = formatValue(valueStr, config, data, attributes, language);
+                    setValueElement(renderedElement);
                     setPopupStr(data[0][config.xAxisConcept])
                 }
                 return Promise.all(pending).then(() => data);
@@ -241,8 +247,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
                 status: 'rendered',
                 stats: computeRenderStats(data, 1)
             })
-            if(callback) {
-                callback(valueElement)
+            if (callbackRef.current && renderedElement) {
+                callbackRef.current(renderedElement)
             }
         }).catch((err: unknown) => {
             if (cancelled) return;
@@ -255,7 +261,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, fetche
             cancelled = true;
         };
         // config is read at its configKey; its identity alone must not refetch
-    }, [configKey, language, transport]);
+    }, [configKey, language, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">

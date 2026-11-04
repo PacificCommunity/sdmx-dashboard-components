@@ -102,21 +102,6 @@ Consumers that need to know when a dashboard is ready (live previews, PDF export
 
 Each `VisualRenderStatus` carries the `visualId`, a `status` of `loading`, `rendered`, `empty`, or `error`, the `SDMXRenderError` when failed (`empty` carries `ERR_EMPTY`), and on success a `stats` block (`observationCount`, `seriesCount`, `timePeriodRange`) that lets a consumer judge whether a technically successful render is substantively thin. `onRenderComplete` fires exactly once per config and language, after the last visual settles, including the case where every visual fails and the case of a dashboard without data visuals (`[]`). The standalone `SDMXChart`, `SDMXTable`, `SDMXValue`, and `SDMXMap` accept `onVisualRender` as well. Both callbacks are optional, and inline callbacks never re-trigger data fetching.
 
-### Custom loading, empty, and error states
-
-The built-in loading, empty, and error presentations can be replaced per state with render slots, on the dashboard and on the standalone components:
-
-```typescript
-<SDMXDashboard
-  config={config}
-  renderLoading={(visualId) => <BrandedSpinner />}
-  renderEmpty={(visualId) => <BrandedNoDataCard />}
-  renderError={(e: SDMXRenderError) => <BrandedErrorCard code={e.code} message={e.message} />}
-/>
-```
-
-Defaults reproduce the built-in behaviour. `renderEmpty` applies when a query returns zero observations (`ERR_EMPTY`); other failures, and `ERR_EMPTY` when no `renderEmpty` is given, go to `renderError`. The map has no loading presentation of its own and shows `renderLoading` only when given.
-
 ### Custom data transport
 
 All components accept an optional `fetcher` prop with the signature of the global `fetch` (`(url, init?) => Promise<Response>`, exported as `SDMXFetcher`). When provided, every request made by the library (the dashboard configuration and all SDMX data queries) goes through it, so the integrating application can add authentication headers, route requests through a proxy, or apply caching and retries without touching the global `fetch`. When absent, the global `fetch` is used. The fetcher's identity does not matter: an inline function, new on every render, neither refetches nor discards the response cache, and a replaced fetcher serves the next request.
@@ -229,7 +214,7 @@ Accessibility (`aria.enabled`) and image export
 (`toolbox.feature.saveAsImage`) are enabled by default. Hovering the download
 button shows a "Save chart as image" tooltip above the icon. Both features can
 be overridden or disabled through `extraOptions`, for example
-`aria: { enabled: false }` or `toolbox: { show: false }`. CSV/data export is
+`aria: { enabled: false }`, or the config's `download: false`. CSV/data export is
 **not** provided because ECharts has no equivalent; `saveAsImage` exports the
 rendered chart image only.
 
@@ -355,4 +340,3 @@ When `VITE_DEMO_BASE_PATH` is empty (default), the demo is built for root (`/`).
 ```bash
 npm run build
 ```
-

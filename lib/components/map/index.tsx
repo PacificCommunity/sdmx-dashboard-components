@@ -51,7 +51,7 @@ type MapProps = SDMXVisualProps & {
   callback?: (map: Map) => void,
 }
 
-const MapComponent = ({ config, language, callback, onVisualRender, renderLoading, renderEmpty, renderError: renderErrorSlot, fetcher, onDataFetch }: MapProps) => {
+const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()

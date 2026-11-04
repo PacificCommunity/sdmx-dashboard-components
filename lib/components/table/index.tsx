@@ -161,7 +161,7 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, onVisualRender, renderLoading, renderEmpty, renderError, fetcher, onDataFetch, className, style, ...props }: TableProps) => {
+const Table = ({ config, language, placeholder, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: TableProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{

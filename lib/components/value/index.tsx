@@ -25,7 +25,7 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     language: string;
 }
 
-const Value = ({ config, placeholder, callback, language, onVisualRender, renderLoading, renderEmpty, renderError: renderErrorSlot, fetcher, onDataFetch, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")

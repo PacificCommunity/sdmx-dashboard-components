@@ -6,10 +6,11 @@ import Cell from './cell';
 import Text from './text';
 
 import '../global.module.css';
-import { SDMXDashboardConfig, SDMXVisualProps, VisualRenderStatus } from './types';
+import { SDMXDashboardConfig, SDMXFetcher, SDMXVisualProps, VisualRenderStatus } from './types';
 import { REPORTING_VISUAL_TYPES } from '../utils/renderStats';
 import { useLatest } from '../utils/useLatest';
 import { createTransport } from '../utils/transport';
+import { SDMXRenderError } from '../errors';
 
 type DashboardProps = SDMXVisualProps & {
     url?: string,
@@ -66,6 +67,39 @@ const settleTracking = (tracking: RenderTracking, onRenderComplete?: (all: Visua
     }
 }
 
+// fetch and parse the config at `url`; every failure is an SDMXRenderError
+// without visualId, whose detail names the URL (and the HTTP status)
+const loadDashboardConfig = async (fetcher: SDMXFetcher, url: string): Promise<unknown> => {
+  let response: Response;
+  try {
+    response = await fetcher(url);
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new SDMXRenderError(
+      'ERR_FETCH',
+      `The dashboard config at ${url} could not be fetched (${reason}). Fix: check the URL, the network connection, and that the server allows cross-origin requests.`,
+      { detail: { url }, cause }
+    );
+  }
+  if (!response.ok) {
+    throw new SDMXRenderError(
+      'ERR_FETCH',
+      `The dashboard config at ${url} could not be loaded: the server answered HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}. Fix: check that the config URL is correct and reachable.`,
+      { detail: { url, status: response.status } }
+    );
+  }
+  try {
+    return await response.json();
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new SDMXRenderError(
+      'ERR_PARSE',
+      `The dashboard config at ${url} is not valid JSON (${reason}). Fix: check that the URL serves the dashboard config file, not an HTML page or an error document.`,
+      { detail: { url, status: response.status }, cause }
+    );
+  }
+}
+
 // accept the deprecated `colums` misspelling as an alias for `columns` and
 // apply the layout defaults, so every downstream read uses `columns`
 const normalizeConfig = (config: SDMXDashboardConfig): SDMXDashboardConfig => {
@@ -88,6 +122,8 @@ const normalizeConfig = (config: SDMXDashboardConfig): SDMXDashboardConfig => {
 const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", onRenderComplete, fetcher, onDataFetch, ...visualProps }: DashboardProps) => {
 
     const [pageData, setPageData] = useState<SDMXDashboardConfig>();
+    // the config at `url` failed to load; shown in place of the dashboard
+    const [configError, setConfigError] = useState<SDMXRenderError | null>(null);
 
     const onVisualRenderRef = useLatest(visualProps.onVisualRender);
     const onRenderCompleteRef = useLatest(onRenderComplete);
@@ -122,25 +158,22 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
     }
 
     useEffect(() => {
-      if (url) {
-        (fetcherRef.current ?? fetch)(url).then(response => response.json()).then((data) => {
-            // set default values
-            if (!data.colCount) {
-                data.colCount = 3;
-            }
-            data.rows.forEach((row: any) => {
-              row.columns.forEach((cell: any) => {
-                if (!cell.colSize) {
-                  cell.colSize = 1;
-                }
-              })
-            })
-            setPageData(normalizeConfig(data))
-
-        }).catch((e) => {
-            console.log(e)
-        })
+      setConfigError(null);
+      if (!url) {
+        return;
       }
+      let cancelled = false;
+      loadDashboardConfig(fetcherRef.current ?? fetch, url).then((loaded) => {
+        if (cancelled) return;
+        setPageData(normalizeConfig(loaded as SDMXDashboardConfig));
+      }).catch((error: SDMXRenderError) => {
+        if (cancelled) return;
+        console.error(error);
+        setConfigError(error);
+      });
+      return () => {
+        cancelled = true;
+      };
     }, [url, fetcherRef])
 
     // key on config content, not object identity: a consumer passing an
@@ -161,6 +194,16 @@ const Dashboard = ({ url, config, lang = document.documentElement.lang || "en", 
         settleTracking(trackingFor(renderTrackingRef, pageData, lang), onRenderCompleteRef.current);
       }
     }, [pageData, lang, onRenderCompleteRef])
+
+    if (configError) {
+      return visualProps.renderError
+        ? <>{visualProps.renderError(configError)}</>
+        : (
+          <div className="sdmx-render-error text-danger" role="alert" data-error-code={configError.code}>
+            {configError.message}
+          </div>
+        );
+    }
 
     return (
         <>

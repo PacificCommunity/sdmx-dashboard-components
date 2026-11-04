@@ -542,7 +542,8 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       resizeObserver.disconnect();
     };
     // config is read at its configKey; its identity alone must not re-render
-  }, [config, configKey, language, loadKey, loadedData, attachChartHandlers, fail, onVisualRenderRef]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey, language, loadKey, loadedData, attachChartHandlers, fail, onVisualRenderRef]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();

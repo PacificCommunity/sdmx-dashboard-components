@@ -25,6 +25,11 @@ export type VisualRenderStatus = {
 // dashboard passes them unchanged through each cell
 export type SDMXVisualProps = {
     onVisualRender?: (status: VisualRenderStatus) => void, // loading, then rendered | empty | error
+    fetcher?: SDMXFetcher, // every data request goes through it (wrapped in the transport: dedup, cache, retry)
+    onDataFetch?: (telemetry: FetchTelemetry) => void, // once per settled data request
+    renderLoading?: (visualId: string) => ReactNode, // replaces the built-in loading state
+    renderEmpty?: (visualId: string) => ReactNode, // replaces the error state when the query returned no observations (ERR_EMPTY)
+    renderError?: (error: SDMXRenderError) => ReactNode, // replaces the built-in error state for every other failure
     onUserInteraction?: (interaction: VisualInteraction) => void, // clicks on chart points, series, and legend items
 }
 
@@ -37,11 +42,6 @@ export type VisualInteraction = {
     concepts: Record<string, string>,
     value?: number, // point clicks: the observation value
     timePeriod?: string, // point clicks: the observation's TIME_PERIOD, when it has one
-    fetcher?: SDMXFetcher, // every data request goes through it (wrapped in the transport: dedup, cache, retry)
-    onDataFetch?: (telemetry: FetchTelemetry) => void, // once per settled data request
-    renderLoading?: (visualId: string) => ReactNode, // replaces the built-in loading state
-    renderEmpty?: (visualId: string) => ReactNode, // replaces the error state when the query returned no observations (ERR_EMPTY)
-    renderError?: (error: SDMXRenderError) => ReactNode, // replaces the built-in error state for every other failure
 }
 
 export type SDMXTextConfig = {

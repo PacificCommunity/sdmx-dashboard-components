@@ -25,6 +25,25 @@ const Value = () => {
             }
             }}
             language='en'
+            renderLoading={() => (
+                <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100 gap-2 text-muted">
+                    <div className="spinner-border spinner-border-sm text-warning" role="status" aria-label="Loading" />
+                    <small>Loading…</small>
+                </div>
+            )}
+            renderEmpty={() => (
+                <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100 text-muted">
+                    <span className="fs-5" aria-hidden="true">∅</span>
+                    <small>No data</small>
+                </div>
+            )}
+            renderError={(error) => (
+                <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100 text-danger text-center p-2" role="alert">
+                    <span className="fs-5" aria-hidden="true">⚠</span>
+                    <small className="fw-semibold">Unavailable</small>
+                    <small>{error.code}</small>
+                </div>
+            )}
             style={{ width: "120px", margin: "auto", padding: "1rem", borderRadius: "50%", aspectRatio: "1 / 1"}}
             valueClassName="bg-warning" />`
     }]

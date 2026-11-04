@@ -45,6 +45,19 @@ const Line = () => {
                 tooltip: { valueFormatter: (v) => \`\${Number(v).toLocaleString('en')} USD\` }
             }
             }}
+            renderLoading={() => (
+                <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                    <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                    <small>Loading the time series…</small>
+                </div>
+            )}
+            renderError={(error) => (
+                <div className="alert alert-danger m-3" role="alert">
+                    <div className="fw-semibold">Could not load this chart</div>
+                    <div className="small">{error.message}</div>
+                    <code className="small">{error.code}</code>
+                </div>
+            )}
             language='en' />`
     }, {
         id: "key_rates_line",
@@ -78,6 +91,19 @@ const Line = () => {
             xAxisConcept: "TIME_PERIOD",
             yAxisConcept: "OBS_VALUE"
             }}
+            renderLoading={() => (
+                <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                    <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                    <small>Loading the key rates…</small>
+                </div>
+            )}
+            renderError={(error) => (
+                <div className="alert alert-danger m-3" role="alert">
+                    <div className="fw-semibold">Could not load this chart</div>
+                    <div className="small">{error.message}</div>
+                    <code className="small">{error.code}</code>
+                </div>
+            )}
             language='en' />`
     }]
     const scope = {SDMXChart}

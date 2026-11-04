@@ -36,6 +36,7 @@ import { SDMXMapConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { failureSlot } from '../../utils/slots';
 import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
@@ -50,7 +51,7 @@ type MapProps = SDMXVisualProps & {
   callback?: (map: Map) => void,
 }
 
-const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch }: MapProps) => {
+const MapComponent = ({ config, language, callback, onVisualRender, renderLoading, renderEmpty, renderError: renderErrorSlot, fetcher, onDataFetch }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
@@ -61,6 +62,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
   const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const onVisualRenderRef = useLatest(onVisualRender)
   const callbackRef = useLatest(callback)
   // keyed on content, not identity: see the chart component
@@ -241,6 +243,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     let cancelled = false
     let titleText = config.title ? 'Loading...' : '';
     setRenderError(null)
+    setIsLoading(true)
     onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' })
 
     const sdmxParser = new SDMXParser();
@@ -295,6 +298,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
 
         legendElement.current!.children[0]!.innerHTML = titleText
 
+        setIsLoading(false)
         onVisualRenderRef.current?.({
           visualId: config.id,
           status: 'rendered',
@@ -305,6 +309,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
       if (cancelled) return;
       const mapError = toSDMXRenderError(err, config.id)
       setRenderError(mapError)
+      setIsLoading(false)
       onVisualRenderRef.current?.(failedRenderStatus(mapError, config.id))
     });
     return () => {
@@ -419,9 +424,14 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
     }
   }, [dimensions, unit])
 
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined
+
     return (
       <div className={`${config.frame ? "border" : "" }`}>
-        {renderError && (
+        {/* no built-in loading presentation: the map draws progressively */}
+        {isLoading && !renderError && renderLoading ? renderLoading(config.id) : null}
+        {renderError && errorSlot !== undefined && errorSlot}
+        {renderError && errorSlot === undefined && (
           <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
             {renderError.message}
           </div>

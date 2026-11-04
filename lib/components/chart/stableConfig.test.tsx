@@ -75,7 +75,7 @@ describe('stable config key (anti-loop)', () => {
     });
 
     it('settles when inline config and onVisualRender update the parent state', async () => {
-        const fetchMock = vi.fn(async () => ({ status: 200, headers: { get: () => null }, text: async () => JSON.stringify(lineResponse()) }));
+        const fetchMock = vi.fn(async () => ({ status: 200, headers: { get: (h: string) => (h.toLowerCase() === "content-type" ? "application/vnd.sdmx.data+json" : null) }, text: async () => JSON.stringify(lineResponse()) }));
         vi.stubGlobal('fetch', fetchMock);
         const seen: VisualRenderStatus['status'][] = [];
 

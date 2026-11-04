@@ -132,6 +132,21 @@ Operators can observe endpoint behaviour through the `onDataFetch` callback, ava
 
 It fires once per settled request, including deduplicated cache hits (`fromCache: true`), with no double counting of the underlying network exchange.
 
+### Custom loading, empty, and error states
+
+The built-in loading, empty, and error presentations can be replaced per state with render slots, on the dashboard and on the standalone components:
+
+```typescript
+<SDMXDashboard
+  config={config}
+  renderLoading={(visualId) => <BrandedSpinner />}
+  renderEmpty={(visualId) => <BrandedNoDataCard />}
+  renderError={(e: SDMXRenderError) => <BrandedErrorCard code={e.code} message={e.message} />}
+/>
+```
+
+Defaults reproduce the built-in behaviour. `renderEmpty` applies when a query returns zero observations (`ERR_EMPTY`); other failures, and `ERR_EMPTY` when no `renderEmpty` is given, go to `renderError`. The map has no loading presentation of its own and shows `renderLoading` only when given.
+
 
 ### Axis titles, download, and dashboard rows
 
@@ -144,6 +159,7 @@ config={{ ..., xAxisTitle: 'Year', yAxisTitle: { en: 'Population', fr: 'Populati
 `download: false` hides the chart's save-as-image button; it is shown otherwise.
 
 Dashboard rows list their visuals under `columns` (type `SDMXDashboardRow`). The earlier misspelling `colums` is still accepted as a deprecated alias for this major version; migrate to `columns`.
+>>>>>>> origin
 
 ### Theming and native ECharts options
 

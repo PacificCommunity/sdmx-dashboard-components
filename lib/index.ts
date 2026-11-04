@@ -15,11 +15,8 @@ import {
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
-<<<<<<< HEAD
   type SDMXMapInstance,
-=======
   type SDMXTheme,
->>>>>>> origin
   type VisualRenderStatus,
   type VisualInteraction,
   type SDMXFetcher,
@@ -49,12 +46,9 @@ export {
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
-<<<<<<< HEAD
   SDMXMapInstance,
-=======
   SDMXTheme,
   SDMXDashboardRow,
->>>>>>> origin
 };
 
 export type { EChartsType } from 'echarts/core';

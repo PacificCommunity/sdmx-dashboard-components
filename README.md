@@ -251,6 +251,22 @@ rendered only when `config.legend` is set, positioned by `legend.location`
 available cell size, including legend and label space, so they stay inside the
 chart; provide `extraOptions.series.radius` to size the pie yourself.
 
+### Global theming
+
+A `theme` prop applies institutional branding once, at the dashboard level (and is accepted by the standalone components), instead of per visual or through engine class names:
+
+```typescript
+const spcTheme: SDMXTheme = {
+  palette: ['#0a4595', '#e63946', '#2a9d8f'], // series colours in order
+  fontFamily: { display: 'Georgia, serif', data: 'Inter, sans-serif' },
+  numberFormat: { locale: 'en-NZ' }
+};
+
+<SDMXDashboard config={config} theme={spcTheme} />
+```
+
+The theme sits under everything a chart sets itself: a visual's `colorPalette`, the title config and `extraOptions` win, and the ECharts theme in force (the dark theme under `data-bs-theme="dark"`, or the one named by `SDMXChart`'s string `theme`) supplies anything the theme leaves unset. `fontFamily.display` applies to the titles and subtitles of charts, tables and values, `fontFamily.data` to axes, labels, legends, tooltips, table cells and value numbers. `numberFormat.locale` overrides the component language for number formatting (tooltips, data labels, table cells, values) while translated text stays on the component language. `SDMXChart` still accepts `theme` as the name of a registered ECharts theme.
+
 ### Accessibility, export, and registered components
 
 Accessibility (`aria.enabled`) and image export
@@ -260,6 +276,12 @@ be overridden or disabled through `extraOptions`, for example
 `aria: { enabled: false }`, or the config's `download: false`. CSV/data export is
 **not** provided because ECharts has no equivalent; `saveAsImage` exports the
 rendered chart image only.
+
+Every chart also renders a visually hidden data table under it, holding the
+same observations (x-axis values as rows, legend values as columns, captioned
+with the chart title), so a screen reader can read the data where the chart's
+aria description falls short. The `table` visual provides the same data as a
+visible table.
 
 The library registers the chart types it uses (`LineChart`, `BarChart`,
 `PieChart`, `TreemapChart`, `ScatterChart`) plus `AriaComponent`,

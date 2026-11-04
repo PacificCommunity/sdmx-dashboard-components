@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 import { SDMXDashboard } from "../../lib"
-import type { SDMXRenderError } from "../../lib"
+import type { SDMXRenderError, SDMXTheme } from "../../lib"
 import { Container, Row } from "react-bootstrap"
 
 const normalizedBasePath = (import.meta.env.VITE_DEMO_BASE_PATH || '').replace(/^\/+|\/+$/g, '')
@@ -32,6 +32,13 @@ const errorSlot = (error: SDMXRenderError) => (
   </div>
 )
 
+// SPC branding, applied once to the first dashboard
+const spcTheme: SDMXTheme = {
+  palette: ['#0a4595', '#e63946', '#2a9d8f'],
+  fontFamily: { display: 'Georgia, serif', data: 'Inter, sans-serif' },
+  numberFormat: { locale: 'en-NZ' },
+}
+
 const Dashboard = () => {
   const [language, setLanguage] = useState(document.documentElement.lang || 'en')
   const dash1Languages = {
@@ -49,6 +56,7 @@ const Dashboard = () => {
             <SDMXDashboard
                 url={withBasePath('/PacificPopulation.json')}
                 lang={language}
+                theme={spcTheme}
                 renderLoading={loadingSlot}
                 renderEmpty={emptySlot}
                 renderError={errorSlot}

@@ -7,6 +7,20 @@ import type { FetchTelemetry } from '../utils/transport';
 // authentication, proxying, caching, or retries to every data request
 export type SDMXFetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
+// engine-neutral styling applied once, on the dashboard or a standalone
+// visual, at the lowest precedence: a visual's colorPalette and config
+// fields win, and the ECharts theme (light or dark) fills in the rest
+export type SDMXTheme = {
+    palette?: string[], // series colours in order
+    fontFamily?: {
+        display?: string, // titles and subtitles of charts, tables and values
+        data?: string, // axes, labels, legends, tooltips, table cells and value numbers
+    },
+    numberFormat?: {
+        locale?: string, // overrides the component language for number formatting
+    },
+}
+
 // per-visual render state reported through onVisualRender/onRenderComplete;
 // `stats` lets a consumer judge substantive quality ("rendered, but one
 // series and two observations") without inspecting the DOM

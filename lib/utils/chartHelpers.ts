@@ -28,7 +28,8 @@ export type ParsedDataset = {
 
 export type ChartContext = {
   config: SDMXChartConfig;
-  language: string;
+  language: string; // translated text
+  numberLocale: string; // number formatting: the theme's locale, else the language
   datasets: ParsedDataset[];
   titleText: string;
   subtitleText: string;

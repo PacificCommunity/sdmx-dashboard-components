@@ -8,7 +8,8 @@ import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { dataRequestOptions } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import { SDMXVisualConfig, SDMXVisualProps } from "../types";
+import { SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from "../types";
+import { resolveNumberLocale, resolveThemeFont } from "../../utils/theme";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
@@ -23,10 +24,14 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     placeholder?: React.JSX.Element;
     callback?: (value: React.JSX.Element) => void;
     language: string;
+    theme?: SDMXTheme; // numberFormat and fontFamily apply to a value
 }
 
-const Value = ({ config, placeholder, callback, language, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, theme, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
 
+    const numberLocale = resolveNumberLocale(theme, language);
+    const displayFont = resolveThemeFont(theme, 'display');
+    const dataFont = resolveThemeFont(theme, 'data');
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
     const [titleText, setTitleText] = useState<string>(config.title?'Loading...':'')
@@ -130,17 +135,17 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                 valueUnder = true;
             }
         }
-        const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(language)) : '4em';
+        const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(numberLocale)) : '4em';
         const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(language)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(numberLocale)}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
             </>
         )
-    }, [calculateFontSize]);
+    }, [calculateFontSize, numberLocale]);
 
     useEffect(() => {
         let cancelled = false;
@@ -261,7 +266,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
             cancelled = true;
         };
         // config is read at its configKey; its identity alone must not refetch
-    }, [configKey, language, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
+    }, [configKey, language, numberLocale, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
@@ -270,7 +275,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                     className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`}
                     style={{
                         fontSize: config.title.size,
-                        color: config.title?.color
+                        color: config.title?.color,
+                        fontFamily: config.title?.font ?? displayFont
                     }}>
                     {titleText}
                     {config.metadataLink &&
@@ -285,14 +291,15 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                     className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`}
                     style={{
                         fontSize: config.subtitle.size,
-                        textAlign: config.subtitle?.align
+                        textAlign: config.subtitle?.align,
+                        fontFamily: config.subtitle?.font ?? displayFont
                     }}>
                     {parse(subtitleText)}
                 </h4>
             }
             <div
                 className={`${valueClassName || ''} flex-grow-1 d-flex flex-column align-items-center justify-content-center`}
-                style={valueStyle}
+                style={dataFont ? { fontFamily: dataFont, ...valueStyle } : valueStyle}
                 title={popupStr}>
                 {valueElement}
             </div>

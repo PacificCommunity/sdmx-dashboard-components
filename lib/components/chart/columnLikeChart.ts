@@ -9,7 +9,7 @@ import {
 type Orientation = 'bar' | 'column';
 
 export const buildColumnLikeChart = (context: ChartContext, orientation: Orientation) => {
-  const { config, language } = context;
+  const { config, numberLocale } = context;
   const collection = collectColumnLike(context);
   const categories = sortColumnLikeCategories(
     collection.categories,
@@ -23,7 +23,7 @@ export const buildColumnLikeChart = (context: ChartContext, orientation: Orienta
     config
   );
 
-  return buildCartesianChartParts(config, language, categories, bars, orientation);
+  return buildCartesianChartParts(config, numberLocale, categories, bars, orientation);
 };
 
 export const buildBar: ChartBuilder = (context) => buildColumnLikeChart(context, 'bar');

@@ -10,7 +10,7 @@ import {
 } from '../../utils/chartHelpers';
 
 export const buildTreemap: ChartBuilder = (context) => {
-  const { config, language } = context;
+  const { config, numberLocale } = context;
   const collection = collectColumnLike(context);
   const categories = sortColumnLikeCategories(
     collection.categories,
@@ -34,7 +34,7 @@ export const buildTreemap: ChartBuilder = (context) => {
   });
 
   const series = treemapData.length > 0
-    ? applySeriesLabels([{ type: 'treemap', data: treemapData }], config, language, 'treemap')
+    ? applySeriesLabels([{ type: 'treemap', data: treemapData }], config, numberLocale, 'treemap')
     : [];
 
   return {
@@ -42,7 +42,7 @@ export const buildTreemap: ChartBuilder = (context) => {
     // tiles of every legend series share the one treemap; report how many
     // series were packed into it
     seriesCount: collection.entries.filter((entry) => entry.valueByName.size > 0).length,
-    tooltip: buildValueTooltip(config, language),
+    tooltip: buildValueTooltip(config, numberLocale),
     legend: buildLegend(config),
   };
 };

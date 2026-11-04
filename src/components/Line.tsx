@@ -45,6 +45,66 @@ const Line = () => {
                 tooltip: { valueFormatter: (v) => \`\${Number(v).toLocaleString('en')} USD\` }
             }
             }}
+            renderLoading={() => (
+                <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                    <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                    <small>Loading the time series…</small>
+                </div>
+            )}
+            renderError={(error) => (
+                <div className="alert alert-danger m-3" role="alert">
+                    <div className="fw-semibold">Could not load this chart</div>
+                    <div className="small">{error.message}</div>
+                    <code className="small">{error.code}</code>
+                </div>
+            )}
+            onUserInteraction={(event) => window.alert(JSON.stringify(event, null, 2))}
+            language='en' />`
+    }, {
+        id: "key_rates_line",
+        code: `<SDMXChart
+            config={{
+            id: "key_rates_line",
+            data: "https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.DFR+MRR_FR+MLFR.LEV?dimensionAtObservation=AllDimensions&startPeriod=2014-01-01",
+            type: "line",
+            unit: {
+                text: "%",
+                location: "suffix"
+            },
+            title: {
+                text: "Key ECB Interest Rates Since 2014"
+            },
+            legend: {
+                concept: "PROVIDER_FM_ID",
+                location: "top"
+            },
+            colSize: 4,
+            decimals: 2,
+            download: true,
+            subtitle: {
+                text: "Levels at dates of change"
+            },
+            xAxisTitle: "Date (days)",
+            yAxisTitle: {
+                en: "Interest Rate (%)",
+                fr: "Taux d'intérêt (%)"
+            },
+            xAxisConcept: "TIME_PERIOD",
+            yAxisConcept: "OBS_VALUE"
+            }}
+            renderLoading={() => (
+                <div className="d-flex flex-column align-items-center gap-2 text-muted">
+                    <div className="spinner-border text-primary" role="status" aria-label="Loading" />
+                    <small>Loading the key rates…</small>
+                </div>
+            )}
+            renderError={(error) => (
+                <div className="alert alert-danger m-3" role="alert">
+                    <div className="fw-semibold">Could not load this chart</div>
+                    <div className="small">{error.message}</div>
+                    <code className="small">{error.code}</code>
+                </div>
+            )}
             language='en' />`
     }]
     const scope = {SDMXChart}

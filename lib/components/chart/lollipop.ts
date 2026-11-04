@@ -12,7 +12,7 @@ import {
 } from '../../utils/chartHelpers';
 
 export const buildLollipop: ChartBuilder = (context) => {
-  const { config, language } = context;
+  const { config, numberLocale } = context;
   const collection = collectColumnLike(context);
   const categories = sortColumnLikeCategories(
     collection.categories,
@@ -37,7 +37,7 @@ export const buildLollipop: ChartBuilder = (context) => {
     });
   });
 
-  const series = applySeriesLabels(stems, config, language, 'lollipop');
+  const series = applySeriesLabels(stems, config, numberLocale, 'lollipop');
   const axes = finalizeCartesianAxes(
     {
       type: 'category',
@@ -56,7 +56,7 @@ export const buildLollipop: ChartBuilder = (context) => {
     xAxis: axes.xAxis,
     yAxis: axes.yAxis,
     grid: buildCartesianGrid(config, series),
-    tooltip: buildCartesianTooltip(config, language),
+    tooltip: buildCartesianTooltip(config, numberLocale),
     legend: buildLegend(config, legendNames),
   };
 };

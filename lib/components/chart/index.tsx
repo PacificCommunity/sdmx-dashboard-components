@@ -14,10 +14,21 @@ import {
 } from '../../utils/chartHelpers';
 import { ChevronLeft, InfoCircle } from 'react-bootstrap-icons';
 import { Button } from 'react-bootstrap';
-import { SDMXChartConfig, SDMXVisualProps } from '../types';
+import { SDMXChartConfig, SDMXTheme, SDMXVisualProps, VisualInteraction } from '../types';
 import { SDMXRenderError, engineError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { resolveNumberLocale } from '../../utils/theme';
+import { buildTableModel, type TableModel } from '../table/model';
+import HiddenDataTable from '../hiddenDataTable';
+import {
+  buildInteractionConcepts,
+  buildSeriesConcepts,
+  findInteractionRow,
+  type InteractionDimension,
+} from '../../utils/interaction';
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import { merge } from 'ts-deepmerge';
 import styles from '../../global.module.css';
 
@@ -26,7 +37,9 @@ interface ChartProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
   language: string;
   placeholder?: React.JSX.Element;
   callback?: (chart: EChartsType) => void;
-  theme?: string;
+  // a registered ECharts theme name (rc.1 behaviour), or an SDMXTheme
+  // merged under the chart's own options; dark mode applies under either
+  theme?: string | SDMXTheme;
 }
 
 // run an engine call; anything it throws is an ERR_ENGINE failure of the visual
@@ -116,8 +129,9 @@ const baseGridTop = new WeakMap<EChartsOption, number>();
 
 const TITLE_GRID_GAP = 20;
 const TOOLBOX_GRID_GAP = 8;
+const TITLE_LEGEND_GAP = 8;
 
-type ChartComponent = 'title' | 'toolbox';
+type ChartComponent = 'title' | 'toolbox' | 'legend';
 
 const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   const internals = chart as unknown as EChartsInternals;
@@ -142,12 +156,38 @@ const componentBottom = (chart: EChartsType, type: ChartComponent): number => {
   return bottom;
 };
 
-const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
+type LegendLike = { show?: boolean; top?: unknown; bottom?: unknown; orient?: string; [key: string]: unknown };
+
+const baseLegendTop = new WeakMap<EChartsOption, number>();
+
+// a horizontal legend at the top (legend.location "top") is laid out from
+// the chart's top edge, where the title also sits: move it under the title,
+// again on every resize, since the title rewraps. A legend that
+// extraOptions position is left where it was put.
+const placeTopLegendBelowTitle = (chart: EChartsType, option: EChartsOption, titleBottom: number, legendLocked: boolean): number => {
+  if (legendLocked || titleBottom <= 0) return 0;
+  const legend = (option as unknown as { legend?: LegendLike | LegendLike[] }).legend;
+  if (!legend || Array.isArray(legend) || legend.show === false || legend.orient === 'vertical') return 0;
+  if (typeof legend.top !== 'number' || legend.bottom !== undefined) return 0;
+  if (!baseLegendTop.has(option)) baseLegendTop.set(option, legend.top);
+  const top = Math.max(baseLegendTop.get(option) ?? 0, Math.ceil(titleBottom + TITLE_LEGEND_GAP));
+  if (legend.top !== top) {
+    const nextLegend = { ...legend, top };
+    (option as unknown as { legend?: LegendLike }).legend = nextLegend;
+    chart.setOption({ legend: nextLegend } as unknown as EChartsOption);
+  }
+  return componentBottom(chart, 'legend');
+};
+
+// keep the plot below the title, the toolbox and a top legend
+const reserveTopSpace = (chart: EChartsType, option: EChartsOption, legendLocked: boolean) => {
   const titleBottom = componentBottom(chart, 'title');
   const toolboxBottom = componentBottom(chart, 'toolbox');
+  const legendBottom = placeTopLegendBelowTitle(chart, option, titleBottom, legendLocked);
   const required = Math.max(
     titleBottom > 0 ? titleBottom + TITLE_GRID_GAP : 0,
-    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0
+    toolboxBottom > 0 ? toolboxBottom + TOOLBOX_GRID_GAP : 0,
+    legendBottom > 0 ? legendBottom + TITLE_GRID_GAP : 0
   );
   if (required <= 0) return;
   const grid = (option as unknown as { grid?: GridLike | GridLike[] }).grid;
@@ -160,6 +200,13 @@ const reserveTopSpace = (chart: EChartsType, option: EChartsOption) => {
   const nextGrid = { ...grid, top };
   (option as unknown as { grid?: GridLike }).grid = nextGrid;
   chart.setOption({ grid: nextGrid } as unknown as EChartsOption);
+};
+
+// extraOptions that position the legend opt out of the title offset
+const hasExplicitLegendTop = (config: SDMXChartConfig): boolean => {
+  const legend: unknown = config.extraOptions?.legend;
+  const entries = Array.isArray(legend) ? legend : [legend];
+  return entries.some((entry) => entry && typeof entry === 'object' && ('top' in entry || 'bottom' in entry));
 };
 
 const LEGEND_GRID_GAP = 8;
@@ -205,16 +252,100 @@ const initChart = (container: HTMLDivElement, themeName?: string): EChartsType =
   return chart;
 };
 
+type InteractionSource = {
+  visualId: string;
+  datasets: ParsedDataset[];
+  emit?: (interaction: VisualInteraction) => void;
+};
+
+// report clicks on points, series and legend items as SDMX coordinates; the
+// source is read per event so the handlers outlive config and prop changes
+const attachInteractionHandlers = (chart: EChartsType, source: () => InteractionSource) => {
+  chart.on('click', (params: ECElementEvent) => {
+    const { visualId, datasets, emit } = source();
+    if (!emit || params.componentType !== 'series') return;
+    const dimensions: InteractionDimension[] = datasets.flatMap((dataset) => dataset.dimensions);
+    const seriesName = typeof params.seriesName === 'string' ? params.seriesName : undefined;
+    // a line or area of a line series (triggerEvent) carries no data index
+    if (typeof params.dataIndex !== 'number' || params.data === undefined) {
+      emit({ visualId, kind: 'series-click', concepts: buildSeriesConcepts(seriesName ?? '', dimensions) });
+      return;
+    }
+    // points are numbers, [x, y] pairs, or { value, name, TIME_PERIOD } items
+    const raw = params.value;
+    const [x, value] = Array.isArray(raw) ? [raw[0], raw[1]] : [undefined, raw];
+    const item: unknown = params.data;
+    const itemPeriod = item && typeof item === 'object' && 'TIME_PERIOD' in item && typeof item.TIME_PERIOD === 'string'
+      ? item.TIME_PERIOD
+      : undefined;
+    const row = findInteractionRow(datasets.flatMap((dataset) => dataset.data), dimensions, {
+      seriesName,
+      name: params.name || (typeof x === 'string' ? x : undefined),
+      time: typeof x === 'number' ? x : undefined,
+      value,
+      timePeriod: itemPeriod,
+    });
+    const interaction: VisualInteraction = {
+      visualId,
+      kind: 'point-click',
+      concepts: row ? buildInteractionConcepts(row, dimensions) : buildSeriesConcepts(seriesName ?? '', dimensions),
+    };
+    if (typeof value === 'number') interaction.value = value;
+    const timePeriod = row?.TIME_PERIOD ?? itemPeriod;
+    if (timePeriod !== undefined && timePeriod !== null) interaction.timePeriod = String(timePeriod);
+    emit(interaction);
+  });
+  chart.on('legendselectchanged', (params: unknown) => {
+    const { visualId, datasets, emit } = source();
+    const name = params && typeof params === 'object' && 'name' in params ? params.name : undefined;
+    if (!emit || typeof name !== 'string') return;
+    const dimensions: InteractionDimension[] = datasets.flatMap((dataset) => dataset.dimensions);
+    emit({ visualId, kind: 'legend-click', concepts: buildSeriesConcepts(name, dimensions) });
+  });
+};
+
 // a failed chart shows its message in a compact panel, not in the chart's
 // full height: room for a two- or three-line message plus padding
 const ERROR_PANEL_MIN_HEIGHT = 120;
 
-const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, className, style, ...props }: ChartProps) => {
+// the chart's observations as a table for assistive technology: x-axis
+// values as rows, legend values as columns. Charts whose shape the table
+// pivot cannot read (a pie without a legend dimension, say) get none; the
+// chart itself is unaffected.
+const buildA11yTable = (
+  config: SDMXChartConfig,
+  numberLocale: string,
+  datasets: ParsedDataset[],
+  titleText: string
+): { model: TableModel; caption: string } | null => {
+  try {
+    const tableConfig = {
+      ...config,
+      type: 'table' as const,
+      xAxisConcept: config.xAxisConcept || 'TIME_PERIOD',
+      categoryLabel: config.xAxisConcept || 'TIME_PERIOD',
+      sortByValue: undefined,
+    };
+    const model = buildTableModel(tableConfig, numberLocale, datasets);
+    if (model.rows.length === 0) return null;
+    return { model, caption: titleText || config.id };
+  } catch {
+    return null;
+  }
+};
+
+const Chart = ({ config, language, placeholder, callback, theme, onVisualRender, onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError, className, style, ...props }: ChartProps) => {
+  const themeName = typeof theme === 'string' ? theme : undefined;
+  const sdmxTheme = typeof theme === 'object' ? theme : undefined;
+  // keyed on content: an inline theme literal must not rebuild the chart
+  const sdmxThemeKey = JSON.stringify(sdmxTheme ?? null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [drilldownLabel, setDrilldownLabel] = useState('');
-  const [activeTheme, setActiveTheme] = useState<string | undefined>(theme);
+  const [activeTheme, setActiveTheme] = useState<string | undefined>(themeName);
+  // the observations behind the chart, for the visually hidden data table
+  const [a11yTable, setA11yTable] = useState<{ model: TableModel; caption: string } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
@@ -222,9 +353,12 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
   const baseOptionRef = useRef<EChartsOption | null>(null);
   const stackRef = useRef<EChartsOption[]>([]);
   const callbackRef = useRef(callback);
-  const activeThemeRef = useRef<string | undefined>(theme);
+  const activeThemeRef = useRef<string | undefined>(themeName);
   const configRef = useRef(config);
   const onVisualRenderRef = useLatest(onVisualRender);
+  const onUserInteractionRef = useLatest(onUserInteraction);
+  // the datasets drawn, for translating clicked points back to SDMX codes
+  const datasetsRef = useRef<ParsedDataset[]>([]);
   const [loadedData, setLoadedData] = useState<{
     key: string;
     datasets: ParsedDataset[];
@@ -232,6 +366,11 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
 
   const dataKey = JSON.stringify(config.data);
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
+  // the render effect is keyed on the config's content, not its identity:
+  // an inline config literal is a new object on every parent render, and a
+  // state-updating onVisualRender would otherwise re-render it in a loop
+  const configKey = JSON.stringify(config);
+  const transport = useTransport(fetcher, onDataFetch, loadKey);
 
   useEffect(() => {
     callbackRef.current = callback;
@@ -262,7 +401,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     const currentConfig = configRef.current;
     setError(null);
     onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
-    loadDatasets(currentConfig, language)
+    loadDatasets(currentConfig, language, transport)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
@@ -274,13 +413,13 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language, fail, onVisualRenderRef]);
+  }, [loadKey, language, transport, fail, onVisualRenderRef]);
 
   useEffect(() => {
     const resolveTheme = () => {
-      if (theme) {
-        activeThemeRef.current = theme;
-        setActiveTheme(theme);
+      if (themeName) {
+        activeThemeRef.current = themeName;
+        setActiveTheme(themeName);
         return;
       }
       const darkContainer = containerRef.current?.closest('[data-bs-theme="dark"]');
@@ -296,7 +435,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       subtree: true,
     });
     return () => observer.disconnect();
-  }, [theme]);
+  }, [themeName]);
 
   const goBack = useCallback(() => {
     const chart = chartRef.current;
@@ -312,7 +451,12 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     setDrilldownLabel('');
   }, [fail]);
 
-  const attachDrilldownHandler = useCallback((chart: EChartsType) => {
+  const attachChartHandlers = useCallback((chart: EChartsType) => {
+    attachInteractionHandlers(chart, () => ({
+      visualId: configRef.current.id,
+      datasets: datasetsRef.current,
+      emit: onUserInteractionRef.current,
+    }));
     chart.on('click', (params: ECElementEvent) => {
       const data = params.data as unknown as { drilldownId?: string } | undefined;
       const id = data?.drilldownId;
@@ -321,20 +465,27 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       const currentConfig = configRef.current;
       if (!hasExplicitTitleLayout(currentConfig)) applyTitleWidth(child, containerRef.current?.clientWidth ?? 0);
       const mergedChild = mergeExtraOptions(child, currentConfig.extraOptions);
-      applyYAxisTitleLayout(mergedChild, currentConfig.extraOptions);
+      applyYAxisTitleLayout(mergedChild);
       applyBarLabelLayout(mergedChild);
       applyCategoryLabelLayout(mergedChild, containerRef.current?.clientWidth ?? 0, currentConfig.extraOptions);
       // Child options are built without the shared chrome; carry it over so drilldowns keep
       // accessibility output and the save-as-image control.
       const baseOption = baseOptionRef.current;
       const withChrome = baseOption
-        ? { ...mergedChild, aria: baseOption.aria, toolbox: baseOption.toolbox }
+        ? {
+          // the theme's palette and data font are chrome too
+          ...(baseOption.color !== undefined ? { color: baseOption.color } : {}),
+          ...(baseOption.textStyle !== undefined ? { textStyle: baseOption.textStyle } : {}),
+          ...mergedChild,
+          aria: baseOption.aria,
+          toolbox: baseOption.toolbox,
+        }
         : mergedChild;
       stackRef.current.push(withChrome);
       try {
         runEngine(currentConfig.id, () => {
           chart.setOption(withChrome, { notMerge: true });
-          reserveTopSpace(chart, withChrome);
+          reserveTopSpace(chart, withChrome, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(chart, withChrome);
         });
       } catch (err) {
@@ -344,7 +495,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       setCanGoBack(stackRef.current.length > 1);
       setDrilldownLabel(typeof params.name === 'string' ? params.name : '');
     });
-  }, [fail]);
+  }, [fail, onUserInteractionRef]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
@@ -384,7 +535,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
             const title = (current as unknown as { title?: TitleLike | TitleLike[] }).title;
             if (title) chart.setOption({ title } as unknown as EChartsOption);
           }
-          reserveTopSpace(chart, current);
+          reserveTopSpace(chart, current, hasExplicitLegendTop(config));
           reserveLegendSpace(chart, current);
         });
       } catch (err) {
@@ -394,17 +545,18 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     resizeObserver.observe(container);
 
     try {
-      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets);
+      const built = buildChartOptionFromDatasets(config, language, loadedData.datasets, sdmxTheme);
 
       if (!hasExplicitTitleLayout(config)) applyTitleWidth(built.option, container.clientWidth);
       const merged = mergeExtraOptions(built.option, config.extraOptions);
-      applyYAxisTitleLayout(merged, config.extraOptions);
+      applyYAxisTitleLayout(merged);
       applyBarLabelLayout(merged);
       applyCategoryLabelLayout(merged, container.clientWidth, config.extraOptions);
       if (config.type === 'pie') {
         applyPieRadius(merged, container.clientWidth, container.clientHeight, config);
       }
       drilldownRef.current = built.drilldown;
+      datasetsRef.current = loadedData.datasets;
       baseOptionRef.current = merged;
       stackRef.current = [merged];
 
@@ -412,14 +564,15 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       runEngine(config.id, () => {
         if (!chart) {
           chart = initChart(container, activeThemeRef.current);
-          attachDrilldownHandler(chart);
+          attachChartHandlers(chart);
           chartRef.current = chart;
         }
         chart.setOption(merged, { notMerge: true });
-        reserveTopSpace(chart, merged);
+        reserveTopSpace(chart, merged, hasExplicitLegendTop(config));
         reserveLegendSpace(chart, merged);
       });
       setIsLoading(false);
+      setA11yTable(buildA11yTable(config, resolveNumberLocale(sdmxTheme, language), loadedData.datasets, built.titleText));
       if (callbackRef.current && chart) callbackRef.current(chart);
       onVisualRenderRef.current?.({
         visualId: config.id,
@@ -433,7 +586,9 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     return () => {
       resizeObserver.disconnect();
     };
-  }, [config, language, loadKey, loadedData, attachDrilldownHandler, fail, onVisualRenderRef]);
+    // config is read at its configKey; its identity alone must not re-render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey, sdmxThemeKey, language, loadKey, loadedData, attachChartHandlers, fail, onVisualRenderRef]);
 
   useEffect(() => () => {
     chartRef.current?.dispose();
@@ -452,11 +607,11 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
     try {
       runEngine(currentConfig.id, () => {
         const nextChart = initChart(container, activeTheme);
-        attachDrilldownHandler(nextChart);
+        attachChartHandlers(nextChart);
         chartRef.current = nextChart;
         if (current) {
           nextChart.setOption(current, { notMerge: true });
-          reserveTopSpace(nextChart, current);
+          reserveTopSpace(nextChart, current, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(nextChart, current);
         }
       });
@@ -465,11 +620,12 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
       return;
     }
     if (callbackRef.current && chartRef.current) callbackRef.current(chartRef.current);
-  }, [activeTheme, attachDrilldownHandler, fail]);
+  }, [activeTheme, attachChartHandlers, fail]);
 
   const isDarkTheme = activeTheme === 'dark';
   const hasHeader = !isLoading && !error && canGoBack;
   const failed = !isLoading && error !== null;
+  const errorSlot = error ? failureSlot(error, config.id, { renderEmpty, renderError }) : undefined;
 
   const chartNode: React.ReactNode = (
     <div
@@ -515,7 +671,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
         )}
         {isLoading && (
           <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
-            {placeholder || (
+            {(renderLoading ? renderLoading(config.id) : placeholder) || (
               <div className="opacity-50 d-table-cell align-middle" style={{ height: 400, width: 600 }}>
                 Loading...
               </div>
@@ -523,7 +679,8 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           </div>
         )}
       </div>
-      {failed && error && (
+      {failed && errorSlot !== undefined && errorSlot}
+      {failed && error && errorSlot === undefined && (
         <div
           className="sdmx-render-error d-flex align-items-center justify-content-center text-danger"
           style={{ padding: '1rem', textAlign: 'center', minHeight: ERROR_PANEL_MIN_HEIGHT }}
@@ -533,6 +690,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           {error.message}
         </div>
       )}
+      {!isLoading && !error && a11yTable && <HiddenDataTable model={a11yTable.model} caption={a11yTable.caption} />}
     </>
   );
 

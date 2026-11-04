@@ -15,10 +15,18 @@ import {
   type SDMXTextConfig,
   type SDMXColorPalette,
   type SDMXDashboardConfig,
+<<<<<<< HEAD
   type SDMXMapInstance,
+=======
+  type SDMXTheme,
+>>>>>>> origin
   type VisualRenderStatus,
+  type VisualInteraction,
+  type SDMXFetcher,
+  type SDMXDashboardRow,
 } from "./components/types";
 import { SDMXRenderError, type SDMXRenderErrorCode } from "./errors";
+import type { FetchTelemetry } from "./utils/transport";
 
 export {
   SDMXDashboard,
@@ -29,6 +37,9 @@ export {
   SDMXRenderError,
   SDMXRenderErrorCode,
   VisualRenderStatus,
+  VisualInteraction,
+  SDMXFetcher,
+  FetchTelemetry,
   SDMXVisualConfig,
   SDMXChartConfig,
   SDMXMapConfig,
@@ -38,7 +49,12 @@ export {
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
+<<<<<<< HEAD
   SDMXMapInstance,
+=======
+  SDMXTheme,
+  SDMXDashboardRow,
+>>>>>>> origin
 };
 
 export type { EChartsType } from 'echarts/core';

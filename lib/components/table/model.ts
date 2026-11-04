@@ -40,12 +40,13 @@ export const formatTableValue = (
 
 export const buildTableModel = (
   config: SDMXTableConfig,
-  language: string,
+  numberLocale: string,
   datasets: ParsedDataset[]
 ): TableModel => {
   const context: ChartContext = {
     config,
-    language,
+    language: numberLocale,
+    numberLocale,
     datasets,
     titleText: '',
     subtitleText: '',
@@ -68,7 +69,7 @@ export const buildTableModel = (
       const point = entry.valueByName.get(category);
       const color = safePaletteColor(paletteColor(config, entry.legendConcept, entry.id));
       return {
-        text: formatTableValue(point?.value, config, language),
+        text: formatTableValue(point?.value, config, numberLocale),
         rawValue: point?.value ?? null,
         ...(point?.TIME_PERIOD ? { period: String(point.TIME_PERIOD) } : {}),
         ...(color ? { color } : {}),

@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { useState, useRef, useEffect } from 'react';
-// @ts-ignore
+import { useState, useRef, useEffect, useCallback } from 'react';
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 
 import Map from 'ol/Map';
@@ -29,11 +30,14 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
+import { dataRequestOptions } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig, SDMXMapInstance, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { failureSlot } from '../../utils/slots';
+import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
 import { buildGeoLookup, findGeoRow, isMapValue, normaliseMapValue, type GeoLookup } from '../../utils/mapData';
 import { createBasemapLayer, mapToImage } from '../../utils/basemap';
@@ -50,7 +54,7 @@ type MapProps = SDMXVisualProps & {
 
 const EMPTY_LOOKUP: GeoLookup = { byCode: {}, byLabel: {}, min: 0, max: 0, hasValues: false }
 
-const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) => {
+const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
@@ -60,7 +64,12 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
   const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const onVisualRenderRef = useLatest(onVisualRender)
+  const callbackRef = useLatest(callback)
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config)
+  const transport = useTransport(fetcher, onDataFetch, `${configKey}|${language}`)
 
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
@@ -85,17 +94,17 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
     return { sdmxProps, featureValue }
   }
 
-  const isVectorTileUrl = (url: string) => {
+  const isVectorTileUrl = useCallback((url: string) => {
     return /\{z\}.*\{x\}.*\{y\}/.test(url) || /\.(mvt|pbf)(\?|$)/i.test(url)
-  }
+  }, [])
 
-  const getSingleMapDataObj = () => {
+  const getSingleMapDataObj = useCallback(() => {
     const dataObjs = parseDataExpr(config.data);
     if (dataObjs.length > 1) {
       throw new SDMXRenderError('ERR_ENGINE', 'Multiple data expressions are not supported for Map component');
     }
     return dataObjs[0];
-  }
+  }, [config.data])
 
   const resolveGeojsonProjection = (projectionCode: string) => {
     let geojsonProj = get(projectionCode);
@@ -159,7 +168,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
     basemapRef.current = { key, layer }
   }
 
-  const createInitialFeaturesLayer = (geojsonUrl: string, projection: string | null) => {
+  const createInitialFeaturesLayer = useCallback((geojsonUrl: string, projection: string | null) => {
     let initialLayer: MapDataLayer;
     if (isVectorTileUrl(geojsonUrl)) {
       // handle special case for EPSG:3832 used with a vector tile source - need to create custom tile grid and set it on the source for tiles to load correctly
@@ -182,8 +191,8 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
         source: vectorTileSource,
       });
       vectorTileSource.once('tileloadend', () => {
-        if (callback && mapRef.current) {
-          callback(mapRef.current);
+        if (callbackRef.current && mapRef.current) {
+          callbackRef.current(mapRef.current);
         }
       });
     } else {
@@ -192,8 +201,8 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
         url: geojsonUrl
       });
       vectorSource.on('featuresloadend', () => {
-        if (callback && mapRef.current) {
-          callback(mapRef.current);
+        if (callbackRef.current && mapRef.current) {
+          callbackRef.current(mapRef.current);
         }
       });
       initialLayer = new VectorLayer({
@@ -201,13 +210,14 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
       });
     }
     return initialLayer;
-  }
+  }, [isVectorTileUrl, callbackRef])
 
 
   useEffect(() => {
     let cancelled = false
     let titleText = config.title ? 'Loading...' : '';
     setRenderError(null)
+    setIsLoading(true)
     onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' })
 
     const sdmxParser = new SDMXParser();
@@ -221,12 +231,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
       syncBasemap(config.basemap);
 
       const dataFlowUrl = dataObj.dataFlowUrl;
-      return sdmxParser.getDatasets(dataFlowUrl, {
-        headers: new Headers({
-          Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-          "Accept-Language": language
-        })
-      }).then(() => {
+      return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
         if (cancelled) return;
         const data = sdmxParser.getData();
         if (data.length === 0) {
@@ -267,6 +272,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
 
         legendElement.current!.children[0]!.innerHTML = titleText
 
+        setIsLoading(false)
         onVisualRenderRef.current?.({
           visualId: config.id,
           status: 'rendered',
@@ -277,12 +283,13 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
       if (cancelled) return;
       const mapError = toSDMXRenderError(err, config.id)
       setRenderError(mapError)
+      setIsLoading(false)
       onVisualRenderRef.current?.(failedRenderStatus(mapError, config.id))
     });
     return () => {
       cancelled = true
     }
-  }, [config, language, callback])
+  }, [config, language, transport, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef])
 
   useEffect(() => {
     const styleFunction = (feature: FeatureLike) => {
@@ -392,9 +399,14 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
     }
   }, [dimensions, unit])
 
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined
+
     return (
       <div className={`${config.frame ? "border" : "" }`}>
-        {renderError && (
+        {/* no built-in loading presentation: the map draws progressively */}
+        {isLoading && !renderError && renderLoading ? renderLoading(config.id) : null}
+        {renderError && errorSlot !== undefined && errorSlot}
+        {renderError && errorSlot === undefined && (
           <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
             {renderError.message}
           </div>

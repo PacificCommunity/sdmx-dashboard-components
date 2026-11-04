@@ -19,7 +19,7 @@ import {
 import { SDMXRenderError } from '../../errors';
 
 export const buildDrilldown: ChartBuilder = (context) => {
-  const { config, language, datasets, titleText, subtitleText } = context;
+  const { config, numberLocale, datasets, titleText, subtitleText } = context;
   const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
   if (!drilldownXAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No drilldown xAxis concept found');
 
@@ -141,7 +141,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
               dataset.titleText ?? titleText,
               dataset.subtitleText ?? subtitleText
             ),
-            tooltip: buildCartesianTooltip(config, language),
+            tooltip: buildCartesianTooltip(config, numberLocale),
             grid: { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
             xAxis: {
               type: 'category',
@@ -162,7 +162,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
                     label: {
                       show: true,
                       position: 'top',
-                      formatter: labelFormatter(config, language, isTime ? 'line' : 'column'),
+                      formatter: labelFormatter(config, numberLocale, isTime ? 'line' : 'column'),
                     },
                   }
                 : {}),
@@ -227,7 +227,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
   );
 
   return {
-    ...buildCartesianChartParts(config, language, categories, rootSeries, 'column'),
+    ...buildCartesianChartParts(config, numberLocale, categories, rootSeries, 'column'),
     drilldown: { options: drilldownOptions },
   };
 };

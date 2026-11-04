@@ -5,13 +5,14 @@ import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
-import { dataRequestHeaders } from "../../utils/requestHeaders";
+import { dataRequestOptions } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig, SDMXVisualProps } from "../types";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
+import { useTransport } from "../../utils/transport";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
@@ -23,7 +24,7 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     language: string;
 }
 
-const Value = ({ config, placeholder, callback, language, onVisualRender, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, onVisualRender, fetcher, onDataFetch, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
@@ -34,6 +35,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
 
     const containerRef = useRef<HTMLDivElement>(null);
     const onVisualRenderRef = useLatest(onVisualRender);
+    // the same load key as the chart: a new data URL, language or x-axis
+    // concept gets a fresh transport and so a fresh request; any other config
+    // change re-renders from the transport's cache
+    const loadKey = `${JSON.stringify(config.data)}|${language}|${config.xAxisConcept ?? ''}`;
+    const transport = useTransport(fetcher, onDataFetch, loadKey);
     const callbackRef = useLatest(callback);
 
     // className is applied to container div
@@ -51,6 +57,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
     if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
         config.adaptiveTextSize = true;
     }
+    // after the in-place default above, so that default does not change the key
+    const configKey = JSON.stringify(config);
 
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
@@ -151,9 +159,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
             dataObj.index = dataObj.index || 0;
 
             const dataFlowUrl = dataObj.dataFlowUrl;
-            return sdmxParser.getDatasets(dataFlowUrl, {
-                headers: dataRequestHeaders(language)
-            }).then(() => {
+            return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
                 const data = sdmxParser.getData();
                 if (data.length === 0) {
                     throw emptyDataError(config.id, dataFlowUrl);
@@ -187,7 +193,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
                                 const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
                                 const scope: Scope = {x0: item.value}
                                 if (isNaN(parseInt(dataObj.exprOperand))) {
-                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language, transport)
                                     pending.push(Promise.all(dataPromises).then(() => {
                                         Object.keys(scope).forEach((key: string) => {
                                             if (Array.isArray(scope[key])) {
@@ -209,7 +215,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
                         setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                     } else if (dataObj.operator === "expr") {
                         const scope: Scope = {x0: valueStr}
-                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, transport)
                         pending.push(Promise.all(dataPromises).then(() => {
                             const astFactory = new EvalAstFactory();
                             const expr = parseExpr(dataObj.expression, astFactory);
@@ -253,7 +259,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, ...pro
         return () => {
             cancelled = true;
         };
-    }, [language, config, onVisualRenderRef, formatValue, callbackRef ]);
+        // config is read at its configKey; its identity alone must not refetch
+    }, [configKey, language, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">

@@ -30,12 +30,13 @@ import styles from './styles.module.css';
 
 import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
-import { dataRequestHeaders } from '../../utils/requestHeaders';
+import { dataRequestOptions } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXMapConfig, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { useTransport } from '../../utils/transport';
 import RenderFeature from 'ol/render/Feature';
 import { isISO3Code, isoCountryCode3To2 } from '../../utils/isoCountryCode';
 import { getColorSchemeFunction, getColorSchemePreview, getReadableTextColor, getTextHaloColor } from '../../utils/mapColors';
@@ -49,7 +50,7 @@ type MapProps = SDMXVisualProps & {
   callback?: (map: Map) => void,
 }
 
-const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) => {
+const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onDataFetch }: MapProps) => {
   // set intial state - used to track references to OpenLayers
   //  objects for use in hooks, event handlers, etc.
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
@@ -62,6 +63,9 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
   const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
   const onVisualRenderRef = useLatest(onVisualRender)
   const callbackRef = useLatest(callback)
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config)
+  const transport = useTransport(fetcher, onDataFetch, `${configKey}|${language}`)
 
   // get ref to div element - OpenLayers will render into this div
   const mapElement = useRef<HTMLDivElement>(null)
@@ -249,9 +253,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
       initMapIfNeeded(geojsonProj);
 
       const dataFlowUrl = dataObj.dataFlowUrl;
-      return sdmxParser.getDatasets(dataFlowUrl, {
-        headers: dataRequestHeaders(language)
-      }).then(() => {
+      return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
         if (cancelled) return;
         const data = sdmxParser.getData();
         if (data.length === 0) {
@@ -308,7 +310,7 @@ const MapComponent = ({ config, language, callback, onVisualRender }: MapProps) 
     return () => {
       cancelled = true
     }
-  }, [config, language, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef])
+  }, [config, language, transport, createInitialFeaturesLayer, getSingleMapDataObj, onVisualRenderRef])
 
   useEffect(() => {
     const styleFunction = (feature: FeatureLike) => {

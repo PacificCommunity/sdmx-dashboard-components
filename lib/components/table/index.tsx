@@ -13,6 +13,7 @@ import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMX
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
+import { useTransport } from '../../utils/transport';
 import { buildTableModel, safePaletteColor, type TableCell, type TableModel } from './model';
 import styles from './styles.module.css';
 
@@ -159,7 +160,7 @@ const renderTable = (
   );
 };
 
-const Table = ({ config, language, placeholder, callback, onVisualRender, className, style, ...props }: TableProps) => {
+const Table = ({ config, language, placeholder, callback, onVisualRender, fetcher, onDataFetch, className, style, ...props }: TableProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<SDMXRenderError | null>(null);
   const [loadedData, setLoadedData] = useState<{
@@ -178,6 +179,9 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
 
   const dataKey = JSON.stringify(config.data);
   const loadKey = `${dataKey}|${language}|${config.xAxisConcept ?? ''}`;
+  // keyed on content, not identity: see the chart component
+  const configKey = JSON.stringify(config);
+  const transport = useTransport(fetcher, onDataFetch, loadKey);
 
   useEffect(() => {
     callbackRef.current = callback;
@@ -200,7 +204,7 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
     const currentConfig = configRef.current;
     setError(null);
     onVisualRenderRef.current?.({ visualId: currentConfig.id, status: 'loading' });
-    loadDatasets(currentConfig, language)
+    loadDatasets(currentConfig, language, transport)
       .then((datasets) => {
         if (cancelled) return;
         setLoadedData({ key: loadKey, datasets });
@@ -212,7 +216,7 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
     return () => {
       cancelled = true;
     };
-  }, [loadKey, language, fail, onVisualRenderRef]);
+  }, [loadKey, language, transport, fail, onVisualRenderRef]);
 
   useEffect(() => {
     if (!loadedData || loadedData.key !== loadKey) return;
@@ -234,7 +238,9 @@ const Table = ({ config, language, placeholder, callback, onVisualRender, classN
     } catch (err) {
       fail(err);
     }
-  }, [config, language, loadKey, loadedData, fail, onVisualRenderRef]);
+    // config is read at its configKey; its identity alone must not rebuild
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configKey, language, loadKey, loadedData, fail, onVisualRenderRef]);
 
   const content = (
     <>

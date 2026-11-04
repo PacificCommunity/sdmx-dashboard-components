@@ -11,6 +11,7 @@ import { dataRequestHeaders } from '../../utils/requestHeaders';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
 import type { BuiltChart, ChartBuilder, ChartBuildResult, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
+import { validateSeriesDimensions } from '../../utils/validateChartData';
 import { buildLine } from './line';
 import { buildBar, buildColumn } from './columnLikeChart';
 import { buildLollipop } from './lollipop';
@@ -88,6 +89,7 @@ export const loadDatasets = async (
             dimensions: parser.getDimensions(),
             alternateLabel: dataObj.alternateLabel,
             datasetIndex,
+            operator: dataObj.operator,
           };
         } else if (dataObj.operator === 'expr') {
           const scope: Scope = { x0: data.map((item: any) => item.value) };
@@ -108,6 +110,7 @@ export const loadDatasets = async (
               activeDimensions: parser.getActiveDimensions(),
               alternateLabel: dataObj.alternateLabel,
               datasetIndex,
+              operator: dataObj.operator,
             };
           });
         }
@@ -117,6 +120,7 @@ export const loadDatasets = async (
           activeDimensions: parser.getActiveDimensions(),
           alternateLabel: dataObj.alternateLabel,
           datasetIndex,
+          operator: dataObj.operator,
         };
       });
   });
@@ -158,6 +162,20 @@ const createChartContext = (
           { detail: { concept: legendConcept, role: 'legend.concept', available: availableConcepts } }
         );
       }
+    }
+
+    // fail with a descriptive error instead of a blank panel or a misleading
+    // single merged series (see-saw plot). A histogram is single-series by
+    // construction: its rows no longer carry the source dimensions, so the
+    // active-dimension check does not apply.
+    if (dataset.operator !== 'hist') {
+      validateSeriesDimensions(
+        config.type,
+        config.xAxisConcept || (config.type === 'line' ? 'TIME_PERIOD' : ''),
+        legendConcept ?? '',
+        dataset.data,
+        dataset.activeDimensions ?? []
+      );
     }
 
     return { ...dataset, titleText: datasetTitleText, subtitleText: datasetSubtitleText };

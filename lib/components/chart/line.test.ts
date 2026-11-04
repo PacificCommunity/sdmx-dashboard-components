@@ -1,0 +1,101 @@
+import { describe, it, expect } from 'vitest';
+import { buildChartOptionFromDatasets } from './options';
+import type { ParsedDataset } from '../../utils/chartHelpers';
+import type { SDMXChartConfig } from '../types';
+
+const config: SDMXChartConfig = {
+    id: 'rates',
+    type: 'line',
+    xAxisConcept: 'TIME_PERIOD',
+    legend: { concept: 'SERIES' },
+    data: 'https://example.org/rest/data/X,Y,1.0/all'
+};
+
+// one series over the given periods; FREQ is a dimension unless freq is null
+const dataset = (periods: string[], freq: string | null): ParsedDataset => {
+    const dimensions = [
+        { id: 'SERIES', name: 'Series', values: [{ id: 'DFR', name: 'Deposit facility' }] },
+        { id: 'TIME_PERIOD', name: 'Time', values: periods.map((p) => ({ id: p, name: p })) },
+    ];
+    if (freq !== null) {
+        dimensions.unshift({ id: 'FREQ', name: 'Frequency', values: [{ id: freq, name: freq }] });
+    }
+    return {
+        datasetIndex: 0,
+        dimensions,
+        data: periods.map((period, index) => ({
+            ...(freq !== null ? { FREQ: freq } : {}),
+            SERIES: 'Deposit facility',
+            TIME_PERIOD: period,
+            value: index + 1,
+        })),
+    };
+};
+
+type TimeAxis = { type: string, axisLabel?: { formatter?: string, hideOverlap?: boolean } };
+type LineSeries = { data: Array<[unknown, unknown]> };
+
+const build = (periods: string[], freq: string | null) => {
+    const option = buildChartOptionFromDatasets(config, 'en', [dataset(periods, freq)]).option;
+    const xAxis = option.xAxis as unknown as TimeAxis;
+    const series = option.series as unknown as LineSeries[];
+    return { xAxis, points: series[0].data };
+};
+
+describe('line chart time axis', () => {
+    it.each([
+        ['D', ['2024-01-02', '2024-01-03']],
+        ['B', ['2024-01-02', '2024-01-03']],
+        ['W', ['2024-W01', '2024-W02']],
+    ])('labels %s periods with dates', (freq, periods) => {
+        const { xAxis, points } = build(periods, freq);
+        expect(xAxis.type).toBe('time');
+        expect(xAxis.axisLabel?.formatter).toBe('{yyyy}-{MM}-{dd}');
+        // every period is plotted at a timestamp, not as a raw string
+        expect(points.every(([x]) => typeof x === 'number')).toBe(true);
+    });
+
+    it.each([
+        ['A', ['2022', '2023'], '{yyyy}'],
+        ['Q', ['2023-Q1', '2023-Q2'], '{MMM} {yyyy}'],
+        ['M', ['2023-01', '2023-02'], '{MMM} {yyyy}'],
+        ['S', ['2023-S1', '2023-S2'], '{MMM} {yyyy}'],
+    ])('labels %s periods as before', (freq, periods, formatter) => {
+        expect(build(periods, freq).xAxis.axisLabel?.formatter).toBe(formatter);
+    });
+
+    it('plots weekly and semester periods at their first day', () => {
+        expect(build(['2024-W05'], 'W').points[0][0]).toBe(Date.UTC(2024, 0, 29));
+        expect(build(['2024-S2'], 'S').points[0][0]).toBe(Date.UTC(2024, 6, 1));
+    });
+
+    it('orders periods within a year chronologically', () => {
+        const { points } = build(['2024-W10', '2024-W02', '2024-W05'], 'W');
+        expect(points.map(([x]) => x)).toEqual([
+            Date.UTC(2024, 0, 8),
+            Date.UTC(2024, 0, 29),
+            Date.UTC(2024, 2, 4),
+        ]);
+    });
+
+    it('renders without a FREQ dimension, reading the frequency from the periods', () => {
+        expect(build(['2024-01-02', '2024-01-03'], null).xAxis.axisLabel?.formatter).toBe('{yyyy}-{MM}-{dd}');
+        expect(build(['2022', '2023'], null).xAxis.axisLabel?.formatter).toBe('{yyyy}');
+    });
+
+    it('leaves the labels to ECharts for an unknown frequency', () => {
+        const { xAxis } = build(['2024-01-02', '2024-01-03'], 'H');
+        expect(xAxis.type).toBe('time');
+        expect(xAxis.axisLabel?.formatter).toBeUndefined();
+    });
+
+    it.each([
+        ['D', ['2026-06-10', '2026-10-27']],
+        ['B', ['2026-06-10', '2026-10-27']],
+        ['M', ['2024-11', '2025-12']],
+        ['A', ['2000', '2025']],
+        ['H', ['2024-01-02', '2024-01-03']],
+    ])('hides overlapping %s labels, such as boundary ticks next to regular ones', (freq, periods) => {
+        expect(build(periods, freq).xAxis.axisLabel?.hideOverlap).toBe(true);
+    });
+});

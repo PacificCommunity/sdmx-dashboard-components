@@ -1,15 +1,19 @@
-import React, { useEffect, useRef, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
-// @ts-ignore
+// @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
 import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
+import { dataRequestOptions } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXVisualConfig, SDMXVisualProps } from "../types";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
+import { failureSlot } from "../../utils/slots";
+import { useTransport } from "../../utils/transport";
 import { parse as parseExpr, EvalAstFactory, Scope } from "jexpr";
 
 
@@ -21,8 +25,7 @@ interface ValueProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
     language: string;
 }
 
-// onUserInteraction is taken off the DOM props: only charts report interactions
-const Value = ({ config, placeholder, callback, language, onVisualRender, onUserInteraction: _onUserInteraction, ...props }: ValueProps) => {
+const Value = ({ config, placeholder, callback, language, onVisualRender, onUserInteraction: _onUserInteraction, fetcher, onDataFetch, renderLoading, renderEmpty, renderError: renderErrorSlot, ...props }: ValueProps) => {
 
     const [valueElement, setValueElement] = useState(<span>Loading...</span>)
     const [popupStr, setPopupStr] = useState<string>("")
@@ -33,12 +36,18 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
 
     const containerRef = useRef<HTMLDivElement>(null);
     const onVisualRenderRef = useLatest(onVisualRender);
+    // the same load key as the chart: a new data URL, language or x-axis
+    // concept gets a fresh transport and so a fresh request; any other config
+    // change re-renders from the transport's cache
+    const loadKey = `${JSON.stringify(config.data)}|${language}|${config.xAxisConcept ?? ''}`;
+    const transport = useTransport(fetcher, onDataFetch, loadKey);
+    const callbackRef = useLatest(callback);
 
     // className is applied to container div
     // style is applied to value div
     // style main contain width, height, color and backgroundColor
     // other props are applied to container div
-    let { className, style, valueClassName, ...otherProps } = props;
+    const { className: _className, style, valueClassName, ...otherProps } = props;
 
     let containerClass = props.className || '';
     let containerStyle = {};
@@ -49,6 +58,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
     if (config.adaptiveTextSize || containerClass.indexOf("adaptive-text-size") > -1) {
         config.adaptiveTextSize = true;
     }
+    // after the in-place default above, so that default does not change the key
+    const configKey = JSON.stringify(config);
 
     // create valueDivWidth variable as a string or number, and store the width of the value div
     // this will be either a percentage or a number of pixels
@@ -82,21 +93,21 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
         }
     }
 
-    const calculateFontSize = (text: string) => {
+    const calculateFontSize = useCallback((text: string) => {
         if (typeof valueDivWidth === 'number') {
             return Math.min(valueDivWidth / text.length, valueDivWidth / 2) + 'px';
         }
         if (containerRef.current) {
             // calculate the width of the value div in pixel, as a percentage of the container div
-            let containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
+            const containerWidth = containerRef.current.clientWidth * parseInt(valueDivWidth) / 100;
             // Adjust the formula as needed to fit your design
             return Math.min(containerWidth / text.length, containerWidth / 2) + 'px';
         }
         // default value if no container found
         return '4em';
-    };
+    }, [valueDivWidth]);
 
-    const formatValue = (valueStr: any, config: any, data: any, attributes: any, language: string) => {
+    const formatValue = useCallback((valueStr: any, config: any, data: any, attributes: any, language: string) => {
         if (config['decimals']) {
             const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
@@ -129,10 +140,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
             }
             </>
         )
-    }
+    }, [calculateFontSize]);
 
     useEffect(() => {
         let cancelled = false;
+        let renderedElement: React.JSX.Element | undefined;
         setRenderError(null);
         onVisualRenderRef.current?.({ visualId: config.id, status: 'loading' });
         const sdmxParser = new SDMXParser();
@@ -148,12 +160,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
             dataObj.index = dataObj.index || 0;
 
             const dataFlowUrl = dataObj.dataFlowUrl;
-            return sdmxParser.getDatasets(dataFlowUrl, {
-                headers: new Headers({
-                    Accept: "application/vnd.sdmx.data+json;version=2.0.0",
-                    "Accept-Language": language
-                })
-            }).then(() => {
+            return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
                 const data = sdmxParser.getData();
                 if (data.length === 0) {
                     throw emptyDataError(config.id, dataFlowUrl);
@@ -187,7 +194,7 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                                 const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
                                 const scope: Scope = {x0: item.value}
                                 if (isNaN(parseInt(dataObj.exprOperand))) {
-                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language)
+                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language, transport)
                                     pending.push(Promise.all(dataPromises).then(() => {
                                         Object.keys(scope).forEach((key: string) => {
                                             if (Array.isArray(scope[key])) {
@@ -204,11 +211,12 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                                 }
                             })
                             .filter((item: any) => item); // count number of true
-                        setValueElement(formatValue(countData.length, config, countData, attributes, language));
+                        renderedElement = formatValue(countData.length, config, countData, attributes, language);
+                        setValueElement(renderedElement);
                         setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
                     } else if (dataObj.operator === "expr") {
                         const scope: Scope = {x0: valueStr}
-                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language)
+                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, transport)
                         pending.push(Promise.all(dataPromises).then(() => {
                             const astFactory = new EvalAstFactory();
                             const expr = parseExpr(dataObj.expression, astFactory);
@@ -219,12 +227,14 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                                 }
                             })
                             valueStr = expr?.evaluate(scope)
-                            setValueElement(formatValue(valueStr, config, data, attributes, language));
+                            renderedElement = formatValue(valueStr, config, data, attributes, language);
+                            setValueElement(renderedElement);
                             setPopupStr(data[0][config.xAxisConcept])
                         }))
                     }
                 } else {
-                    setValueElement(formatValue(valueStr, config, data, attributes, language));
+                    renderedElement = formatValue(valueStr, config, data, attributes, language);
+                    setValueElement(renderedElement);
                     setPopupStr(data[0][config.xAxisConcept])
                 }
                 return Promise.all(pending).then(() => data);
@@ -237,8 +247,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
                 status: 'rendered',
                 stats: computeRenderStats(data, 1)
             })
-            if(callback) {
-                callback(valueElement)
+            if (callbackRef.current && renderedElement) {
+                callbackRef.current(renderedElement)
             }
         }).catch((err: unknown) => {
             if (cancelled) return;
@@ -250,7 +260,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
         return () => {
             cancelled = true;
         };
-    }, [language]);
+        // config is read at its configKey; its identity alone must not refetch
+    }, [configKey, language, transport, config, onVisualRenderRef, formatValue, callbackRef ]);
 
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
@@ -287,6 +298,8 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
             </div>
         </div>
 
+    const errorSlot = renderError ? failureSlot(renderError, config.id, { renderEmpty, renderError: renderErrorSlot }) : undefined;
+
     return (
         <div
             ref={containerRef}
@@ -294,10 +307,11 @@ const Value = ({ config, placeholder, callback, language, onVisualRender, onUser
             style={containerStyle}
             {...otherProps}>
             { renderError ?
+                errorSlot !== undefined ? errorSlot :
                 <div className="sdmx-render-error text-danger" role="alert" data-error-code={renderError.code}>
                     {renderError.message}
                 </div>
-            :   isLoading ? placeholder || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
+            :   isLoading ? (renderLoading ? renderLoading(config.id) : placeholder) || <div className="opacity-50 d-flex align-items-center justify-content-center h-100 w-100"><span>Loading...</span></div>
             :   config.dataLink ? <a href={config.dataLink} target="_blank">{valueNode}</a> :
                 valueNode
             }

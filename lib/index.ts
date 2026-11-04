@@ -17,8 +17,11 @@ import {
   type SDMXDashboardConfig,
   type VisualRenderStatus,
   type VisualInteraction,
+  type SDMXFetcher,
+  type SDMXDashboardRow,
 } from "./components/types";
 import { SDMXRenderError, type SDMXRenderErrorCode } from "./errors";
+import type { FetchTelemetry } from "./utils/transport";
 
 export {
   SDMXDashboard,
@@ -30,6 +33,8 @@ export {
   SDMXRenderErrorCode,
   VisualRenderStatus,
   VisualInteraction,
+  SDMXFetcher,
+  FetchTelemetry,
   SDMXVisualConfig,
   SDMXChartConfig,
   SDMXMapConfig,
@@ -39,6 +44,7 @@ export {
   SDMXTextConfig,
   SDMXColorPalette,
   SDMXDashboardConfig,
+  SDMXDashboardRow,
 };
 
 export type { EChartsType } from 'echarts/core';

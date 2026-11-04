@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import Text from '../text';
 import Value from '../value';
@@ -8,6 +9,7 @@ import MapComponent from '../map';
 import { SDMXChartConfig, SDMXMapConfig, SDMXTableConfig, SDMXVisualConfig, SDMXVisualProps } from '../types';
 import { toSDMXRenderError } from '../../errors';
 import { REPORTING_VISUAL_TYPES, failedRenderStatus } from '../../utils/renderStats';
+import { failureSlot } from '../../utils/slots';
 import { Map } from 'ol';
 import type { EChartsType } from 'echarts/core';
 
@@ -89,6 +91,10 @@ const Cell = ({
     }
 
     const fallbackRender = ({ error }: { error: any }) => {
+        const slot = REPORTING_VISUAL_TYPES[config.type]
+            ? failureSlot(toSDMXRenderError(error, config.id), config.id, visualProps)
+            : undefined;
+        if (slot !== undefined) return <>{slot}</>;
         return (
             <div className="text-danger">
                 <p>Something went wrong:</p>

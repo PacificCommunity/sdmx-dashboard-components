@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findVaryingDimensions, validateSeriesDimensions } from './validateChartData';
+import { validateSeriesDimensions } from './validateChartData';
 import { SDMXRenderError } from '../errors';
 
 // rows as returned by SDMXParser.getData(): one object per observation,
@@ -18,6 +18,12 @@ const dimensions = [
     { id: 'INDICATOR', values: [{ id: 'POP', name: 'Population' }, { id: 'GDP', name: 'GDP' }] },
     { id: 'TIME_PERIOD', values: [{ id: '2020', name: '2020' }, { id: '2021', name: '2021' }] }
 ];
+
+// activeDimensions as SDMXParser.getActiveDimensions() returns them: only the
+// dimensions that vary in the fetched response (and the x-axis).
+const active = (...ids: string[]) => dimensions.filter((dimension) => ids.includes(dimension.id));
+const twoVaryingActive = active('TIME_PERIOD', 'GEO_PICT', 'INDICATOR');
+const oneVaryingActive = active('TIME_PERIOD', 'GEO_PICT');
 
 // only TIME_PERIOD varies: one country, one indicator
 const singleSeriesData = [
@@ -45,35 +51,13 @@ const oneVaryingData = [
     row('2021', 'Samoa', 'Population', 52)
 ];
 
-describe('findVaryingDimensions', () => {
-    it('returns the non-x-axis dimensions with two or more distinct values', () => {
-        const varying = findVaryingDimensions(twoVaryingData, dimensions, 'TIME_PERIOD');
-        expect(varying).toEqual([
-            { id: 'GEO_PICT', valueCount: 2 },
-            { id: 'INDICATOR', valueCount: 2 }
-        ]);
-    });
-
-    it('returns an empty list when only the x-axis varies', () => {
-        expect(findVaryingDimensions(singleSeriesData, dimensions, 'TIME_PERIOD')).toEqual([]);
-    });
-
-    it('ignores dimensions absent from the rows', () => {
-        const histRows = [
-            { TIME_PERIOD: '2020', value: 3, binValue: 1 },
-            { TIME_PERIOD: '2021', value: 2, binValue: 0 }
-        ];
-        expect(findVaryingDimensions(histRows, dimensions, 'TIME_PERIOD')).toEqual([]);
-    });
-});
-
 describe('validateSeriesDimensions: ERR_NO_SERIES_DIMENSION', () => {
     const grouping = ['bar', 'column', 'lollipop'];
 
     it.each(grouping)('%s chart over a single-series query fails with a descriptive error', (chartType) => {
         let caught: unknown;
         try {
-            validateSeriesDimensions(chartType, 'TIME_PERIOD', '', singleSeriesData, dimensions);
+            validateSeriesDimensions(chartType, 'TIME_PERIOD', '', singleSeriesData, twoVaryingActive);
         } catch (e) {
             caught = e;
         }
@@ -90,12 +74,12 @@ describe('validateSeriesDimensions: ERR_NO_SERIES_DIMENSION', () => {
     });
 
     it('does not fire for line or pie charts', () => {
-        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', singleSeriesData, dimensions)).not.toThrow();
-        expect(() => validateSeriesDimensions('pie', 'TIME_PERIOD', '', singleSeriesData, dimensions)).not.toThrow();
+        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', singleSeriesData, twoVaryingActive)).not.toThrow();
+        expect(() => validateSeriesDimensions('pie', 'TIME_PERIOD', '', singleSeriesData, twoVaryingActive)).not.toThrow();
     });
 
     it('does not fire when a second dimension varies', () => {
-        expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', oneVaryingData, dimensions)).not.toThrow();
+        expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', oneVaryingData, twoVaryingActive)).not.toThrow();
     });
 });
 
@@ -103,7 +87,7 @@ describe('validateSeriesDimensions: ERR_AMBIGUOUS_SERIES', () => {
     it('line chart with two varying non-time dimensions and no legend.concept fails', () => {
         let caught: unknown;
         try {
-            validateSeriesDimensions('line', 'TIME_PERIOD', '', twoVaryingData, dimensions);
+            validateSeriesDimensions('line', 'TIME_PERIOD', '', twoVaryingData, twoVaryingActive);
         } catch (e) {
             caught = e;
         }
@@ -129,18 +113,30 @@ describe('validateSeriesDimensions: ERR_AMBIGUOUS_SERIES', () => {
     });
 
     it('is disambiguated by legend.concept', () => {
-        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', 'INDICATOR', twoVaryingData, dimensions)).not.toThrow();
+        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', 'INDICATOR', twoVaryingData, twoVaryingActive)).not.toThrow();
     });
 
     it('does not fire with a single varying dimension', () => {
-        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', oneVaryingData, dimensions)).not.toThrow();
+        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', oneVaryingData, twoVaryingActive)).not.toThrow();
+    });
+});
+
+describe('validateSeriesDimensions: active dimensions', () => {
+    it('ignores a dimension that varies in the rows but is not active', () => {
+        // INDICATOR varies in twoVaryingData, but the parser did not report it
+        // active; the validator must use the parser's candidate set.
+        expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', twoVaryingData, oneVaryingActive)).not.toThrow();
+    });
+
+    it('returns early when there are no active dimensions', () => {
+        expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', singleSeriesData, [])).not.toThrow();
     });
 });
 
 describe('validateSeriesDimensions: guards', () => {
     it('skips validation for MULTI x-axis, missing x-axis, and empty data', () => {
-        expect(() => validateSeriesDimensions('bar', 'MULTI', '', singleSeriesData, dimensions)).not.toThrow();
-        expect(() => validateSeriesDimensions('bar', '', '', singleSeriesData, dimensions)).not.toThrow();
-        expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', [], dimensions)).not.toThrow();
+        expect(() => validateSeriesDimensions('bar', 'MULTI', '', singleSeriesData, twoVaryingActive)).not.toThrow();
+        expect(() => validateSeriesDimensions('bar', '', '', singleSeriesData, twoVaryingActive)).not.toThrow();
+        expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', [], twoVaryingActive)).not.toThrow();
     });
 });

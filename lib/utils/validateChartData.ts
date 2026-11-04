@@ -4,63 +4,55 @@ import { SDMXRenderError } from '../errors';
 // varying dimension; without one the series lookup yields nothing to render
 const GROUPING_CHART_TYPES: Record<string, true> = { bar: true, column: true, lollipop: true };
 
-export type VaryingDimension = {
+type VaryingDimension = {
     id: string,
     valueCount: number
 }
 
-// the parts of SDMXParser.getData() rows and getDimensions() entries read here
+// the parts of SDMXParser.getData() rows and getActiveDimensions() entries read here
 type ObservationRow = Record<string, unknown>;
-type DimensionRef = { id: string };
-
-/**
- * Count the distinct values each dimension takes in the fetched data and
- * return the dimensions, other than the x-axis one, that vary (two or more
- * distinct values).
- * @param data rows returned by SDMXParser.getData()
- * @param dimensions dimensions returned by SDMXParser.getDimensions()
- * @param xAxisConcept dimension id displayed on the x-axis
- */
-export const findVaryingDimensions = (
-    data: ReadonlyArray<ObservationRow>,
-    dimensions: ReadonlyArray<DimensionRef>,
-    xAxisConcept: string
-): VaryingDimension[] => {
-    return dimensions
-        .filter((dimension) => dimension.id !== xAxisConcept)
-        .map((dimension) => {
-            const distinct = new Set(
-                data.map((row) => row[dimension.id]).filter((value) => value !== undefined)
-            );
-            return { id: dimension.id, valueCount: distinct.size };
-        })
-        .filter((dimension) => dimension.valueCount > 1);
-}
+type ActiveDimension = { id: string } | undefined;
 
 /**
  * Validate that the fetched data can be shaped into unambiguous series for
  * the requested chart type. Throws an SDMXRenderError instead of letting the
  * chart render a blank panel (grouping chart with nothing to group on) or a
  * misleading "see-saw" line (several dimensions merged into one series).
+ *
+ * The candidate dimensions come from SDMXParser.getActiveDimensions(): the
+ * parser already knows which dimensions vary in the response. The counts are
+ * taken from the fetched rows because those are the values the builders
+ * actually group on.
+ *
  * The error messages are a public contract: agents and UIs read them to fix
  * the dashboard config.
  * @param chartType chart type from the visual config
  * @param xAxisConcept dimension id displayed on the x-axis (after defaults are applied)
  * @param legendConcept dimension id from legend.concept, empty when not configured
  * @param data rows returned by SDMXParser.getData()
- * @param dimensions dimensions returned by SDMXParser.getDimensions()
+ * @param activeDimensions dimensions returned by SDMXParser.getActiveDimensions()
  */
 export const validateSeriesDimensions = (
     chartType: string,
     xAxisConcept: string,
     legendConcept: string,
     data: ReadonlyArray<ObservationRow>,
-    dimensions: ReadonlyArray<DimensionRef>
+    activeDimensions: ReadonlyArray<ActiveDimension>
 ): void => {
-    if (!xAxisConcept || xAxisConcept === 'MULTI' || data.length === 0) {
+    if (!xAxisConcept || xAxisConcept === 'MULTI' || data.length === 0 || activeDimensions.length === 0) {
         return;
     }
-    const varying = findVaryingDimensions(data, dimensions, xAxisConcept);
+
+    const varying: VaryingDimension[] = activeDimensions
+        .filter((dimension): dimension is { id: string } => Boolean(dimension))
+        .filter((dimension) => dimension.id !== xAxisConcept)
+        .map((dimension) => ({
+            id: dimension.id,
+            valueCount: new Set(
+                data.map((row) => row[dimension.id]).filter((value) => value !== undefined)
+            ).size
+        }))
+        .filter((dimension) => dimension.valueCount > 1);
 
     if (GROUPING_CHART_TYPES[chartType] && varying.length === 0) {
         throw new SDMXRenderError(

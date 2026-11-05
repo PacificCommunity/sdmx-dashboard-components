@@ -626,12 +626,23 @@ export const isNonEmptyValue = (value: unknown): boolean => {
   return !(typeof value === 'number' && Number.isNaN(value));
 };
 
+// Chronological rank of each TIME_PERIOD value, keyed by name (what the rows
+// carry). The order of dimension.values says nothing about dates: SDMX-JSON
+// leaves component value order unspecified so messages can be streamed, and
+// .Stat lists periods as it first meets them (2016, 2019, 2013, 2009, ...
+// for a lastNObservations query). Periods are ranked by their start date,
+// falling back to the period id or name, both of which compare as strings:
+// ISO start dates do, and so do SDMX periods within one frequency.
 export const timePeriodRank = (dimension: any): Map<any, number> => {
   const ranks = new Map<any, number>();
   if (!dimension || !Array.isArray(dimension.values)) return ranks;
-  dimension.values.forEach((value: any, index: number) => {
-    if (value && value.name !== undefined) ranks.set(value.name, index);
-  });
+  type PeriodValue = { name?: unknown, id?: string, start?: string };
+  const values: Array<PeriodValue | null | undefined> = dimension.values;
+  values
+    .filter((value): value is PeriodValue => value != null && value.name !== undefined)
+    .map((value) => ({ name: value.name, key: String(value.start ?? value.id ?? value.name) }))
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .forEach((value, index) => ranks.set(value.name, index));
   return ranks;
 };
 

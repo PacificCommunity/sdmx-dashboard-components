@@ -79,7 +79,7 @@ import { SDMXRenderError, SDMXRenderErrorCode } from 'sdmx-dashboard-components'
 | `ERR_PARSE` | response is not parseable SDMX-JSON |
 | `ERR_EMPTY` | query returned zero observations, either as a 200 without observations or as a 404 whose body reports no records (`.Stat Suite NoRecordsFound`, parser code `NO_RECORDS`) |
 | `ERR_NO_SERIES_DIMENSION` | bar/column/lollipop chart with no varying dimension besides the x-axis and no `legend.concept` naming the series |
-| `ERR_AMBIGUOUS_SERIES` | two or more varying dimensions and no `legend.concept` to disambiguate |
+| `ERR_AMBIGUOUS_SERIES` | two or more varying dimensions and no `legend.concept` to disambiguate, or (bar/column/lollipop) a dimension besides the x-axis and `legend.concept` that still differs among the observations drawn for one category |
 | `ERR_CONCEPT_NOT_FOUND` | `xAxisConcept` or `legend.concept` missing from the dataflow structure |
 | `ERR_ENGINE` | anything thrown by ECharts while drawing (original error kept as `cause`) |
 
@@ -322,6 +322,8 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values. Time drilldowns keep the full period series in the child chart; a drilldown over another dimension uses the latest period with a non-empty `Total` value for the root (falling back to a non-`Total` row only when no `Total` exists), and shows that period's breakdown.
 
 The rule applies only when `TIME_PERIOD` is neither `xAxisConcept` nor the legend concept. Otherwise the previous first-row-per-category behaviour is kept. Tables use the same selection.
+
+A `column`, `bar` or `lollipop` chart with `legend.concept` fails with `ERR_AMBIGUOUS_SERIES` when another dimension still differs among the observations it would draw for one category and legend value (two age groups in the same latest year, say), instead of drawing one of them. A query that mixes codes across categories or periods (`F` for most countries, `_T` for one) is fine.
 
 ### Tables
 

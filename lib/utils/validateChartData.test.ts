@@ -125,6 +125,62 @@ describe('validateSeriesDimensions: ERR_AMBIGUOUS_SERIES', () => {
     it('does not fire with a single varying dimension', () => {
         expect(() => validateSeriesDimensions('line', 'TIME_PERIOD', '', oneVaryingData, twoVaryingActive)).not.toThrow();
     });
+
+    // bar/column/lollipop draw one value per series and x category; with
+    // legend.concept set, a dimension that still differs among the drawn
+    // observations of one slot would be dropped silently
+    describe('grouping chart with legend.concept', () => {
+        const obs = (geo: string, sex: string, timePeriod: string, value: number | null) => ({
+            GEO_PICT: geo, INDICATOR: 'Population', SEX: sex, TIME_PERIOD: timePeriod, value
+        });
+        const withSex = [...dimensions, { id: 'SEX', values: [{ id: 'F', name: 'Female' }, { id: 'M', name: 'Male' }, { id: '_T', name: 'Total' }] }];
+        const activeWithSex = withSex.filter((dimension) => ['GEO_PICT', 'SEX', 'TIME_PERIOD'].includes(dimension.id));
+
+        it.each(['bar', 'column', 'lollipop'])('%s chart fails when another dimension differs within a drawn slot', (chartType) => {
+            const data = [obs('Fiji', 'Female', '2020', 1), obs('Fiji', 'Male', '2020', 2), obs('Samoa', 'Female', '2020', 3)];
+            let caught: unknown;
+            try {
+                validateSeriesDimensions(chartType, 'GEO_PICT', 'INDICATOR', data, activeWithSex);
+            } catch (e) {
+                caught = e;
+            }
+            expect(caught).toBeInstanceOf(SDMXRenderError);
+            const error = caught as SDMXRenderError;
+            expect(error.code).toBe('ERR_AMBIGUOUS_SERIES');
+            expect(error.message).toBe(
+                `Chart type=${chartType} with xAxis=GEO_PICT and legend.concept=INDICATOR draws one value per GEO_PICT and INDICATOR, ` +
+                'but SEX also varies within them: GEO_PICT=Fiji has 2 observations in 2020. The chart would keep one and drop the rest. ' +
+                'Fix: narrow the data query so that SEX takes a single value, or set legend.concept to SEX.'
+            );
+            expect(error.detail).toEqual({
+                chartType,
+                xAxisConcept: 'GEO_PICT',
+                varyingDimensions: [{ id: 'SEX', valueCount: 2 }]
+            });
+        });
+
+        it('does not fire when the dimension differs only across categories', () => {
+            // the code a query mixes in (Female for most, Total for one) is not a collision
+            const data = [obs('Fiji', 'Female', '2020', 1), obs('Samoa', 'Total', '2021', 2)];
+            expect(() => validateSeriesDimensions('column', 'GEO_PICT', 'INDICATOR', data, activeWithSex)).not.toThrow();
+        });
+
+        it('looks only at the latest period of each slot, the one the chart draws', () => {
+            const data = [obs('Fiji', 'Female', '2011', 1), obs('Fiji', 'Male', '2011', 2), obs('Fiji', 'Total', '2023', 3)];
+            expect(() => validateSeriesDimensions('column', 'GEO_PICT', 'INDICATOR', data, activeWithSex)).not.toThrow();
+        });
+
+        it('ignores observations without a value', () => {
+            const data = [obs('Fiji', 'Female', '2020', 1), obs('Fiji', 'Male', '2020', null)];
+            expect(() => validateSeriesDimensions('column', 'GEO_PICT', 'INDICATOR', data, activeWithSex)).not.toThrow();
+        });
+
+        it('checks every period when TIME_PERIOD is the x axis', () => {
+            const data = [obs('Fiji', 'Female', '2011', 1), obs('Fiji', 'Male', '2011', 2), obs('Fiji', 'Female', '2012', 3)];
+            expect(() => validateSeriesDimensions('column', 'TIME_PERIOD', 'GEO_PICT', data, activeWithSex))
+                .toThrow('TIME_PERIOD=2011 has 2 observations.');
+        });
+    });
 });
 
 describe('validateSeriesDimensions: active dimensions', () => {

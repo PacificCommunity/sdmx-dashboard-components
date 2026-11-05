@@ -280,7 +280,8 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                     style={{
                         fontSize: config.title.size,
                         color: config.title?.color,
-                        fontFamily: config.title?.font ?? displayFont
+                        fontFamily: config.title?.font ?? displayFont,
+                        textDecoration: config.title.decoration
                     }}>
                     {titleText}
                     {config.metadataLink &&
@@ -296,9 +297,19 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                     style={{
                         fontSize: config.subtitle.size,
                         textAlign: config.subtitle?.align,
-                        fontFamily: config.subtitle?.font ?? displayFont
+                        fontFamily: config.subtitle?.font ?? displayFont,
+                        textDecoration: config.subtitle.decoration
                     }}>
-                    {parse(subtitleText)}
+                    {config.subtitle.link
+                        ? <a
+                            href={config.subtitle.link}
+                            target={config.subtitle.target ?? 'blank'}
+                            rel="noreferrer"
+                            style={{ textDecoration: 'underline' }}
+                        >
+                            {parse(subtitleText)}
+                        </a>
+                        : parse(subtitleText)}
                 </h4>
             }
             <div

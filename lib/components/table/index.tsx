@@ -270,6 +270,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
             color: config.title?.color,
             fontFamily: config.title?.font ?? displayFont,
             fontStyle: config.title?.style,
+            textDecoration: config.title?.decoration,
             fontWeight: config.title?.weight,
           }}
         >
@@ -286,6 +287,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
             color: config.subtitle?.color,
             fontFamily: config.subtitle?.font ?? displayFont,
             fontStyle: config.subtitle?.style,
+            textDecoration: config.subtitle?.decoration,
           }}
         >
           {config.subtitle?.link
@@ -301,6 +303,7 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
             color: config.note?.color,
             fontFamily: config.note?.font ?? displayFont,
             fontStyle: config.note?.style,
+            textDecoration: config.note?.decoration,
           }}
         >
           {parse(noteText)}

@@ -243,13 +243,35 @@ const reserveLegendSpace = (chart: EChartsType, option: EChartsOption) => {
 const initChart = (container: HTMLDivElement, themeName?: string): EChartsType => {
   const width = container.clientWidth;
   const height = container.clientHeight;
-  if (width > 0 && height > 0) return echarts.init(container, themeName);
+  if (width > 0 && height > 0) return echarts.init(container, themeName, { renderer: 'svg' });
 
-  const chart = echarts.init(container, themeName, { width: width || 600, height: height || 400 });
+  const chart = echarts.init(container, themeName, { width: width || 600, height: height || 400, renderer: 'svg' });
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => chart.resize());
   }
   return chart;
+};
+
+// ECharts draws titles on the renderer surface, where textDecoration is not an
+// option. With the SVG renderer the title and subtitle are plain <text>
+// nodes, so match them by content and set the decoration the config asks for.
+const applyTextDecoration = (chart: EChartsType, config: SDMXChartConfig) => {
+  const root = chart.getDom();
+  const option = chart.getOption() as EChartsOption;
+  const title = Array.isArray(option.title) ? option.title[0] : option.title;
+  if (!root || !title) return;
+  const decorate = (text: unknown, decoration: string | undefined) => {
+    if (typeof text !== 'string' || text === '') return;
+    root.querySelectorAll<SVGTextElement>('text').forEach((node) => {
+      const shown = node.textContent ?? '';
+      const truncated = shown.endsWith('…') || shown.endsWith('...');
+      const matches = shown === text
+        || (truncated && text.startsWith(shown.replace(/…$|\.\.\.$/, '')));
+      if (matches) node.style.textDecoration = decoration ?? '';
+    });
+  };
+  decorate(title.text, config.title?.decoration);
+  decorate(title.subtext, config.subtitle?.decoration);
 };
 
 type InteractionSource = {
@@ -487,6 +509,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           chart.setOption(withChrome, { notMerge: true });
           reserveTopSpace(chart, withChrome, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(chart, withChrome);
+          applyTextDecoration(chart, currentConfig);
         });
       } catch (err) {
         fail(err);
@@ -537,6 +560,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           }
           reserveTopSpace(chart, current, hasExplicitLegendTop(config));
           reserveLegendSpace(chart, current);
+          applyTextDecoration(chart, config);
         });
       } catch (err) {
         fail(err);
@@ -570,6 +594,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
         chart.setOption(merged, { notMerge: true });
         reserveTopSpace(chart, merged, hasExplicitLegendTop(config));
         reserveLegendSpace(chart, merged);
+        applyTextDecoration(chart, config);
       });
       setIsLoading(false);
       setA11yTable(buildA11yTable(config, resolveNumberLocale(sdmxTheme, language), loadedData.datasets, built.titleText));
@@ -613,6 +638,7 @@ const Chart = ({ config, language, placeholder, callback, theme, onVisualRender,
           nextChart.setOption(current, { notMerge: true });
           reserveTopSpace(nextChart, current, hasExplicitLegendTop(currentConfig));
           reserveLegendSpace(nextChart, current);
+          applyTextDecoration(nextChart, currentConfig);
         }
       });
     } catch (err) {

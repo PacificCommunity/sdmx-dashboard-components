@@ -9,6 +9,7 @@ import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
 import { SDMXAttribute, SDMXDimension, SDMXObservation, SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from "../types";
 import { resolveNumberLocale, resolveThemeFont } from "../../utils/theme";
+import { textConfigStyle, textLinkStyle } from "../../utils/textStyles";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
 import { useLatest } from "../../utils/useLatest";
@@ -275,14 +276,7 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
     const valueNode: React.ReactNode =
         <div className="value-node d-flex flex-column h-100">
             {config.title &&
-                <h2
-                    className={`${config.title.weight?"fw-"+config.title.weight:""} ${ config.title.style?'fst-'+config.title.style:''} ${config.title.align === "left"? "text-start": config.title.align === "right"?"text-end": config.title.align === "center"?"text-center":""}`}
-                    style={{
-                        fontSize: config.title.size,
-                        color: config.title?.color,
-                        fontFamily: config.title?.font ?? displayFont,
-                        textDecoration: config.title.decoration
-                    }}>
+                <h2 style={textConfigStyle(config.title, displayFont)}>
                     {titleText}
                     {config.metadataLink &&
                         <Button variant="link" onClick={() => {window.open(config.metadataLink, "_blank")}}>
@@ -292,20 +286,13 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                 </h2>
             }
             {config.subtitle &&
-                <h4
-                    className={`${config.subtitle.weight?"fw-"+config.subtitle.weight:""} ${config.subtitle.style?'fst-'+config.title?.style:''}`}
-                    style={{
-                        fontSize: config.subtitle.size,
-                        textAlign: config.subtitle?.align,
-                        fontFamily: config.subtitle?.font ?? displayFont,
-                        textDecoration: config.subtitle.decoration
-                    }}>
+                <h4 style={textConfigStyle(config.subtitle, displayFont)}>
                     {config.subtitle.link
                         ? <a
                             href={config.subtitle.link}
                             target={config.subtitle.target ?? 'blank'}
                             rel="noreferrer"
-                            style={{ textDecoration: 'underline' }}
+                            style={textLinkStyle(config.subtitle)}
                         >
                             {parse(subtitleText)}
                         </a>

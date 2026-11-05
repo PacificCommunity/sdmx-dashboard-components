@@ -4,6 +4,7 @@ import React from 'react';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import Chart from './index';
 import Table from '../table';
+import Value from '../value';
 import type { SDMXChartConfig } from '../types';
 
 afterEach(() => {
@@ -81,5 +82,26 @@ describe('text decoration', () => {
         );
         const title = await findByRole('heading', { level: 2 });
         expect((title as HTMLElement).style.textDecoration).toBe('underline');
+    });
+
+    it('underlines linked subtitles in the table and the value by default', async () => {
+        const subtitle = { text: 'Source', link: 'https://example.org/source', style: 'italic' };
+
+        stub();
+        const table = render(<Table config={{ ...config(), type: 'table', subtitle }} language="en" />);
+        const tableLink = await table.findByRole('link');
+        expect(tableLink.textContent).toBe('Source');
+        expect((tableLink as HTMLElement).style.textDecoration).toBe('underline');
+        const tableSubtitle = tableLink.closest('h4') as HTMLElement;
+        expect(tableSubtitle.style.fontStyle).toBe('italic');
+        table.unmount();
+
+        stub();
+        const value = render(<Value config={{ ...config(), type: 'value', subtitle }} language="en" />);
+        const valueLink = await value.findByRole('link');
+        expect(valueLink.textContent).toBe('Source');
+        expect((valueLink as HTMLElement).style.textDecoration).toBe('underline');
+        const valueSubtitle = valueLink.closest('h4') as HTMLElement;
+        expect(valueSubtitle.style.fontStyle).toBe('italic');
     });
 });

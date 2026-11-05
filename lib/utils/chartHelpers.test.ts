@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLatestValue, isNonEmptyValue, selectLatestRootRow } from './chartHelpers';
+import { getLatestValue, isNonEmptyValue, selectLatestRootRow, sortTimePeriodValues } from './chartHelpers';
 import type { SDMXDimension, SDMXObservation } from '../components/types';
 
 const timeDimension: SDMXDimension = {
@@ -63,6 +63,42 @@ describe('selectLatestRootRow', () => {
   });
 });
 
+// SDMX-JSON leaves the order of dimension values unspecified, and .Stat lists
+// periods as it first meets them: this is the TIME_PERIOD dimension of the
+// SI_POV_DAY1 lastNObservations=1 query, as returned
+const streamedTimeDimension = {
+  id: 'TIME_PERIOD',
+  values: ['2016', '2019', '2013', '2009', '2012', '2010', '2015'].map((year) => ({
+    id: year,
+    name: year,
+    start: `${year}-01-01T00:00:00`,
+    end: `${year}-12-31T23:59:59`,
+  })),
+};
+
+describe('time periods listed out of order', () => {
+  it('selects the latest period by date, not by position in the structure', () => {
+    const rows = [row('All ages', '2009', 40), row('15+', '2016', 15.4)];
+    expect(selectLatestRootRow(rows, streamedTimeDimension)).toEqual(row('15+', '2016', 15.4));
+  });
+
+  it('sorts periods chronologically', () => {
+    const rows = [row('_T', '2016', 1), row('_T', '2009', 2), row('_T', '2019', 3), row('_T', '2013', 4)];
+    expect(sortTimePeriodValues(rows, streamedTimeDimension).map((r) => r.TIME_PERIOD))
+      .toEqual(['2009', '2013', '2016', '2019']);
+  });
+
+  it('falls back to the period id when values carry no start date', () => {
+    const withoutStart = {
+      id: 'TIME_PERIOD',
+      values: ['2021-Q3', '2020-Q4', '2021-Q1'].map((period) => ({ id: period, name: period })),
+    };
+    const rows = [row('_T', '2021-Q1', 1), row('_T', '2021-Q3', 2), row('_T', '2020-Q4', 3)];
+    expect(selectLatestRootRow(rows, withoutStart)).toEqual(row('_T', '2021-Q3', 2));
+    expect(sortTimePeriodValues(rows, withoutStart).map((r) => r.TIME_PERIOD))
+      .toEqual(['2020-Q4', '2021-Q1', '2021-Q3']);
+  });
+});
 describe('getLatestValue', () => {
   it('keeps the first row for each distinct dimension value, in order', () => {
     const rows = [

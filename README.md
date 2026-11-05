@@ -325,6 +325,8 @@ When the data contains more than one observation per x-axis category, `column`, 
 
 The rule applies only when `TIME_PERIOD` is neither `xAxisConcept` nor the legend concept. Otherwise the previous first-row-per-category behaviour is kept. Tables use the same selection.
 
+"Latest" and the period order of time drilldowns are by date: each period's `start` from the SDMX-JSON structure, or its id when there is none. The order in which the response lists the periods is not used; SDMX-JSON leaves it unspecified and .Stat lists periods as it first meets them.
+
 A `column`, `bar` or `lollipop` chart with `legend.concept` fails with `ERR_AMBIGUOUS_SERIES` when another dimension still differs among the observations it would draw for one category and legend value (two age groups in the same latest year, say), instead of drawing one of them. A query that mixes codes across categories or periods (`F` for most countries, `_T` for one) is fine.
 
 ### Tables
@@ -336,7 +338,7 @@ Use `type: "table"` in a dashboard config, or the `SDMXTable` component standalo
   config={{
     id: "table-example",
     type: "table",
-    data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SI_POV_DAY1.FJ+FM+KI+MH+NR+PG+SB+TO+TV+VU+WS.F+M.Y15T24+Y15T999+Y25T999+_T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
+    data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.SI_POV_DAY1.FJ+FM+KI+MH+NR+PG+SB+TO+TV+VU+WS.F+M.Y15T999+_T._T._T._T._T._Z._T?lastNObservations=1&dimensionAtObservation=AllDimensions"],
     xAxisConcept: "GEO_PICT",
     legend: { concept: "SEX" },
     categoryLabel: "Country",

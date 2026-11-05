@@ -685,14 +685,27 @@ export const isNonEmptyValue = (value: unknown): boolean => {
   return !(typeof value === 'number' && Number.isNaN(value));
 };
 
-export type TimeDimensionLike = { values?: ReadonlyArray<{ name?: unknown }> };
+// Chronological rank of each TIME_PERIOD value, keyed by name (what the rows
+// carry). The order of dimension.values says nothing about dates: SDMX-JSON
+// leaves component value order unspecified so messages can be streamed, and
+// .Stat lists periods as it first meets them (2016, 2019, 2013, 2009, ...
+// for a lastNObservations query). Periods are ranked by their start date,
+// falling back to the period id or name, both of which compare as strings:
+// ISO start dates do, and so do SDMX periods within one frequency.
+export type TimeDimensionLike = {
+  values?: ReadonlyArray<{ name?: unknown, id?: unknown, start?: unknown }>;
+};
 
 export const timePeriodRank = (dimension?: TimeDimensionLike): Map<string, number> => {
   const ranks = new Map<string, number>();
   if (!dimension || !Array.isArray(dimension.values)) return ranks;
-  dimension.values.forEach((value, index) => {
-    if (value && value.name !== undefined) ranks.set(value.name, index);
-  });
+  type PeriodValue = { name?: unknown, id?: unknown, start?: unknown };
+  const values: Array<PeriodValue | null | undefined> = dimension.values;
+  values
+    .filter((value): value is PeriodValue => value != null && value.name !== undefined)
+    .map((value) => ({ name: value.name, key: String(value.start ?? value.id ?? value.name) }))
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .forEach((value, index) => ranks.set(String(value.name), index));
   return ranks;
 };
 
@@ -739,7 +752,7 @@ export type LatestRootOptions = {
 
 export const selectLatestRootRow = (
   rows: SDMXObservation[],
-  timeDimension?: SDMXDimension,
+  timeDimension?: TimeDimensionLike,
   options: LatestRootOptions = {}
 ): SDMXObservation | undefined => {
   const { preferredDimension, preferredValue = 'Total' } = options;
@@ -758,7 +771,7 @@ export const selectLatestRootRow = (
   return getLatestTimePeriodRow(rows, timeDimension);
 };
 
-export const sortTimePeriodValues = (data: SDMXObservation[], timeDimension?: SDMXDimension): SDMXObservation[] => {
+export const sortTimePeriodValues = (data: SDMXObservation[], timeDimension?: TimeDimensionLike): SDMXObservation[] => {
   const ranks = timePeriodRank(timeDimension);
   return [...data].sort((a, b) => compareTimePeriodKeys(
     timePeriodKey(a?.TIME_PERIOD, ranks),
@@ -769,7 +782,7 @@ export const sortTimePeriodValues = (data: SDMXObservation[], timeDimension?: SD
 const latestValuesByCategory = (
   data: SDMXObservation[],
   categoryDimension: string,
-  timeDimension?: SDMXDimension
+  timeDimension?: TimeDimensionLike
 ): SDMXObservation[] => {
   const byCategory = new Map<string | number | null, SDMXObservation[]>();
   data.forEach((row) => {

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import Text from '../text';
 import Value from '../value';
@@ -23,13 +22,13 @@ type CellProps = SDMXVisualProps & {
 
 /**
  * Return div/col with component corresponding to chart type
- * 
+ *
  * @todo create component with type = VALUE
- * 
+ *
  * @param config Dashboard element configuration
  * @param theme dashboard theme, for charts, tables and values
  * @param visualProps props shared by every data visual, passed through unchanged
- * @returns 
+ * @returns
  */
 const Cell = ({
     config,
@@ -96,7 +95,7 @@ const Cell = ({
 
     }
 
-    const fallbackRender = ({ error }: { error: any }) => {
+    const fallbackRender = ({ error }: { error: Error }) => {
         const slot = REPORTING_VISUAL_TYPES[config.type]
             ? failureSlot(toSDMXRenderError(error, config.id), config.id, visualProps)
             : undefined;

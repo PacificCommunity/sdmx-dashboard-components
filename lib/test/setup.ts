@@ -4,12 +4,15 @@ if (typeof window !== 'undefined') {
   // dynamic: the mock patches HTMLCanvasElement, which only exists in the
   // jsdom environment, and this file also runs for node-environment suites
   await import('vitest-canvas-mock');
-  if (!('ResizeObserver' in window)) {
+  const resizeObserverTarget = window as unknown as { ResizeObserver?: unknown };
+  if (!resizeObserverTarget.ResizeObserver) {
     class ResizeObserverStub {
       observe() {}
       unobserve() {}
       disconnect() {}
     }
-    window.ResizeObserver = ResizeObserverStub;
+    resizeObserverTarget.ResizeObserver = ResizeObserverStub;
   }
 }
+
+export {};

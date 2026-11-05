@@ -19,17 +19,17 @@ const singleSeriesResponse = () => ({
                 name: 'Test flow',
                 names: { en: 'Test flow' },
                 dimensions: {
-                    dataSet: [],
-                    series: [],
+                    dataSet: [] as unknown[],
+                    series: [] as unknown[],
                     observation: [
                         { id: 'TIME_PERIOD', name: 'Time', keyPosition: 0, values: [{ id: '2020', name: '2020' }, { id: '2021', name: '2021' }] },
                         { id: 'GEO_PICT', name: 'Country', keyPosition: 1, values: [{ id: 'FJ', name: 'Fiji' }] }
                     ]
                 },
-                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+                attributes: { dataSet: [] as unknown[], dimensionGroup: [] as unknown[], series: [] as unknown[], observation: [] as unknown[] }
             }
         ],
-        dataSets: [{ action: 'Information', observations: { '0:0': [100], '1:0': [110] } }]
+        dataSets: [{ action: 'Information', observations: { '0:0': [100], '1:0': [110] } as Record<string, number[]> }]
     }
 });
 
@@ -55,15 +55,15 @@ const twoVaryingResponse = () => ({
                 name: 'Test flow',
                 names: { en: 'Test flow' },
                 dimensions: {
-                    dataSet: [],
-                    series: [],
+                    dataSet: [] as unknown[],
+                    series: [] as unknown[],
                     observation: [
                         { id: 'TIME_PERIOD', name: 'Time', keyPosition: 0, values: [{ id: '2020', name: '2020' }, { id: '2021', name: '2021' }] },
                         { id: 'GEO_PICT', name: 'Country', keyPosition: 1, values: [{ id: 'FJ', name: 'Fiji' }, { id: 'WS', name: 'Samoa' }] },
                         { id: 'INDICATOR', name: 'Indicator', keyPosition: 2, values: [{ id: 'POP', name: 'Population' }, { id: 'GDP', name: 'GDP' }] }
                     ]
                 },
-                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+                attributes: { dataSet: [] as unknown[], dimensionGroup: [] as unknown[], series: [] as unknown[], observation: [] as unknown[] }
             }
         ],
         dataSets: [{

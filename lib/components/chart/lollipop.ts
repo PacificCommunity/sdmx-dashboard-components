@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { SeriesOption } from 'echarts';
 import {
   applySeriesLabels,
   buildCartesianGrid,
@@ -26,15 +26,15 @@ export const buildLollipop: ChartBuilder = (context) => {
     config
   );
 
-  const stems: any[] = [];
-  bars.forEach((s: any) => {
-    stems.push({ ...s, barWidth: 2, silent: true, z: 1 });
+  const stems: SeriesOption[] = [];
+  bars.forEach((s) => {
+    stems.push({ ...s, barWidth: 2, silent: true, z: 1 } as SeriesOption);
     stems.push({
       ...s,
       type: 'scatter',
       symbolSize: 10,
       z: 2,
-    });
+    } as SeriesOption);
   });
 
   const series = applySeriesLabels(stems, config, numberLocale, 'lollipop');
@@ -48,8 +48,9 @@ export const buildLollipop: ChartBuilder = (context) => {
     { type: 'value' }
   );
   const legendNames = series
-    .filter((s: any) => s.type === 'bar')
-    .map((s: any) => s.name);
+    .filter((s) => s.type === 'bar')
+    .map((s) => s.name)
+    .filter((name): name is string => typeof name === 'string');
 
   return {
     series,

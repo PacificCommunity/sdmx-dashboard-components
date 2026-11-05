@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// declare pageData type
 type pageDataType = {
     dashId: string,
-    dashConfig: Array<any>
+    dashConfig: unknown[][]
 }
 
 export const loadAndParse = async (sampleUrl: string): Promise<pageDataType> => {
@@ -56,14 +54,11 @@ const parseColSize = (chartExpr: string) => {
         switch (colSize) {
             case 'DOUBLE':
                 return 'col-12 col-md-8'
-                break;
             case 'TRIPLE':
                 return 'col-12'
-                break;
             case 'SINGLE':
             default:
                 return 'col-12 col-md-4'
-                break;
         }
     } catch {
         // malformed size token: fall through to the single-width default

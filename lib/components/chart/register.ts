@@ -8,7 +8,7 @@ import {
   TooltipComponent,
   LegendComponent,
 } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
+import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
 
 echarts.use([
   BarChart,
@@ -23,6 +23,7 @@ echarts.use([
   LegendComponent,
   TitleComponent,
   CanvasRenderer,
+  SVGRenderer,
 ]);
 
 export { echarts };

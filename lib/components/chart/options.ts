@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig, SDMXTheme, SDMXFetcher } from '../types';
+import type { SDMXAttribute, SDMXChartConfig, SDMXDimension, SDMXObservation, SDMXTheme, SDMXFetcher } from '../types';
 import { merge } from 'ts-deepmerge';
 import { resolveNumberLocale, themeChartOptions } from '../../utils/theme';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -11,7 +10,7 @@ import { fetchDataExprOperand, parseDataExpr } from '../../utils/parseDataExpr';
 import { dataRequestOptions } from '../../utils/requestHeaders';
 import { SDMXRenderError, emptyDataError } from '../../errors';
 import { parse as parseExpr, EvalAstFactory, Scope } from 'jexpr';
-import type { BuiltChart, ChartBuilder, ChartBuildResult, ChartContext, ChartType, ParsedDataset } from '../../utils/chartHelpers';
+import type { BuiltChart, ChartBuilder, ChartBuildResult, ChartContext, ChartType, FormatterParams, ParsedDataset } from '../../utils/chartHelpers';
 import { buildEchartsTitle } from '../../utils/chartHelpers';
 import { validateSeriesDimensions } from '../../utils/validateChartData';
 import { buildLine } from './line';
@@ -31,7 +30,7 @@ const builders: Record<ChartType, ChartBuilder> = {
   drilldown: buildDrilldown,
 };
 
-const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language: string): string => {
+const resolveText = (text: SDMXChartConfig['title'], dimensions: SDMXDimension[], language: string): string => {
   if (typeof text === 'string') return parseTextExpr(text, dimensions);
   if (typeof text === 'object' && text) {
     return typeof text.text === 'string'
@@ -45,7 +44,7 @@ const resolveText = (text: SDMXChartConfig['title'], dimensions: any[], language
 // per-language map, both supporting the same text expressions as the title
 const resolveAxisTitleText = (
   title: SDMXChartConfig['xAxisTitle'],
-  dimensions: any[],
+  dimensions: SDMXDimension[],
   language: string
 ): string => {
   if (title === undefined) return '';
@@ -64,22 +63,21 @@ export const loadDatasets = async (
     return parser
       .getDatasets(dataObj.dataFlowUrl, dataRequestOptions(language, fetcher))
       .then(() => {
-        const data = parser.getData();
+        const data = parser.getData() as SDMXObservation[];
         if (data.length === 0) throw emptyDataError(id, dataObj.dataFlowUrl);
-        const attributes = parser.getAttributes();
+        const attributes = parser.getAttributes() as SDMXAttribute[];
         if (dataObj.alternateLabel) {
-          data.forEach((_item: any, index: number, data: any[]) => {
+          data.forEach((_item: SDMXObservation, index: number, data: SDMXObservation[]) => {
             data[index][xAxisConcept as string] = dataObj.alternateLabel;
           });
         }
         if (dataObj.operator === 'hist') {
-          const histData: any[] = [];
-          data.forEach((_dataItem: any) => {
+          const histData: SDMXObservation[] = [];
+          data.forEach((_dataItem: SDMXObservation) => {
             const idx = histData.findIndex((item) => item.binValue === _dataItem.value);
             if (idx === -1) {
-              const histItem: any = {};
+              const histItem: SDMXObservation = { value: 1 };
               histItem[xAxisConcept as string] = _dataItem[xAxisConcept as string];
-              histItem.value = 1;
               histItem.binValue = _dataItem.value;
               histData.push(histItem);
             } else {
@@ -89,18 +87,19 @@ export const loadDatasets = async (
           });
           return {
             data: histData,
-            dimensions: parser.getDimensions(),
+            dimensions: parser.getDimensions() as SDMXDimension[],
             alternateLabel: dataObj.alternateLabel,
             datasetIndex,
             operator: dataObj.operator,
           };
         } else if (dataObj.operator === 'expr') {
-          const scope: Scope = { x0: data.map((item: any) => item.value) };
-          const ops = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, fetcher);
+          const scope: Scope = { x0: data.map((item: SDMXObservation) => item.value) };
+          const operands = Array.isArray(dataObj.exprOperand) ? dataObj.exprOperand : dataObj.exprOperand ? [dataObj.exprOperand] : [];
+          const ops = fetchDataExprOperand(operands, data, scope, attributes, language, fetcher);
           return Promise.all(ops).then(() => {
             const astFactory = new EvalAstFactory();
             const expr = parseExpr(dataObj.expression, astFactory);
-            data.forEach((item: any, index: number) => {
+            data.forEach((item: SDMXObservation, index: number) => {
               const scopeValues: Scope = {};
               Object.keys(scope).forEach((varKey: string) => {
                 scopeValues[varKey] = scope[varKey][index];
@@ -109,8 +108,8 @@ export const loadDatasets = async (
             });
             return {
               data,
-              dimensions: parser.getDimensions(),
-              activeDimensions: parser.getActiveDimensions(),
+              dimensions: parser.getDimensions() as SDMXDimension[],
+              activeDimensions: parser.getActiveDimensions() as SDMXDimension[],
               alternateLabel: dataObj.alternateLabel,
               datasetIndex,
               operator: dataObj.operator,
@@ -119,8 +118,8 @@ export const loadDatasets = async (
         }
         return {
           data,
-          dimensions: parser.getDimensions(),
-          activeDimensions: parser.getActiveDimensions(),
+          dimensions: parser.getDimensions() as SDMXDimension[],
+          activeDimensions: parser.getActiveDimensions() as SDMXDimension[],
           alternateLabel: dataObj.alternateLabel,
           datasetIndex,
           operator: dataObj.operator,
@@ -147,9 +146,9 @@ const createChartContext = (
     titleText = datasetTitleText;
     subtitleText = datasetSubtitleText;
 
-    const availableConcepts = dimensions.map((d: any) => d.id);
+    const availableConcepts = dimensions.map((d) => d.id);
     if (config.xAxisConcept && config.xAxisConcept !== 'MULTI') {
-      if (!dimensions.find((d: any) => d.id === config.xAxisConcept)) {
+      if (!dimensions.find((d) => d.id === config.xAxisConcept)) {
         throw new SDMXRenderError(
           'ERR_CONCEPT_NOT_FOUND',
           `xAxisConcept ${config.xAxisConcept} not found in the dataflow. Available concepts: ${availableConcepts.join(', ')}. Fix: set xAxisConcept to one of the available concepts.`,
@@ -159,7 +158,7 @@ const createChartContext = (
     }
     const legendConcept = config.legend?.concept;
     if (legendConcept && legendConcept !== 'MULTI') {
-      if (!dimensions.find((d: any) => d.id === legendConcept)) {
+      if (!dimensions.find((d) => d.id === legendConcept)) {
         throw new SDMXRenderError(
           'ERR_CONCEPT_NOT_FOUND',
           `legendConcept ${legendConcept} not found in the dataflow. Available concepts: ${availableConcepts.join(', ')}. Fix: set legend.concept to one of the available concepts.`,
@@ -192,8 +191,8 @@ const TOOLBOX_FEATURE_LABELS: Record<string, string> = {
   saveAsImage: 'Save chart as image',
 };
 
-const toolboxTooltipFormatter = (params: any): string =>
-  TOOLBOX_FEATURE_LABELS[params?.name] ?? params?.title ?? '';
+const toolboxTooltipFormatter = (params: FormatterParams): string =>
+  TOOLBOX_FEATURE_LABELS[params?.name ?? ''] ?? params?.title ?? '';
 
 // the semantic axis titles: xAxisTitle names the axis of xAxisConcept and
 // yAxisTitle the value axis, so a horizontal bar chart, whose category axis
@@ -235,9 +234,10 @@ const assembleOption = (
   };
 
   const { xAxis, yAxis } = withAxisTitles(config, context, parts);
-  if (parts.grid !== undefined) (option as any).grid = parts.grid;
-  if (xAxis !== undefined) (option as any).xAxis = xAxis;
-  if (yAxis !== undefined) (option as any).yAxis = yAxis;
+  if (parts.grid !== undefined) option.grid = parts.grid;
+  // The builders pair each axis with the right kind; the union only widens them.
+  if (xAxis !== undefined) option.xAxis = xAxis as EChartsOption['xAxis'];
+  if (yAxis !== undefined) option.yAxis = yAxis as EChartsOption['yAxis'];
 
   return option;
 };

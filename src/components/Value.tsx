@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react"
 import { SDMXValue } from "../../lib"
 import { LiveEditor, LivePreview, LiveProvider } from "react-live"
@@ -50,7 +49,7 @@ const Value = () => {
     const scope = {SDMXValue}
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useEffect, useState } from "react";
 import parse from "html-react-parser";
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXTextConfig } from "../types";
 
+// The style state is the config's text styling plus `italic`, which the
+// renderer reads even though the config type does not declare it.
+type TextStyleState = Partial<SDMXTextConfig> & { italic?: boolean };
+
 const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:SDMXTextConfig, note?: SDMXTextConfig, frame?: boolean}, language: string }) => {
 
     const [titleText, setTitleText] = useState<string>('Loading...')
-    const [titleStyle, setTitleStyle] = useState<any>({})
+    const [titleStyle, setTitleStyle] = useState<TextStyleState>({})
     const [subtitleText, setSubtitleText] = useState<string>('Loading...')
-    const [subtitleStyle, setSubtitleStyle] = useState<any>({})
+    const [subtitleStyle, setSubtitleStyle] = useState<TextStyleState>({})
     const [noteText, setNoteText] = useState<string>('Loading...')
-    const [noteStyle, setNoteStyle] = useState<any>({})
+    const [noteStyle, setNoteStyle] = useState<TextStyleState>({})
 
     useEffect(() => {
         if(Object.keys(config).length === 0) {
@@ -53,7 +56,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${titleStyle.weight?"fw-"+titleStyle.weight:""} ${ titleStyle.italic?'fst-italic':''} ${titleStyle.align == "left"? "text-start": titleStyle.align === "right"?"text-end": titleStyle.align === "center"?"text-center":""}`}
                     style={{
                         fontSize: titleStyle.size,
-                        color: titleStyle.color
+                        color: titleStyle.color,
+                        textDecoration: titleStyle.decoration
                     }}>
                     {parse(titleText)}
                 </h2>
@@ -63,7 +67,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${subtitleStyle.weight?"fw-"+subtitleStyle.weight:""}  ${subtitleStyle.italic?'fst-italic':''}`}
                     style={{
                         fontSize: subtitleStyle.size,
-                        color: subtitleStyle.color
+                        color: subtitleStyle.color,
+                        textDecoration: subtitleStyle.decoration
                     }}>
                     {parse(subtitleText)}</h4>
             }
@@ -72,7 +77,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${noteStyle.weight?"fw-"+noteStyle.weight:""} ${noteStyle.italic?'fst-italic':''}`}
                     style={{
                         fontSize: noteStyle.size,
-                        color: noteStyle.color
+                        color: noteStyle.color,
+                        textDecoration: noteStyle.decoration
                     }}>
                     {parse(noteText)}
                 </p>

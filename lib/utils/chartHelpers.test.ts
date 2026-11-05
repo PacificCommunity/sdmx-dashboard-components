@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { selectLatestRootRow, sortTimePeriodValues } from './chartHelpers';
+import { getLatestValue, isNonEmptyValue, selectLatestRootRow, sortTimePeriodValues } from './chartHelpers';
+import type { SDMXDimension, SDMXObservation } from '../components/types';
 
-const timeDimension = {
+const timeDimension: SDMXDimension = {
   id: 'TIME_PERIOD',
-  values: [{ name: '2020' }, { name: '2021' }, { name: '2022' }],
+  name: 'Time period',
+  keyPosition: 2,
+  values: [
+    { id: '2020', name: '2020' },
+    { id: '2021', name: '2021' },
+    { id: '2022', name: '2022' },
+  ],
 };
 
-const row = (age: string, period: string, value: unknown) => ({
+const row = (age: string, period: string, value: number | null): SDMXObservation => ({
   AGE: age,
   TIME_PERIOD: period,
   value,
@@ -31,7 +38,7 @@ describe('selectLatestRootRow', () => {
   it('returns undefined when preferred rows exist but none has a usable value', () => {
     const rows = [
       row('Total', '2020', null),
-      row('Total', '2021', ''),
+      row('Total', '2021', null),
       row('15-19', '2021', 42),
       row('20-24', '2022', 58),
     ];
@@ -90,5 +97,31 @@ describe('time periods listed out of order', () => {
     expect(selectLatestRootRow(rows, withoutStart)).toEqual(row('_T', '2021-Q3', 2));
     expect(sortTimePeriodValues(rows, withoutStart).map((r) => r.TIME_PERIOD))
       .toEqual(['2020-Q4', '2021-Q1', '2021-Q3']);
+  });
+});
+describe('getLatestValue', () => {
+  it('keeps the first row for each distinct dimension value, in order', () => {
+    const rows = [
+      row('Total', '2020', 100),
+      row('Total', '2021', 110),
+      row('15-19', '2020', 42),
+      row('15-19', '2021', 48),
+    ];
+
+    expect(getLatestValue(rows, 'AGE')).toEqual([
+      row('Total', '2020', 100),
+      row('15-19', '2020', 42),
+    ]);
+  });
+});
+
+describe('isNonEmptyValue', () => {
+  it('rejects null, empty strings and NaN but keeps zero', () => {
+    expect(isNonEmptyValue(null)).toBe(false);
+    expect(isNonEmptyValue(undefined)).toBe(false);
+    expect(isNonEmptyValue('')).toBe(false);
+    expect(isNonEmptyValue(Number.NaN)).toBe(false);
+    expect(isNonEmptyValue(0)).toBe(true);
+    expect(isNonEmptyValue('Total')).toBe(true);
   });
 });

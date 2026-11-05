@@ -24,7 +24,7 @@ vi.mock('sdmx-json-parser', () => {
                 { id: 'GEO_PICT', name: 'Country', values: [{ id: 'FJ', name: 'Fiji' }] }
             ];
         }
-        getAttributes() {
+        getAttributes(): unknown[] {
             return [];
         }
     }

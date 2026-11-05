@@ -47,9 +47,9 @@ describe('time axis labels', () => {
         return {
             datasetIndex: 0,
             dimensions: [
-                { id: 'FREQ', name: 'Frequency', values: [{ id: freq, name: freq }] },
-                { id: 'SERIES', name: 'Series', values: [{ id: 'S', name: 'Rate' }] },
-                { id: 'TIME_PERIOD', name: 'Time', values: periods.map((p) => ({ id: p, name: p })) },
+                { id: 'FREQ', name: 'Frequency', keyPosition: 0, values: [{ id: freq, name: freq }] },
+                { id: 'SERIES', name: 'Series', keyPosition: 1, values: [{ id: 'S', name: 'Rate' }] },
+                { id: 'TIME_PERIOD', name: 'Time', keyPosition: 2, values: periods.map((p) => ({ id: p, name: p })) },
             ],
             data: periods.map((period, index) => ({ FREQ: freq, SERIES: 'Rate', TIME_PERIOD: period, value: 1 + (index % 7) / 10 })),
         };
@@ -59,9 +59,9 @@ describe('time axis labels', () => {
         return {
             datasetIndex: 0,
             dimensions: [
-                { id: 'FREQ', name: 'Frequency', values: [{ id: 'M', name: 'Monthly' }] },
-                { id: 'SERIES', name: 'Series', values: [{ id: 'S', name: 'Rate' }] },
-                { id: 'TIME_PERIOD', name: 'Time', values: periods.map((p) => ({ id: p, name: p })) },
+                { id: 'FREQ', name: 'Frequency', keyPosition: 0, values: [{ id: 'M', name: 'Monthly' }] },
+                { id: 'SERIES', name: 'Series', keyPosition: 1, values: [{ id: 'S', name: 'Rate' }] },
+                { id: 'TIME_PERIOD', name: 'Time', keyPosition: 2, values: periods.map((p) => ({ id: p, name: p })) },
             ],
             data: periods.map((period) => ({ FREQ: 'M', SERIES: 'Rate', TIME_PERIOD: period, value: 2 })),
         };

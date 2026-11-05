@@ -1,6 +1,5 @@
+import type { SDMXAttribute, SDMXDimension, SDMXObservation } from '../components/types';
 import { SDMXRenderError } from '../errors';
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Process the "Title" expression provided in yaml.
  * Example: 'Status in employment {$TIME_PERIOD}, [DIN, 14, Bold, Italics, LEFT]',
@@ -15,13 +14,13 @@ import { SDMXRenderError } from '../errors';
  * @param {Object} dimensions
  * @returns {Object}
  */
-export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => {
+export const parseTextExpr = (textExpr: string, dimensions: SDMXDimension[]) : string  => {
 
   // clean up title
   const text = textExpr.replace(/,[\s]?\[(.*?)\]$/, '').trim()
   //const textWithValues = text.replace(/\{\$(.*?)\}/g, (match, p1) => {
   const textWithValues : string = text.replace(/\{(.*?)\}/g, (match, p1) => {
-    let valueAttribute = 'name'
+    let valueAttribute: 'name' | 'id' = 'name'
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {
       p1 = p1.substring(1);
@@ -29,7 +28,7 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
       // replace {VARIABLE} with id
       valueAttribute = 'id'
     }
-    const dimension = dimensions.find((item : any) => item.id === p1);
+    const dimension = dimensions.find((item) => item.id === p1);
     if (!dimension) {
       console.warn(`Dimension with id ${p1} not found`);
       return match;
@@ -37,9 +36,10 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
       if (dimension.values.length > 1) {
         if (dimension.id === 'TIME_PERIOD') {
           // if concept is TIME_PERIOD, we use the first and last value
-          const dateMin = new Date(Math.min(...dimension.values.map((item: any) => new Date(item["start"]))));
-          const dimValueMin = dimension.values.find((item: any) => new Date(item["start"]).getTime() === dateMin.getTime());
-          const dateMax = new Date(Math.max(...dimension.values.map((item: any) => new Date(item["end"]))));
+          // TIME_PERIOD values always carry start/end in SDMX-JSON
+          const dateMin = new Date(Math.min(...dimension.values.map((item) => new Date(item.start!).getTime())));
+          const dimValueMin = dimension.values.find((item) => new Date(item.start!).getTime() === dateMin.getTime())!;
+          const dateMax = new Date(Math.max(...dimension.values.map((item) => new Date(item.end!).getTime())));
           const date1 = new Date(dateMin);
           const date2 = new Date(dateMax);
           let date1Text = `${date1.getFullYear()}`;
@@ -63,7 +63,7 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
           }
         } else {
           // we return a comma separated list of values
-          return dimension.values.map((item : any) => item[valueAttribute]).join(', ');
+          return dimension.values.map((item) => item[valueAttribute]).join(', ');
         }
       } else {
         // we return the value
@@ -76,10 +76,10 @@ export const parseTextExpr = (textExpr: string, dimensions: any[]) : string  => 
 
 }
 
-export const parseOperandTextExpr = (operandExpr: string, data : any, attributes: any[]) => {
+export const parseOperandTextExpr = (operandExpr: string, data : SDMXObservation, attributes: SDMXAttribute[]) => {
 
   const textWithValues = String(operandExpr).replace(/\{(.*?)\}/g, (_match, p1) => {
-    let valueAttribute = 'name';
+    let valueAttribute: 'name' | 'id' = 'name';
     // replace {$VARIABLE} with actual value
     if (p1.startsWith('$')) {
       p1 = p1.substring(1);
@@ -87,14 +87,14 @@ export const parseOperandTextExpr = (operandExpr: string, data : any, attributes
       // replace {VARIABLE} with id
       valueAttribute = 'id'
     }
-    const attribute = attributes.find((item : any) => item.id === p1);
+    const attribute = attributes.find((item) => item.id === p1);
     if (!attribute) {
       throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', `Attribute with id ${p1} not found`);
     } else {
-      const value = attribute.values.find((item : any) => item.name === data[attribute.id]);
+      const value = attribute.values.find((item) => item.name === data[attribute.id]);
       if (value) {
         if (attribute.id === 'UNIT_MULT') {
-          return Math.pow(10, parseInt(value[valueAttribute]));
+          return String(Math.pow(10, parseInt(value[valueAttribute])));
         }
         return value[valueAttribute];
       } else {

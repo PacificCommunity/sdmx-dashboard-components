@@ -1,9 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { SDMXAttribute, SDMXObservation } from "../components/types";
 import { parseOperandTextExpr } from "./parseTextExpr";
 import { dataRequestOptions } from "./requestHeaders";
 import type { SDMXFetcher } from "../components/types";
 // @ts-ignore sdmx-json-parser ships no type declarations
 import { SDMXParser } from 'sdmx-json-parser';
+
+/**
+ * A parsed data expression, as produced by `parseDataExpr`.
+ *
+ * The fields are populated by whichever syntax the expression used, so most are
+ * optional and `dataFlowUrl` is a string for a plain URL but a one-element array
+ * for `expr` expressions.
+ */
+export type ParsedDataExpr = {
+  dataFlowUrl: string | string[],
+  alternateLabel?: string, // label override, from the `, {LABEL}` suffix
+  exprOperand?: string | string[], // operand(s) of an expr/count operation
+  operator?: 'expr' | 'hist' | 'count',
+  expression?: string, // full expression, with operands replaced by x0, x1, ...
+  exprOperator?: string, // comparison operator of a count expression
+  index?: string | number, // histogram bucket index
+  dataFlowKey?: string, // map join key on the SDMX side
+  geojsonUrl?: string,
+  geojsonProjection?: string,
+  geojsonKey?: string, // map join key on the GeoJSON side
+}
 
 /**
  * Process the data expression
@@ -12,18 +33,18 @@ import { SDMXParser } from 'sdmx-json-parser';
  * @param {String} dataExpr
  * @returns {Object}
  */
-export const parseDataExpr = (dataExprs: string | Array<string>) => {
+export const parseDataExpr = (dataExprs: string | Array<string>): ParsedDataExpr[] => {
 
   if(typeof dataExprs === 'string') {
     dataExprs = [dataExprs];
   }
 
   // define return object
-  const results : any[] = [];
+  const results : ParsedDataExpr[] = [];
 
   dataExprs.forEach((dataExpr: string) => {
-    const parsedExpr : any = {
-      'dataFlowUrl': '',
+    const parsedExpr : ParsedDataExpr = {
+      'dataFlowUrl': [],
     };
 
     const tokens1 = dataExpr.split(', ');
@@ -93,22 +114,24 @@ export const parseDataExpr = (dataExprs: string | Array<string>) => {
  * Fetch the data for the expression operands, populating the scope with the data to be used in the expression evaluation
  *
  * @param {Array<string>} exprOperands
- * @param {Array<any>} data
- * @param {Object} scope
- * @param {Object} attributes
+ * @param {Array<SDMXObservation>} data
+ * @param {Record<string, unknown>} scope
+ * @param {Array<SDMXAttribute>} attributes
  * @param {string} language
  * @param {Function} fetcher custom fetch implementation for the data requests (optional)
  * @returns {Promise<Array<any>>}
  */
-export const fetchDataExprOperand = (exprOperands: Array<string>, data: any, scope: any, attributes: any, language: string, fetcher?: SDMXFetcher) => {
+export const fetchDataExprOperand = (exprOperands: Array<string>, data: SDMXObservation[], scope: Record<string, unknown>, attributes: SDMXAttribute[], language: string, fetcher?: SDMXFetcher) => {
 
   return exprOperands.map((exprOperand: string, index: number) => {
     if (exprOperand.startsWith('{')) {
-        // operand is an attribute
-        scope[`x${index+1}`] = []
-        data.forEach((item: any) => {
-            scope[`x${index+1}`].push(parseOperandTextExpr(exprOperand, item, attributes));
+        // operand is an attribute: one value per observation
+        const key = `x${index + 1}`;
+        const values: unknown[] = [];
+        data.forEach((item: SDMXObservation) => {
+            values.push(parseOperandTextExpr(exprOperand, item, attributes));
         })
+        scope[key] = values;
     } else {
         // operand is another SDMX request
         const parser = new SDMXParser();
@@ -117,7 +140,7 @@ export const fetchDataExprOperand = (exprOperands: Array<string>, data: any, sco
             if (extraData.length !== data.length) {
                 throw new Error('Data length mismatch, cannot evaluate expression');
             }
-            scope[`x${index+1}`] = extraData.map((item: any) => item.value);
+            scope[`x${index+1}`] = extraData.map((item: SDMXObservation) => item.value);
         })
     }
   })

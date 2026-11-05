@@ -1,9 +1,46 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { EChartsOption } from 'echarts';
-import { SDMXChartConfig } from '../components/types';
+import type {
+  EChartsOption,
+  GridComponentOption,
+  SeriesOption,
+  TitleComponentOption,
+  TooltipComponentOption,
+  XAXisComponentOption,
+  YAXisComponentOption,
+} from 'echarts';
+import { SDMXChartConfig, type SDMXDimension, type SDMXObservation } from '../components/types';
 import { SDMXRenderError } from '../errors';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
+
+// ECharts models the x and y axis with the same component option, so one alias
+// covers both here.
+export type AxisOption = XAXisComponentOption | YAXisComponentOption;
+
+// The subset of an ECharts formatter parameter bag these helpers read. ECharts
+// does not export the real type from its root entry point.
+export type FormatterParams = {
+  value?: unknown;
+  name?: string;
+  percent?: number;
+  marker?: unknown;
+  seriesName?: string;
+  dataIndex?: number;
+  axisValueLabel?: string;
+  title?: string;
+  data?: unknown;
+};
+
+// A category label as it reaches the chart: dimension value names are strings,
+// but sorting and grouping code also passes numbers and nulls through.
+export type Category = string | number | null;
+
+// One point of a column-like series, keyed by category in valueByName.
+export type ColumnLikePoint = {
+  value: number | null;
+  name: Category;
+  itemStyle?: { color: string };
+  TIME_PERIOD?: Category;
+};
 
 export type DrilldownBundle = { options: Record<string, EChartsOption> };
 
@@ -16,9 +53,9 @@ export type BuiltChart = {
 };
 
 export type ParsedDataset = {
-  data: any[];
-  dimensions: any[];
-  activeDimensions?: any[];
+  data: SDMXObservation[];
+  dimensions: SDMXDimension[];
+  activeDimensions?: SDMXDimension[];
   operator?: 'hist' | 'expr' | 'count';
   alternateLabel?: string;
   datasetIndex: number;
@@ -36,32 +73,37 @@ export type ChartContext = {
 };
 
 export type ChartBuildResult = {
-  series: any[];
-  xAxis?: any;
-  yAxis?: any;
-  grid?: any;
-  tooltip?: any;
-  legend?: any;
+  series: SeriesOption[];
+  xAxis?: AxisOption | AxisOption[];
+  yAxis?: AxisOption | AxisOption[];
+  grid?: GridComponentOption;
+  tooltip?: TooltipComponentOption;
+  legend?: EChartsOption['legend'];
   drilldown?: DrilldownBundle;
   seriesCount?: number; // logical series when it differs from series.length (treemap packs them into one)
 };
 
 export type ChartBuilder = (context: ChartContext) => ChartBuildResult;
 
-export type ColumnLikeEntry = {
+// The fields resolveSeriesNames reads when de-duplicating legend labels.
+export type SeriesNaming = {
   name: string;
-  baseName: string;
+  baseName?: string;
   alternateLabel?: string;
   datasetIndex: number;
+};
+
+export type ColumnLikeEntry = SeriesNaming & {
+  baseName: string;
   id: string;
   legendConcept: string;
-  valueByName: Map<any, any>;
+  valueByName: Map<Category, ColumnLikePoint>;
 };
 
 export type ColumnLikeCollection = {
-  categories: any[];
+  categories: Category[];
   entries: ColumnLikeEntry[];
-  resolvedNames: Map<any, string>;
+  resolvedNames: Map<SeriesNaming, string>;
   xAxisConcept: string;
 };
 
@@ -78,7 +120,7 @@ export const paletteColor = (config: SDMXChartConfig, concept: string, code: str
   return undefined;
 };
 
-export const resolveSeriesNames = (entries: any[]): Map<any, string> => {
+export const resolveSeriesNames = (entries: SeriesNaming[]): Map<SeriesNaming, string> => {
   if (entries.length === 0) return new Map();
 
   const baseCounts = new Map<string, number>();
@@ -163,7 +205,7 @@ export const abbreviateNumber = (value: number): string => {
   return String(numeric);
 };
 
-export const withValueAxisFormatter = (axis: any) => {
+export const withValueAxisFormatter = <T extends AxisOption>(axis: T): T => {
   if (axis && axis.type === 'value') {
     axis.axisLabel = { ...(axis.axisLabel || {}), formatter: abbreviateNumber };
   }
@@ -171,10 +213,10 @@ export const withValueAxisFormatter = (axis: any) => {
 };
 
 export const hasExplicitAxisLabelRotation = (extraOptions: EChartsOption | undefined): boolean => {
-  const xAxis = (extraOptions as any)?.xAxis;
+  const xAxis = extraOptions?.xAxis;
   if (!xAxis) return false;
   const axes = Array.isArray(xAxis) ? xAxis : [xAxis];
-  return axes.some((axis: any) => axis?.axisLabel?.rotate !== undefined);
+  return axes.some((axis) => axis?.axisLabel?.rotate !== undefined);
 };
 
 const Y_AXIS_TITLE_DEFAULT_FONT_SIZE = 12;
@@ -204,7 +246,7 @@ const measureLongestLine = (label: unknown, font: string, fallbackFontSize: numb
     .split(/\r?\n/)
     .reduce((max, line) => Math.max(max, measureTextWidth(line, font, fallbackFontSize)), 0);
 
-const axisLabelFont = (axis: any): { font: string; fontSize: number } => {
+const axisLabelFont = (axis: AxisOption): { font: string; fontSize: number } => {
   const label = axis?.axisLabel || {};
   const fontSize = Number(label.fontSize) || Y_AXIS_TITLE_DEFAULT_FONT_SIZE;
   const fontFamily = label.fontFamily || 'sans-serif';
@@ -226,7 +268,7 @@ const yAxisNameExtent = (axis: { name?: unknown; nameTextStyle?: { fontSize?: un
   return fontSize * 1.5 + Y_AXIS_TITLE_LABEL_MARGIN;
 };
 
-const numericPointValue = (point: any): number | undefined => {
+const numericPointValue = (point: unknown): number | undefined => {
   if (typeof point === 'number') return Number.isFinite(point) ? point : undefined;
   if (Array.isArray(point)) {
     const candidate = point.length > 1 ? point[1] : point[0];
@@ -234,19 +276,20 @@ const numericPointValue = (point: any): number | undefined => {
     return Number.isFinite(value) ? value : undefined;
   }
   if (point && typeof point === 'object' && 'value' in point) {
-    return numericPointValue(point.value);
+    return numericPointValue((point as { value: unknown }).value);
   }
   return undefined;
 };
 
-const estimateValueAxisLabelWidth = (axis: any, series: any[]): number => {
+const estimateValueAxisLabelWidth = (axis: AxisOption, series: SeriesOption[]): number => {
   const { font, fontSize } = axisLabelFont(axis);
   const values: number[] = [];
   if (typeof axis?.min === 'number') values.push(axis.min);
   if (typeof axis?.max === 'number') values.push(axis.max);
-  series.forEach((entry: any) => {
-    if (!Array.isArray(entry?.data)) return;
-    entry.data.forEach((point: any) => {
+  series.forEach((entry) => {
+    const data = (entry as { data?: unknown }).data;
+    if (!Array.isArray(data)) return;
+    data.forEach((point) => {
       const value = numericPointValue(point);
       if (value !== undefined) values.push(value);
     });
@@ -262,7 +305,7 @@ const estimateValueAxisLabelWidth = (axis: any, series: any[]): number => {
   return measured + fontSize * 0.5;
 };
 
-const estimateYAxisLabelWidth = (axis: any, series: any[]): number => {
+const estimateYAxisLabelWidth = (axis: AxisOption, series: SeriesOption[]): number => {
   if (axis?.type === 'category' && Array.isArray(axis.data)) {
     const { font, fontSize } = axisLabelFont(axis);
     const labels = axis.data as unknown[];
@@ -279,12 +322,12 @@ const estimateYAxisLabelWidth = (axis: any, series: any[]): number => {
 // left to ECharts 6: the grid contains axis names (GRID_CONTAINS_AXIS_TEXT),
 // and nameMoveOverlap moves the name clear of the tick labels whatever their
 // real width, so the name neither overlaps the labels nor leaves the canvas.
-export const applyYAxisTitleLayout = (option: any): boolean => {
+export const applyYAxisTitleLayout = (option: EChartsOption): boolean => {
   if (!option) return false;
   const axes = Array.isArray(option.yAxis) ? option.yAxis : [option.yAxis];
   let changed = false;
 
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis || typeof axis.name !== 'string' || axis.name.trim() === '') return;
     if (axis.nameLocation !== undefined && axis.nameLocation !== 'middle') return;
 
@@ -302,15 +345,19 @@ export const applyYAxisTitleLayout = (option: any): boolean => {
 };
 
 const CATEGORY_LABEL_GAP = 8;
-const CATEGORY_LABEL_LAYOUT_KEY = '__sdmxCategoryLabelLayout';
 
 type CategoryLabelLayoutState = {
-  originalFormatter: any;
+  originalFormatter: unknown;
   wrapped: string[];
-  wrapper: (value: any, index: number) => string;
+  wrapper: (value: unknown, index: number) => string;
 };
 
-const formatCategoryLabel = (formatter: any, value: any, index: number): string => {
+// Layout state is attached to the axis object rather than to the option, so it
+// survives the option being rebuilt between renders. A WeakMap keeps that
+// association without stamping a private key onto the ECharts option type.
+const categoryLabelLayouts = new WeakMap<object, CategoryLabelLayoutState>();
+
+const formatCategoryLabel = (formatter: unknown, value: unknown, index: number): string => {
   if (typeof formatter === 'function') {
     try {
       return String(formatter(value, index));
@@ -359,7 +406,7 @@ const wrapCategoryLabel = (
   return lines.length > 0 ? lines : [''];
 };
 
-const categoryAxisPlotWidth = (option: any, width: number): number => {
+const categoryAxisPlotWidth = (option: EChartsOption, width: number): number => {
   const series = Array.isArray(option?.series) ? option.series : [];
   const grid = !Array.isArray(option?.grid) ? option.grid : undefined;
   let left = 0;
@@ -377,7 +424,7 @@ const categoryAxisPlotWidth = (option: any, width: number): number => {
   }
 
   const axes = Array.isArray(option?.yAxis) ? option.yAxis : [option?.yAxis];
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis) return;
     const labelWidth = estimateYAxisLabelWidth(axis, series) + 8 + yAxisNameExtent(axis);
     if (axis.position === 'right') right += labelWidth;
@@ -388,7 +435,7 @@ const categoryAxisPlotWidth = (option: any, width: number): number => {
 };
 
 export const applyCategoryLabelLayout = (
-  option: any,
+  option: EChartsOption,
   width: number,
   extraOptions?: EChartsOption
 ): boolean => {
@@ -399,7 +446,7 @@ export const applyCategoryLabelLayout = (
   const plotWidth = categoryAxisPlotWidth(option, width);
   let changed = false;
 
-  axes.forEach((axis: any) => {
+  axes.forEach((axis) => {
     if (!axis || axis.type !== 'category' || !Array.isArray(axis.data)) return;
     const labels = axis.data as unknown[];
     if (labels.length === 0 || axis.axisLabel?.show === false) return;
@@ -407,14 +454,14 @@ export const applyCategoryLabelLayout = (
     const { font, fontSize } = axisLabelFont(axis);
     const available = Math.max(1, plotWidth / labels.length - CATEGORY_LABEL_GAP);
 
-    let state = axis[CATEGORY_LABEL_LAYOUT_KEY] as CategoryLabelLayoutState | undefined;
+    let state = categoryLabelLayouts.get(axis);
     if (!state) {
       state = {
         originalFormatter: axis.axisLabel?.formatter,
         wrapped: [],
         wrapper: () => '',
       };
-      axis[CATEGORY_LABEL_LAYOUT_KEY] = state;
+      categoryLabelLayouts.set(axis, state);
     }
     const layoutState = state;
 
@@ -438,7 +485,7 @@ export const applyCategoryLabelLayout = (
 
     if (canWrap && didWrap) {
       layoutState.wrapped = wrapped;
-      layoutState.wrapper = (value: any, index: number) => {
+      layoutState.wrapper = (value: unknown, index: number) => {
         const wrappedValue = layoutState.wrapped[index];
         return wrappedValue !== undefined
           ? wrappedValue
@@ -454,7 +501,7 @@ export const applyCategoryLabelLayout = (
         axisChanged = true;
       }
     } else if (axisLabel.formatter !== layoutState.originalFormatter) {
-      axisLabel.formatter = layoutState.originalFormatter;
+      axisLabel.formatter = layoutState.originalFormatter as typeof axisLabel.formatter;
       axisChanged = true;
     }
 
@@ -473,7 +520,7 @@ export const applyCategoryLabelLayout = (
   return changed;
 };
 
-export const finalizeCartesianAxes = (xAxis: any, yAxis: any) => ({
+export const finalizeCartesianAxes = (xAxis: AxisOption, yAxis: AxisOption) => ({
   xAxis: withValueAxisFormatter(xAxis),
   yAxis: withValueAxisFormatter(yAxis),
 });
@@ -486,7 +533,7 @@ export const formatTooltipValue = (value: unknown, language: string): string => 
 };
 
 export const labelFormatter = (config: SDMXChartConfig, language: string, chartType: string | undefined) => {
-  return (params: any) => {
+  return (params: FormatterParams) => {
     const value = Array.isArray(params.value) ? params.value[1] : params.value;
     return config?.unit?.text === '%' && params.percent !== undefined
       ? `${chartType === 'pie' ? `${params.name}: ` : ''}${params.percent.toFixed(Number(config.decimals) || 0)} %`
@@ -537,8 +584,11 @@ export const formatTimeValue = (timestamp: number, format?: string): string => {
 };
 
 export const buildTooltipFormatter = (config: SDMXChartConfig, language: string, timeFormat?: string) => {
-  const customValueFormatter = (config.extraOptions as any)?.tooltip?.valueFormatter;
-  return (params: any) => {
+  const extraTooltip = config.extraOptions?.tooltip;
+  const customValueFormatter = Array.isArray(extraTooltip)
+    ? extraTooltip[0]?.valueFormatter
+    : extraTooltip?.valueFormatter;
+  return (params: FormatterParams | FormatterParams[]) => {
     const list = Array.isArray(params) ? params : [params];
     if (list.length === 0 || !list[0]) return '';
     const first = list[0];
@@ -548,21 +598,21 @@ export const buildTooltipFormatter = (config: SDMXChartConfig, language: string,
         : Array.isArray(first.value) && typeof first.value[0] === 'number'
           ? formatTimeValue(first.value[0], timeFormat)
           : '');
-    const lines = list.map((point: any) => {
+    const lines = list.map((point) => {
       const rawValue = Array.isArray(point.value) ? point.value[1] : point.value;
       const formatted = typeof customValueFormatter === 'function'
         ? String(customValueFormatter(rawValue, point.dataIndex))
         : escapeHtml(formatTooltipValue(rawValue, language));
       const series = point.seriesName ? `${escapeHtml(point.seriesName)}: ` : '';
-      return `${point.marker || ''}${series}${formatted}`;
+      return `${point.marker ? String(point.marker) : ''}${series}${formatted}`;
     });
     return `${xValue ? `${escapeHtml(xValue)}<br/>` : ''}${lines.join('<br/>')}`;
   };
 };
 
-export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): any => {
+export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, subtitleText: string): TitleComponentOption | undefined => {
   if (!config.title && !config.subtitle) return undefined;
-  const title: any = {};
+  const title: TitleComponentOption = {};
   title.top = 0;
   if (titleText) title.text = titleText;
   if (config.title?.link) {
@@ -577,19 +627,19 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   const align = config.title?.align ?? config.subtitle?.align ?? 'center';
   title.left = align === 'left' ? 'left' : align === 'right' ? 'right' : 'center';
   if (config.title) {
-    const textStyle: any = {};
+    const textStyle: NonNullable<TitleComponentOption['textStyle']> = {};
     if (config.title.size !== undefined) textStyle.fontSize = toFontSize(config.title.size, 16);
-    if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight;
-    if (config.title.style !== undefined) textStyle.fontStyle = config.title.style;
+    if (config.title.weight !== undefined) textStyle.fontWeight = config.title.weight as typeof textStyle.fontWeight;
+    if (config.title.style !== undefined) textStyle.fontStyle = config.title.style as typeof textStyle.fontStyle;
     if (config.title.color !== undefined) textStyle.color = config.title.color;
     if (config.title.font !== undefined) textStyle.fontFamily = config.title.font;
     if (Object.keys(textStyle).length > 0) title.textStyle = textStyle;
   }
   if (config.subtitle) {
-    const subtextStyle: any = {};
+    const subtextStyle: NonNullable<TitleComponentOption['subtextStyle']> = {};
     subtextStyle.fontSize = toFontSize(config.subtitle.size ?? '0.8em', 12.8);
-    if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight;
-    if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style;
+    if (config.subtitle.weight !== undefined) subtextStyle.fontWeight = config.subtitle.weight as typeof subtextStyle.fontWeight;
+    if (config.subtitle.style !== undefined) subtextStyle.fontStyle = config.subtitle.style as typeof subtextStyle.fontStyle;
     if (config.subtitle.color !== undefined) subtextStyle.color = config.subtitle.color;
     subtextStyle.fontFamily = config.subtitle.font ?? 'Helvetica, Arial, sans-serif';
     title.subtextStyle = subtextStyle;
@@ -597,28 +647,37 @@ export const buildEchartsTitle = (config: SDMXChartConfig, titleText: string, su
   return title;
 };
 
-export const sortByDimension = (data: any[], dimensionId: string) => {
-  return data.sort((a: any, b: any) => {
+// Rows sortByDimension can order: any record of comparable dimension values.
+// SDMX observations qualify, and so do the synthetic { name, <concept>: name }
+// rows the drilldown builds for category ordering.
+export type DimensionSortable = { [concept: string]: string | number | null };
+
+export const sortByDimension = <T extends DimensionSortable>(data: T[], dimensionId: string): T[] => {
+  return data.sort((a, b) => {
+    const left = String(a[dimensionId] ?? '');
+    const right = String(b[dimensionId] ?? '');
     if (dimensionId === 'TIME_PERIOD') {
-      return parseInt(a[dimensionId]) - parseInt(b[dimensionId]);
+      return parseInt(left) - parseInt(right);
     }
-    return a[dimensionId].localeCompare(b[dimensionId]);
+    return left.localeCompare(right);
   });
 };
 
-export const sortByValue = (data: any[], order: string) => {
-  data.sort((a: any, b: any) => (order === 'asc' ? a.value - b.value : b.value - a.value));
+export const sortByValue = (data: SDMXObservation[], order: string) => {
+  data.sort((a, b) => (order === 'asc' ? (a.value ?? 0) - (b.value ?? 0) : (b.value ?? 0) - (a.value ?? 0)));
   return data;
 };
 
-export const getLatestValue = (data: any[], dimension: string) => {
-  let values: any[] = [];
-  values = data
-    .map((dataPoint: any) => dataPoint[dimension])
-    .map((e: any, i: number, final: any) => final.indexOf(e) === i && i)
-    .filter((e: any) => data[e])
-    .map((e: any) => data[e]);
-  return values;
+// Keeps the first row seen for each distinct value of `dimension`, in the order
+// the rows appear.
+export const getLatestValue = (data: SDMXObservation[], dimension: string): SDMXObservation[] => {
+  const seen = new Set<unknown>();
+  return data.filter((row) => {
+    const key = row[dimension];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 export const isNonEmptyValue = (value: unknown): boolean => {
@@ -626,37 +685,46 @@ export const isNonEmptyValue = (value: unknown): boolean => {
   return !(typeof value === 'number' && Number.isNaN(value));
 };
 
-export const timePeriodRank = (dimension: any): Map<any, number> => {
-  const ranks = new Map<any, number>();
+export type TimeDimensionLike = { values?: ReadonlyArray<{ name?: unknown }> };
+
+export const timePeriodRank = (dimension?: TimeDimensionLike): Map<string, number> => {
+  const ranks = new Map<string, number>();
   if (!dimension || !Array.isArray(dimension.values)) return ranks;
-  dimension.values.forEach((value: any, index: number) => {
+  dimension.values.forEach((value, index) => {
     if (value && value.name !== undefined) ranks.set(value.name, index);
   });
   return ranks;
 };
 
-const timePeriodKey = (period: any, ranks: Map<any, number>): [number, any] => {
-  const index = ranks.get(period);
+// A period that the time dimension ranks sorts before one it does not; ranked
+// periods compare by their rank index, unranked ones by their raw value.
+type TimePeriodKey = [number, string | number];
+
+const compareTimePeriodKeys = (left: TimePeriodKey, right: TimePeriodKey): number => {
+  if (left[0] !== right[0]) return left[0] - right[0];
+  if (typeof left[1] === 'number' && typeof right[1] === 'number') return left[1] - right[1];
+  if (String(left[1]) === String(right[1])) return 0;
+  return String(left[1]) < String(right[1]) ? -1 : 1;
+};
+
+const timePeriodKey = (period: unknown, ranks: Map<string, number>): TimePeriodKey => {
+  const index = ranks.get(String(period));
   return index === undefined ? [0, String(period)] : [1, index];
 };
 
 export const getLatestTimePeriodRow = (
-  data: any[],
-  timeDimension?: any
-): any | undefined => {
+  data: SDMXObservation[],
+  timeDimension?: TimeDimensionLike
+): SDMXObservation | undefined => {
   const ranks = timePeriodRank(timeDimension);
-  let latest: any | undefined;
-  let latestKey: [number, any] | undefined;
+  let latest: SDMXObservation | undefined;
+  let latestKey: TimePeriodKey | undefined;
   data.forEach((row) => {
     if (!isNonEmptyValue(row?.value)) return;
     const period = row?.TIME_PERIOD;
     if (period === undefined || period === null || period === '') return;
     const key = timePeriodKey(period, ranks);
-    if (
-      !latestKey ||
-      key[0] > latestKey[0] ||
-      (key[0] === latestKey[0] && key[1] > latestKey[1])
-    ) {
+    if (!latestKey || compareTimePeriodKeys(key, latestKey) > 0) {
       latest = row;
       latestKey = key;
     }
@@ -666,14 +734,14 @@ export const getLatestTimePeriodRow = (
 
 export type LatestRootOptions = {
   preferredDimension?: string;
-  preferredValue?: any;
+  preferredValue?: string | number | null;
 };
 
 export const selectLatestRootRow = (
-  rows: any[],
-  timeDimension?: any,
+  rows: SDMXObservation[],
+  timeDimension?: SDMXDimension,
   options: LatestRootOptions = {}
-): any | undefined => {
+): SDMXObservation | undefined => {
   const { preferredDimension, preferredValue = 'Total' } = options;
   if (preferredDimension) {
     const preferred = rows.filter(
@@ -690,24 +758,20 @@ export const selectLatestRootRow = (
   return getLatestTimePeriodRow(rows, timeDimension);
 };
 
-export const sortTimePeriodValues = (data: any[], timeDimension?: any): any[] => {
+export const sortTimePeriodValues = (data: SDMXObservation[], timeDimension?: SDMXDimension): SDMXObservation[] => {
   const ranks = timePeriodRank(timeDimension);
-  return [...data].sort((a, b) => {
-    const left = timePeriodKey(a?.TIME_PERIOD, ranks);
-    const right = timePeriodKey(b?.TIME_PERIOD, ranks);
-    if (left[0] !== right[0]) return left[0] - right[0];
-    if (left[1] < right[1]) return -1;
-    if (left[1] > right[1]) return 1;
-    return 0;
-  });
+  return [...data].sort((a, b) => compareTimePeriodKeys(
+    timePeriodKey(a?.TIME_PERIOD, ranks),
+    timePeriodKey(b?.TIME_PERIOD, ranks)
+  ));
 };
 
 const latestValuesByCategory = (
-  data: any[],
+  data: SDMXObservation[],
   categoryDimension: string,
-  timeDimension: any
-): any[] => {
-  const byCategory = new Map<any, any[]>();
+  timeDimension?: SDMXDimension
+): SDMXObservation[] => {
+  const byCategory = new Map<string | number | null, SDMXObservation[]>();
   data.forEach((row) => {
     if (!isNonEmptyValue(row?.value)) return;
     const category = row[categoryDimension];
@@ -717,7 +781,7 @@ const latestValuesByCategory = (
   });
   return Array.from(byCategory.values())
     .map((rows) => selectLatestRootRow(rows, timeDimension))
-    .filter((row): row is any => row !== undefined);
+    .filter((row): row is SDMXObservation => row !== undefined);
 };
 
 export const CARTESIAN_GRID_INSETS = { left: 0, right: 8, top: 8, bottom: 8 };
@@ -735,9 +799,13 @@ export const GRID_CONTAINS_AXIS_TEXT = {
   outerBoundsClampHeight: 0,
 } as const;
 
-export const buildCartesianGrid = (config: SDMXChartConfig, series: any[]) => {
+export const buildCartesianGrid = (config: SDMXChartConfig, series: SeriesOption[]) => {
   const labels = Array.from(
-    new Set(series.map((s: any) => s.name).filter(Boolean))
+    new Set(
+      series
+        .map((s) => (s as { name?: string }).name)
+        .filter((name): name is string => Boolean(name))
+    )
   );
   return {
     ...GRID_CONTAINS_AXIS_TEXT,
@@ -752,7 +820,7 @@ export const buildCartesianTooltip = (config: SDMXChartConfig, language: string,
   formatter: buildTooltipFormatter(config, language, timeFormat),
 });
 
-export const buildValueTooltip = (config: SDMXChartConfig, language: string) => ({
+export const buildValueTooltip = (_config: SDMXChartConfig, language: string) => ({
   trigger: 'item' as const,
   valueFormatter: (value: unknown) => formatTooltipValue(value, language),
 });
@@ -763,13 +831,15 @@ export const buildLegend = (config: SDMXChartConfig, data?: string[]) => {
 };
 
 export const applySeriesLabels = (
-  series: any[],
+  series: SeriesOption[],
   config: SDMXChartConfig,
   language: string,
   chartType: ChartType
-) => {
+): SeriesOption[] => {
   if (!config.labels) return series;
-  return series.map((s: any) => {
+  // Spreading a SeriesOption and adding `label` keeps the concrete series type,
+  // but TS cannot re-narrow the union after the spread.
+  return series.map((s) => {
     if (chartType === 'lollipop' && s.type !== 'scatter') return { ...s };
     const labelPosition = s.type === 'bar'
       ? (chartType === 'bar' ? 'right' : 'top')
@@ -782,10 +852,10 @@ export const applySeriesLabels = (
         formatter: labelFormatter(config, language, chartType),
       },
     };
-  });
+  }) as SeriesOption[];
 };
 
-export const applyBarLabelLayout = (option: any): boolean => {
+export const applyBarLabelLayout = (option: EChartsOption): boolean => {
   if (!option) return false;
   const series = Array.isArray(option.series) ? option.series : [option.series];
   const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
@@ -793,7 +863,7 @@ export const applyBarLabelLayout = (option: any): boolean => {
   const horizontalBars = xAxis?.type === 'value' && yAxis?.type === 'category';
   let changed = false;
 
-  series.forEach((entry: any) => {
+  series.forEach((entry) => {
     if (!entry || entry.type !== 'bar') return;
     if (!entry.label || entry.label.show !== true) return;
     if (entry.label.position !== undefined) return;
@@ -804,9 +874,9 @@ export const applyBarLabelLayout = (option: any): boolean => {
   return changed;
 };
 
-export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {
+export const applyBarBorderRadius = (series: SeriesOption[], chartType: ChartType) => {
   const borderRadius = chartType === 'bar' ? [0, 3, 3, 0] : [3, 3, 0, 0];
-  return series.map((s: any) =>
+  return series.map((s) =>
     s.type === 'bar'
       ? { ...s, itemStyle: { ...(s.itemStyle || {}), borderRadius } }
       : s
@@ -818,8 +888,8 @@ export const applyBarBorderRadius = (series: any[], chartType: ChartType) => {
 export const buildCartesianChartParts = (
   config: SDMXChartConfig,
   language: string,
-  categories: any[],
-  rawSeries: any[],
+  categories: Category[],
+  rawSeries: SeriesOption[],
   orientation: 'bar' | 'column'
 ) => {
   const series = applySeriesLabels(
@@ -828,8 +898,8 @@ export const buildCartesianChartParts = (
     language,
     orientation
   );
-  const categoryAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
-  const valueAxis = { type: 'value' };
+  const categoryAxis: AxisOption = { type: 'category', data: categories, axisLabel: { interval: 0 } };
+  const valueAxis: AxisOption = { type: 'value' };
   const axes = orientation === 'bar'
     ? finalizeCartesianAxes(valueAxis, categoryAxis)
     : finalizeCartesianAxes(categoryAxis, valueAxis);
@@ -849,8 +919,8 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
   const xAxisConcept = config.xAxisConcept;
   if (!xAxisConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No xAxis concept found');
 
-  const categories: any[] = [];
-  const seen = new Set<any>();
+  const categories: Category[] = [];
+  const seen = new Set<Category>();
   const byName = new Map<string, ColumnLikeEntry>();
 
   datasets.forEach((dataset) => {
@@ -863,25 +933,25 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
     // dimension or, when only the x axis varies (a treemap or table of one
     // series), from any other dimension, which then holds a single value
     const legendDimension = legendConcept
-      ? dimensions.find((d: any) => d.id === legendConcept)
-      : active.find((d: any) => d.id !== xAxisConcept)
-        ?? dimensions.find((d: any) => d.id !== xAxisConcept);
+      ? dimensions.find((d) => d.id === legendConcept)
+      : active.find((d) => d.id !== xAxisConcept)
+        ?? dimensions.find((d) => d.id !== xAxisConcept);
     if (!legendDimension) {
       throw new Error(
         `Chart type=${config.type} with xAxis=${xAxisConcept} needs a dimension besides ${xAxisConcept} to group its series, and the dataflow has none. Fix: set xAxisConcept to another dimension of the dataflow.`
       );
     }
-    const xAxisDimension = active.find((d: any) => d.id === xAxisConcept)
-      ?? dimensions.find((d: any) => d.id === xAxisConcept);
-    const timeDimension = dimensions.find((d: any) => d.id === 'TIME_PERIOD');
+    const xAxisDimension = active.find((d) => d.id === xAxisConcept)
+      ?? dimensions.find((d) => d.id === xAxisConcept);
+    const timeDimension = dimensions.find((d) => d.id === 'TIME_PERIOD');
     const useLatestTimePeriod = Boolean(timeDimension)
       && xAxisConcept !== 'TIME_PERIOD'
       && legendDimension?.id !== 'TIME_PERIOD';
 
     [...legendDimension.values]
-      .sort((a: any, b: any) => a.id.localeCompare(b.id))
-      .forEach((legendDimensionValue: any) => {
-        const legendSerie = data.filter((val: any) => val[legendDimension.id] === legendDimensionValue.name);
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .forEach((legendDimensionValue) => {
+        const legendSerie = data.filter((val) => val[legendDimension.id] === legendDimensionValue.name);
         const sortedData = sortByDimension(legendSerie, xAxisConcept);
         const latestValues = useLatestTimePeriod
           ? latestValuesByCategory(sortedData, xAxisConcept, timeDimension)
@@ -897,14 +967,14 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
             datasetIndex,
             id: legendDimensionValue.id,
             legendConcept,
-            valueByName: new Map<any, any>(),
+            valueByName: new Map<Category, ColumnLikePoint>(),
           };
           byName.set(seriesKey, seriesEntry);
         }
 
         latestValues
-          .filter((val: any) => val.value !== null)
-          .forEach((val: any) => {
+          .filter((val: SDMXObservation) => val.value !== null)
+          .forEach((val: SDMXObservation) => {
             const category = val[xAxisConcept];
             if (!seen.has(category)) {
               seen.add(category);
@@ -913,9 +983,9 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
             if (seriesEntry.valueByName.has(category)) return;
 
             const colorByPoint = config.colorPalette?.[xAxisConcept] !== undefined;
-            let itemStyle: any = undefined;
+            let itemStyle: ColumnLikePoint['itemStyle'] = undefined;
             if (colorByPoint) {
-              const valXAxis = xAxisDimension.values.find((xVal: any) => xVal.name === val[xAxisConcept]);
+              const valXAxis = xAxisDimension.values.find((xVal) => xVal.name === val[xAxisConcept]);
               const c = valXAxis && paletteColor(config, xAxisConcept, valXAxis.id);
               if (c) itemStyle = { color: c };
             }
@@ -934,33 +1004,33 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
 };
 
 export const sortColumnLikeCategories = (
-  categories: any[],
+  categories: Category[],
   entries: ColumnLikeEntry[],
   order?: string
 ) => {
   if (!order) return categories;
-  const totals = new Map<any, number>();
+  const totals = new Map<Category, number>();
   entries.forEach((seriesEntry) => {
-    seriesEntry.valueByName.forEach((point: any, category: any) => {
+    seriesEntry.valueByName.forEach((point, category) => {
       totals.set(category, (totals.get(category) ?? 0) + (Number(point.value) || 0));
     });
   });
   return sortByValue(
-    categories.map((name: any) => ({ name, value: totals.get(name) ?? 0 })),
+    categories.map((name) => ({ name, value: totals.get(name) ?? 0 })),
     order
-  ).map((item: any) => item.name);
+  ).map((item) => item.name);
 };
 
 export const buildColumnLikeSeries = (
-  categories: any[],
+  categories: Category[],
   entries: ColumnLikeEntry[],
-  resolvedNames: Map<any, string>,
+  resolvedNames: Map<SeriesNaming, string>,
   config: SDMXChartConfig
-) => {
-  const series: any[] = [];
+): SeriesOption[] => {
+  const series: SeriesOption[] = [];
   entries.forEach((seriesEntry) => {
-    const yAxisValue = categories.map((category: any) => seriesEntry.valueByName.get(category) ?? null);
-    if (yAxisValue.some((point: any) => point !== null)) {
+    const yAxisValue = categories.map((category) => seriesEntry.valueByName.get(category) ?? null);
+    if (yAxisValue.some((point) => point !== null)) {
       const color = paletteColor(config, seriesEntry.legendConcept, seriesEntry.id);
       series.push({
         type: 'bar',

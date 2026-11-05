@@ -29,13 +29,13 @@ const emptyResponse = () => ({
                 name: 'Test flow',
                 names: { en: 'Test flow' },
                 dimensions: {
-                    dataSet: [],
-                    series: [],
+                    dataSet: [] as unknown[],
+                    series: [] as unknown[],
                     observation: [
-                        { id: 'TIME_PERIOD', name: 'Time', keyPosition: 0, values: [] }
+                        { id: 'TIME_PERIOD', name: 'Time', keyPosition: 0, values: [] as unknown[] }
                     ]
                 },
-                attributes: { dataSet: [], dimensionGroup: [], series: [], observation: [] }
+                attributes: { dataSet: [] as unknown[], dimensionGroup: [] as unknown[], series: [] as unknown[], observation: [] as unknown[] }
             }
         ],
         dataSets: [{ action: 'Information', observations: {} }]

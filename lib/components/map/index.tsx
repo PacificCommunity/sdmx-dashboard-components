@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 // @ts-ignore sdmx-json-parser ships no type declarations
@@ -32,6 +31,7 @@ import Control from 'ol/control/Control';
 import { parseDataExpr } from '../../utils/parseDataExpr';
 import { dataRequestOptions } from '../../utils/requestHeaders';
 import { parseTextExpr } from '../../utils/parseTextExpr';
+import type { SDMXAttribute, SDMXDimension } from '../types';
 import { SDMXMapConfig, SDMXMapInstance, SDMXVisualProps } from '../types';
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
@@ -60,7 +60,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
   const [featuresLayer, setFeaturesLayer] = useState<MapDataLayer>()
   const [valueRange, setValueRange] = useState<{ min: number, max: number } | null>(null)
 
-  const [dimensions, setDimensions] = useState<any[]>([])
+  const [dimensions, setDimensions] = useState<SDMXDimension[]>([])
   const [unit, setUnit] = useState<string>(config.unit?.text || '')
   const [indicatorName, setIndicatorName] = useState<string>('')
   const [renderError, setRenderError] = useState<SDMXRenderError | null>(null)
@@ -245,7 +245,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
         } else {
           setIndicatorName('')
         }
-        const unitAttribute = _att.find((attribute: any) => attribute.id === 'UNIT_MEASURE')
+        const unitAttribute = _att.find((attribute: SDMXAttribute) => attribute.id === 'UNIT_MEASURE')
         const detectedUnit = unitAttribute?.values?.[0]?.name || ''
         setUnit(config.unit?.text || detectedUnit)
 
@@ -348,7 +348,7 @@ const MapComponent = ({ config, language, callback, onVisualRender, fetcher, onD
         features.forEach((feature: FeatureLike) => {
           const { sdmxProps } = getSDMXPropsForFeature(feature)
           tableRows = dimensions
-            .map((dimension: any) => {
+            .map((dimension) => {
               const value = sdmxProps?.[dimension.id]
               if (value === undefined || value === null || value === '') {
                 return ''

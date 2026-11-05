@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -9,7 +8,7 @@ import { loadDatasets } from '../chart/options';
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
-import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXTheme, SDMXVisualProps } from '../types';
+import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXDimension, SDMXTheme, SDMXVisualProps } from '../types';
 import { resolveNumberLocale, resolveThemeFont } from '../../utils/theme';
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
@@ -32,7 +31,7 @@ const alignClass = (align?: string): string =>
 
 const resolveText = (
   text: SDMXChartConfig['title'],
-  dimensions: any[],
+  dimensions: SDMXDimension[],
   language: string
 ): string => {
   if (!text) return '';

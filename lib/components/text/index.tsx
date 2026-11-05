@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useEffect, useState } from "react";
 import parse from "html-react-parser";
 import { parseTextExpr } from '../../utils/parseTextExpr';
 import { SDMXTextConfig } from "../types";
 
+// The style state is the config's text styling plus `italic`, which the
+// renderer reads even though the config type does not declare it.
+type TextStyleState = Partial<SDMXTextConfig> & { italic?: boolean };
+
 const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:SDMXTextConfig, note?: SDMXTextConfig, frame?: boolean}, language: string }) => {
 
     const [titleText, setTitleText] = useState<string>('Loading...')
-    const [titleStyle, setTitleStyle] = useState<any>({})
+    const [titleStyle, setTitleStyle] = useState<TextStyleState>({})
     const [subtitleText, setSubtitleText] = useState<string>('Loading...')
-    const [subtitleStyle, setSubtitleStyle] = useState<any>({})
+    const [subtitleStyle, setSubtitleStyle] = useState<TextStyleState>({})
     const [noteText, setNoteText] = useState<string>('Loading...')
-    const [noteStyle, setNoteStyle] = useState<any>({})
+    const [noteStyle, setNoteStyle] = useState<TextStyleState>({})
 
     useEffect(() => {
         if(Object.keys(config).length === 0) {

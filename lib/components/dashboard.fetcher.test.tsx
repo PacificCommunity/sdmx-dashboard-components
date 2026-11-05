@@ -18,7 +18,7 @@ describe('SDMXDashboard fetcher prop', () => {
         const globalFetch = vi.fn();
         vi.stubGlobal('fetch', globalFetch);
 
-        const config = { id: 'test-dashboard', rows: [] };
+        const config = { id: 'test-dashboard', rows: [] as unknown[] };
         const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(config)));
 
         render(<Dashboard url={CONFIG_URL} fetcher={fetcher} />);
@@ -33,7 +33,7 @@ describe('SDMXDashboard fetcher prop', () => {
     });
 
     it('falls back to the global fetch when no fetcher is given', async () => {
-        const config = { id: 'test-dashboard', rows: [] };
+        const config = { id: 'test-dashboard', rows: [] as unknown[] };
         const globalFetch = vi.fn(async () => new Response(JSON.stringify(config)));
         vi.stubGlobal('fetch', globalFetch);
 
@@ -112,7 +112,7 @@ describe('SDMXDashboard config url failures', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const goodUrl = 'https://original.example/good.json';
         const fetcher = vi.fn(async (url: string) => url === goodUrl
-            ? new Response(JSON.stringify({ id: 'recovered', rows: [], header: { title: { text: 'Recovered dashboard' } } }))
+            ? new Response(JSON.stringify({ id: 'recovered', rows: [] as unknown[], header: { title: { text: 'Recovered dashboard' } } }))
             : new Response('', { status: 404 }));
 
         const { rerender } = render(<Dashboard url={CONFIG_URL} fetcher={fetcher} />);

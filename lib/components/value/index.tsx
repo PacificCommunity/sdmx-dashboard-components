@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import parse from "html-react-parser";
 import { parseOperandTextExpr, parseTextExpr } from '../../utils/parseTextExpr';
@@ -8,7 +7,7 @@ import { fetchDataExprOperand, parseDataExpr } from "../../utils/parseDataExpr";
 import { dataRequestOptions } from "../../utils/requestHeaders";
 import { InfoCircle } from "react-bootstrap-icons";
 import { Button } from "react-bootstrap";
-import { SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from "../types";
+import { SDMXAttribute, SDMXDimension, SDMXObservation, SDMXTheme, SDMXVisualConfig, SDMXVisualProps } from "../types";
 import { resolveNumberLocale, resolveThemeFont } from "../../utils/theme";
 import { SDMXRenderError, emptyDataError, toSDMXRenderError } from "../../errors";
 import { computeRenderStats, failedRenderStatus } from "../../utils/renderStats";
@@ -112,19 +111,21 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
         return '4em';
     }, [valueDivWidth]);
 
-    const formatValue = useCallback((valueStr: any, config: any, data: any, attributes: any, language: string) => {
+    const formatValue = useCallback((rawValue: string | number | null, config: SDMXVisualConfig, data: SDMXObservation[], attributes: SDMXAttribute[], language: string) => {
+        let valueStr: string | number = rawValue ?? '';
         if (config['decimals']) {
-            const decimalNumber = Number(parseOperandTextExpr(config['decimals'], data[0], attributes));
+            const decimalNumber = Number(parseOperandTextExpr(String(config['decimals']), data[0], attributes));
             valueStr = Number(valueStr).toFixed(decimalNumber);
         }
         let valueLabel = '';
         let valueUnder = false;
         if (config.unit) {
             // if config.unit[text] is string, just use it as is, otherwise use the language version
-            if (typeof config.unit['text'] === 'string') {
-                valueLabel = config.unit['text'];
+            if (typeof config.unit.text === 'string') {
+                valueLabel = config.unit.text;
             } else {
-                valueLabel = config.unit['text'][language];
+                // Older configs supply a per-language map here even though the type says string.
+                valueLabel = (config.unit.text as unknown as Record<string, string>)[language];
             }
             // position the unit label
             if (config.unit['location'] === 'suffix') {
@@ -135,11 +136,12 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                 valueUnder = true;
             }
         }
-        const valueSize = config.adaptiveTextSize ? calculateFontSize(valueStr.toLocaleString(numberLocale)) : '4em';
+        const formattedValue = typeof valueStr === 'number' ? valueStr.toLocaleString(numberLocale) : valueStr;
+        const valueSize = config.adaptiveTextSize ? calculateFontSize(formattedValue) : '4em';
         const unitSize = ( config.adaptiveTextSize && valueUnder ) ? calculateFontSize(valueLabel) : '4em';
         return (
             <>
-            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{valueStr.toLocaleString(numberLocale)}</span>
+            <span className="lh-1" style={{fontSize: valueSize, cursor: "default"}}>{formattedValue}</span>
             {
                 valueUnder && <span style={{fontSize: unitSize, cursor: "default"}}>{valueLabel}</span>
             }
@@ -166,12 +168,12 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
 
             const dataFlowUrl = dataObj.dataFlowUrl;
             return sdmxParser.getDatasets(dataFlowUrl, dataRequestOptions(language, transport)).then(() => {
-                const data = sdmxParser.getData();
+                const data = sdmxParser.getData() as SDMXObservation[];
                 if (data.length === 0) {
                     throw emptyDataError(config.id, dataFlowUrl);
                 }
-                const dimensions = sdmxParser.getDimensions();
-                const attributes = sdmxParser.getAttributes();
+                const dimensions = sdmxParser.getDimensions() as SDMXDimension[];
+                const attributes = sdmxParser.getAttributes() as SDMXAttribute[];
 
                 if(config.title) {
                     if(typeof config.title == 'string') {
@@ -194,12 +196,13 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                 // apply operation to data
                 if (dataObj.operator) {
                     if(dataObj.operator === "count") {
+                        const exprOperand = Array.isArray(dataObj.exprOperand) ? dataObj.exprOperand[0] : dataObj.exprOperand ?? '';
                         const countData = data
-                            .map((item: any) => {
+                            .map((item: SDMXObservation) => {
                                 const expr = parseExpr(`x0 ${dataObj.exprOperator} x1`, new EvalAstFactory());
                                 const scope: Scope = {x0: item.value}
-                                if (isNaN(parseInt(dataObj.exprOperand))) {
-                                    const dataPromises = fetchDataExprOperand([dataObj.exprOperand], data, scope, attributes, language, transport)
+                                if (isNaN(parseInt(exprOperand))) {
+                                    const dataPromises = fetchDataExprOperand([exprOperand], data, scope, attributes, language, transport)
                                     pending.push(Promise.all(dataPromises).then(() => {
                                         Object.keys(scope).forEach((key: string) => {
                                             if (Array.isArray(scope[key])) {
@@ -210,18 +213,19 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                                         return valueStr && item;
                                     }))
                                 } else {
-                                    scope['x1'] = parseInt(dataObj.exprOperand)
+                                    scope['x1'] = parseInt(exprOperand)
                                     valueStr = expr?.evaluate(scope)
                                     return valueStr && item;
                                 }
                             })
-                            .filter((item: any) => item); // count number of true
+                            .filter((item: SDMXObservation | undefined) => item); // count number of true
                         renderedElement = formatValue(countData.length, config, countData, attributes, language);
                         setValueElement(renderedElement);
-                        setPopupStr(countData.map((item: any) => item[config.xAxisConcept]).join(', '))
+                        setPopupStr(countData.map((item: SDMXObservation) => item[config.xAxisConcept]).join(', '))
                     } else if (dataObj.operator === "expr") {
+                        const operands = Array.isArray(dataObj.exprOperand) ? dataObj.exprOperand : dataObj.exprOperand ? [dataObj.exprOperand] : [];
                         const scope: Scope = {x0: valueStr}
-                        const dataPromises = fetchDataExprOperand(dataObj.exprOperand, data, scope, attributes, language, transport)
+                        const dataPromises = fetchDataExprOperand(operands, data, scope, attributes, language, transport)
                         pending.push(Promise.all(dataPromises).then(() => {
                             const astFactory = new EvalAstFactory();
                             const expr = parseExpr(dataObj.expression, astFactory);
@@ -234,13 +238,13 @@ const Value = ({ config, placeholder, callback, language, theme, onVisualRender,
                             valueStr = expr?.evaluate(scope)
                             renderedElement = formatValue(valueStr, config, data, attributes, language);
                             setValueElement(renderedElement);
-                            setPopupStr(data[0][config.xAxisConcept])
+                            setPopupStr(String(data[0][config.xAxisConcept] ?? ''))
                         }))
                     }
                 } else {
                     renderedElement = formatValue(valueStr, config, data, attributes, language);
                     setValueElement(renderedElement);
-                    setPopupStr(data[0][config.xAxisConcept])
+                    setPopupStr(String(data[0][config.xAxisConcept] ?? ''))
                 }
                 return Promise.all(pending).then(() => data);
             });

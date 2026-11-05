@@ -32,7 +32,7 @@ vi.mock('sdmx-json-parser', () => {
         getActiveDimensions() {
             return this.getDimensions().filter((d) => d.values.length > 1);
         }
-        getAttributes() {
+        getAttributes(): unknown[] {
             return [];
         }
         getName() {
@@ -141,7 +141,7 @@ describe('inline fetcher identity', () => {
     });
 
     it('a dashboard re-rendered with a new inline fetcher does not refetch', async () => {
-        const base = vi.fn(async () => new Response('{}', { status: 200 }));
+        const base = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }));
         const config = { id: 'dash-inline', rows: [{ columns: [chartConfig] }] } as unknown as SDMXDashboardConfig;
 
         const { rerender } = render(<Dashboard config={config} lang="en" fetcher={(url, init) => base(url, init)} />);

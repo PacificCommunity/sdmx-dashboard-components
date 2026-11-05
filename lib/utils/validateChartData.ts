@@ -1,4 +1,5 @@
 import { SDMXRenderError } from '../errors';
+import type { SDMXObservation } from '../components/types';
 import { getLatestTimePeriodRow, isNonEmptyValue } from './chartHelpers';
 
 // chart types whose series are built by grouping observations on a second
@@ -11,7 +12,7 @@ type VaryingDimension = {
 }
 
 // the parts of SDMXParser.getData() rows and getActiveDimensions() entries read here
-type ObservationRow = Record<string, unknown>;
+type ObservationRow = SDMXObservation;
 type ActiveDimension = { id: string, values?: ReadonlyArray<{ name?: unknown }> } | undefined;
 
 type SlotCollision = {

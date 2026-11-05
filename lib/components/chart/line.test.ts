@@ -14,11 +14,11 @@ const config: SDMXChartConfig = {
 // one series over the given periods; FREQ is a dimension unless freq is null
 const dataset = (periods: string[], freq: string | null): ParsedDataset => {
     const dimensions = [
-        { id: 'SERIES', name: 'Series', values: [{ id: 'DFR', name: 'Deposit facility' }] },
-        { id: 'TIME_PERIOD', name: 'Time', values: periods.map((p) => ({ id: p, name: p })) },
+        { id: 'SERIES', name: 'Series', keyPosition: 1, values: [{ id: 'DFR', name: 'Deposit facility' }] },
+        { id: 'TIME_PERIOD', name: 'Time', keyPosition: 2, values: periods.map((p) => ({ id: p, name: p })) },
     ];
     if (freq !== null) {
-        dimensions.unshift({ id: 'FREQ', name: 'Frequency', values: [{ id: freq, name: freq }] });
+        dimensions.unshift({ id: 'FREQ', name: 'Frequency', keyPosition: 0, values: [{ id: freq, name: freq }] });
     }
     return {
         datasetIndex: 0,

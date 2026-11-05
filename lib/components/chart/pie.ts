@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import type { EChartsOption } from 'echarts';
-import type { SDMXChartConfig } from '../types';
-import type { ChartBuilder } from '../../utils/chartHelpers';
+import type { EChartsOption, SeriesOption } from 'echarts';
+import type { SDMXChartConfig, SDMXObservation } from '../types';
+import type { ChartBuilder, FormatterParams } from '../../utils/chartHelpers';
 import {
   buildValueTooltip,
   legendPosition,
@@ -9,7 +8,7 @@ import {
 } from '../../utils/chartHelpers';
 
 const pieLabelFormatter = (config: SDMXChartConfig, numberLocale: string) => {
-  return (params: any) => {
+  return (params: FormatterParams) => {
     const value = Array.isArray(params.value) ? params.value[params.value.length - 1] : params.value;
     const formatted = config?.unit?.text === '%' && params.percent !== undefined
       ? `${params.percent.toFixed(Number(config.decimals) || 0)} %`
@@ -20,8 +19,8 @@ const pieLabelFormatter = (config: SDMXChartConfig, numberLocale: string) => {
   };
 };
 
-const applyPieLabels = (series: any[], config: SDMXChartConfig, numberLocale: string) =>
-  series.map((s: any) => ({
+const applyPieLabels = (series: SeriesOption[], config: SDMXChartConfig, numberLocale: string) =>
+  series.map((s) => ({
     ...s,
     label: {
       show: true,
@@ -30,38 +29,38 @@ const applyPieLabels = (series: any[], config: SDMXChartConfig, numberLocale: st
       fontWeight: 'bold',
       overflow: 'break',
     },
-    labelLine: { ...(s.labelLine || {}), show: true },
-  }));
+    labelLine: { ...(s as { labelLine?: object }).labelLine, show: true },
+  })) as SeriesOption[];
 
 export const buildPie: ChartBuilder = ({ config, numberLocale, datasets, titleText }) => {
   const xAxisConcept = config.xAxisConcept;
-  let series: any[] = [];
+  let series: SeriesOption[] = [];
 
   datasets.forEach(({ data, dimensions, titleText: datasetTitle }) => {
     const legendConcept = config.legend?.concept || '';
     const sortedData = sortByDimension([...data], xAxisConcept);
-    let yAxisValue = sortedData.map((val: any) => ({
+    let yAxisValue = sortedData.map((val: SDMXObservation) => ({
       value: val['value'],
       name: xAxisConcept ? val[xAxisConcept] : val[legendConcept || ''],
-      binValue: val.binValue,
+      binValue: typeof val.binValue === 'number' ? val.binValue : undefined,
     }));
 
     if (yAxisValue.length === 2 && yAxisValue[0].binValue !== undefined) {
-      yAxisValue = yAxisValue.sort((a: any, b: any) => b.binValue - a.binValue);
+      yAxisValue = yAxisValue.sort((a, b) => (b.binValue ?? 0) - (a.binValue ?? 0));
     }
 
     if (series.length === 0) {
       series = [{
         type: 'pie',
-        name: (datasetTitle ?? titleText) || dimensions.find((dim: any) => dim.id === config.legend?.concept)?.values[0]?.name,
+        name: (datasetTitle ?? titleText) || dimensions.find((dim) => dim.id === config.legend?.concept)?.values[0]?.name,
         data: yAxisValue,
       }];
     } else {
-      (series[0] as any).data.push(...yAxisValue);
+      (series[0] as { data?: unknown[] }).data?.push(...yAxisValue);
     }
 
     if (config.legend) {
-      (series[0] as any).legendHoverLink = true;
+      (series[0] as { legendHoverLink?: boolean }).legendHoverLink = true;
     }
   });
 

@@ -11,13 +11,13 @@ vi.mock('sdmx-json-parser', () => {
     getData() {
       return [{ TIME_PERIOD: '2020', value: 1 }];
     }
-    getDimensions() {
+    getDimensions(): unknown[] {
       return [];
     }
-    getActiveDimensions() {
+    getActiveDimensions(): unknown[] {
       return [];
     }
-    getAttributes() {
+    getAttributes(): unknown[] {
       return [];
     }
   }

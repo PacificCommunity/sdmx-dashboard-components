@@ -1,14 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react"
 import { LiveProvider } from "react-live"
 import { Tabs, Tab } from "react-bootstrap"
 import { LivePreview, LiveEditor } from "react-live"
 
-const Preview = ({content, scope}: {content: any, scope: any}) => {
+type DemoPage = { id: string; code: string }
+
+const Preview = ({content, scope}: {content: DemoPage[], scope: Record<string, unknown>}) => {
 
     return (
         <>
-            {content.map((item: any) => (
+            {content.map((item) => (
                 <div key={item.id} className="border rounded p-3 d-flex flex-column code-tabs mt-3">
                     <LiveProvider code={item.code} scope={scope} disabled={true}>
                         <Tabs>

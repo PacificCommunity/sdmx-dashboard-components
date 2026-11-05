@@ -59,6 +59,86 @@ export type VisualInteraction = {
     timePeriod?: string, // point clicks: the observation's TIME_PERIOD, when it has one
 }
 
+/**
+ * One value of an SDMX dimension.
+ *
+ * Mirrors the `dimensions.*[].values[]` shape of an SDMX-JSON structure, which
+ * is what `SDMXParser.getDimensions()` returns. `sdmx-json-parser` ships no
+ * type declarations, so this is a hand-written model of its output — see
+ * `SDMXDimension` for the caveat about optional fields.
+ */
+export type SDMXDimensionValue = {
+    id: string, // machine value, e.g. "2024-01" or "NR"
+    name: string, // human-readable label, e.g. "Monthly"
+    names?: { [language: string]: string }, // localised labels keyed by language code
+    order?: number, // display order, present when the source provides one
+    start?: string, // ISO date-time; time-period dimensions only
+    end?: string, // ISO date-time; time-period dimensions only
+    annotations?: number[], // indexes into the structure's annotation list
+}
+
+/**
+ * An SDMX dimension as returned by `SDMXParser.getDimensions()`.
+ *
+ * The parser concatenates the dataset, series and observation dimension lists,
+ * so a single array can mix all three kinds. `name` and `keyPosition` are
+ * present for every dimension the parser returns today; they are declared
+ * required to keep call sites honest, and should be relaxed only with evidence
+ * from a source that omits them.
+ */
+export type SDMXDimension = {
+    id: string, // concept id, e.g. "TIME_PERIOD"
+    name: string, // human-readable concept name, e.g. "Time period"
+    names?: { [language: string]: string }, // localised concept names
+    keyPosition: number, // position of this dimension in the observation key
+    roles?: string[], // SDMX role ids, e.g. ["FREQ"]
+    values: SDMXDimensionValue[],
+}
+
+/**
+ * One value of an SDMX attribute, as returned by
+ * `SDMXParser.getAttributes()`. Same shape as a dimension value minus
+ * `start`/`end`.
+ */
+export type SDMXAttributeValue = {
+    id: string, // machine value, e.g. "USD"
+    name: string, // human-readable label, e.g. "US dollar"
+    names?: { [language: string]: string }, // localised labels
+    order?: number, // display order, when the source provides one
+    annotations?: number[], // indexes into the structure's annotation list
+}
+
+/**
+ * An SDMX attribute as returned by `SDMXParser.getAttributes()`.
+ *
+ * The parser concatenates the dataset, series and observation attribute lists,
+ * and a source may declare an attribute with no values (the response simply
+ * omits it), so `values` can be empty — always guard `values[0]`.
+ */
+export type SDMXAttribute = {
+    id: string, // concept id, e.g. "UNIT_MEASURE"
+    name: string, // human-readable concept name
+    names?: { [language: string]: string }, // localised concept names
+    roles?: string[], // SDMX role ids
+    relationship?: { dimensions?: string[] }, // dimensions this attribute is attached to
+    values: SDMXAttributeValue[],
+}
+
+/**
+ * One row of `SDMXParser.getData()`: a flat record of the observation value
+ * plus every dimension and attribute name for that observation, keyed by
+ * concept id.
+ *
+ * Keys are concept ids (`TIME_PERIOD`, `GEO_PICT`, `UNIT_MEASURE`, …), so the
+ * record is open by nature. Dimension and attribute entries are always the
+ * `name` of the matching value — strings — while `value` is the numeric
+ * OBS_VALUE. Read a dimension with a narrow, not a cast.
+ */
+export type SDMXObservation = {
+    value: number | null, // OBS_VALUE; null when the source reports no value
+    [concept: string]: string | number | null,
+}
+
 export type SDMXTextConfig = {
     size?: string, // size of the text as in font-size css property
     weight?: string, // weight of the text as in font-weight css property
@@ -146,8 +226,7 @@ export type SDMXMapConfig = {
         concept?: string, // SDMX concept of the legend
         location?:"top" | "bottom" | "left" | "right" | "none", // location of the legend
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extraOptions?: any // extra options for the visualization
+    extraOptions?: Record<string, unknown> // reserved for OpenLayers options; the map renderer does not read this yet
     // background tiles: "satellite" (default, ArcGIS World Imagery), "none",
     // or an XYZ tile URL template ({z}, {x}, {y}); tiles are requested with
     // CORS so the map can be exported

@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      // zrender's package exports hide this subpath from TypeScript, though
+      // its declaration file ships in the package
+      "zrender/lib/core/platform": ["./node_modules/zrender/lib/core/platform.d.ts"]
+    },
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+
+    // The codebase predates this config. Strict mode is the goal, not the
+    // current state: turning it on today would bury the real errors in a few
+    // hundred null-check complaints. Raise one flag at a time.
+    "strict": false,
+    "noImplicitAny": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  // Declaration files are build output (see .gitignore). Including them would
+  // type-check generated code next to the sources it was generated from.
+  "include": ["lib", "src", "*.config.ts"],
+  "exclude": ["node_modules", "dist", "**/*.d.ts"]
+}

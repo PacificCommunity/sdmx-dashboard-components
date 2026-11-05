@@ -10,6 +10,7 @@ import { sanitizeTooltipHtml } from '../../utils/sanitizeTooltipHtml';
 import type { ParsedDataset } from '../../utils/chartHelpers';
 import type { SDMXChartConfig, SDMXTableConfig, SDMXTableCellTooltipParams, SDMXDimension, SDMXTheme, SDMXVisualProps } from '../types';
 import { resolveNumberLocale, resolveThemeFont } from '../../utils/theme';
+import { textConfigStyle, textLinkStyle } from '../../utils/textStyles';
 import { SDMXRenderError, toSDMXRenderError } from '../../errors';
 import { computeRenderStats, failedRenderStatus } from '../../utils/renderStats';
 import { useLatest } from '../../utils/useLatest';
@@ -25,9 +26,6 @@ interface TableProps extends React.HTMLAttributes<HTMLDivElement>, SDMXVisualPro
   callback?: (table: React.JSX.Element) => void;
   theme?: SDMXTheme; // numberFormat and fontFamily apply to a table
 }
-
-const alignClass = (align?: string): string =>
-  align === 'center' ? 'text-center' : align === 'right' ? 'text-end' : 'text-start';
 
 const resolveText = (
   text: SDMXChartConfig['title'],
@@ -263,46 +261,21 @@ const Table = ({ config, language, placeholder, callback, theme, onVisualRender,
         </div>
       )}
       {!isLoading && !error && titleText && (
-        <h2
-          className={`${config.title?.weight ? `fw-${config.title.weight}` : ''} ${alignClass(config.title?.align)}`}
-          style={{
-            fontSize: config.title?.size,
-            color: config.title?.color,
-            fontFamily: config.title?.font ?? displayFont,
-            fontStyle: config.title?.style,
-            fontWeight: config.title?.weight,
-          }}
-        >
+        <h2 style={textConfigStyle(config.title, displayFont)}>
           {config.title?.link
-            ? <a href={config.title.link} target={config.title.target ?? 'blank'} rel="noreferrer">{parse(titleText)}</a>
+            ? <a href={config.title.link} target={config.title.target ?? 'blank'} rel="noreferrer" style={textLinkStyle(config.title)}>{parse(titleText)}</a>
             : parse(titleText)}
         </h2>
       )}
       {!isLoading && !error && subtitleText && (
-        <h4
-          className={`${config.subtitle?.weight ? `fw-${config.subtitle.weight}` : ''} ${alignClass(config.subtitle?.align)}`}
-          style={{
-            fontSize: config.subtitle?.size,
-            color: config.subtitle?.color,
-            fontFamily: config.subtitle?.font ?? displayFont,
-            fontStyle: config.subtitle?.style,
-          }}
-        >
+        <h4 style={textConfigStyle(config.subtitle, displayFont)}>
           {config.subtitle?.link
-            ? <a href={config.subtitle.link} target={config.subtitle.target ?? 'blank'} rel="noreferrer">{parse(subtitleText)}</a>
+            ? <a href={config.subtitle.link} target={config.subtitle.target ?? 'blank'} rel="noreferrer" style={textLinkStyle(config.subtitle)}>{parse(subtitleText)}</a>
             : parse(subtitleText)}
         </h4>
       )}
       {!isLoading && !error && noteText && (
-        <p
-          className={`${config.note?.weight ? `fw-${config.note.weight}` : ''} ${alignClass(config.note?.align)}`}
-          style={{
-            fontSize: config.note?.size,
-            color: config.note?.color,
-            fontFamily: config.note?.font ?? displayFont,
-            fontStyle: config.note?.style,
-          }}
-        >
+        <p style={textConfigStyle(config.note, displayFont)}>
           {parse(noteText)}
         </p>
       )}

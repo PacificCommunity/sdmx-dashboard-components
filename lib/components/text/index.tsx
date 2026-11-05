@@ -56,7 +56,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${titleStyle.weight?"fw-"+titleStyle.weight:""} ${ titleStyle.italic?'fst-italic':''} ${titleStyle.align == "left"? "text-start": titleStyle.align === "right"?"text-end": titleStyle.align === "center"?"text-center":""}`}
                     style={{
                         fontSize: titleStyle.size,
-                        color: titleStyle.color
+                        color: titleStyle.color,
+                        textDecoration: titleStyle.decoration
                     }}>
                     {parse(titleText)}
                 </h2>
@@ -66,7 +67,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${subtitleStyle.weight?"fw-"+subtitleStyle.weight:""}  ${subtitleStyle.italic?'fst-italic':''}`}
                     style={{
                         fontSize: subtitleStyle.size,
-                        color: subtitleStyle.color
+                        color: subtitleStyle.color,
+                        textDecoration: subtitleStyle.decoration
                     }}>
                     {parse(subtitleText)}</h4>
             }
@@ -75,7 +77,8 @@ const Text = ({ config, language }: { config: {title?:SDMXTextConfig, subtitle?:
                     className={`${noteStyle.weight?"fw-"+noteStyle.weight:""} ${noteStyle.italic?'fst-italic':''}`}
                     style={{
                         fontSize: noteStyle.size,
-                        color: noteStyle.color
+                        color: noteStyle.color,
+                        textDecoration: noteStyle.decoration
                     }}>
                     {parse(noteText)}
                 </p>

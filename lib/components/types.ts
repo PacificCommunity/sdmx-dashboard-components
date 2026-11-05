@@ -146,6 +146,7 @@ export type SDMXTextConfig = {
     color?: string, // color of the text
     font?: string, // font of the text
     style?: string, // style of the text as in font-style css property
+    decoration?: string, // text decoration as in text-decoration css property, e.g. "underline"
     text: string | {
         [keyof: string]: string // translations of the text in different languages
     },

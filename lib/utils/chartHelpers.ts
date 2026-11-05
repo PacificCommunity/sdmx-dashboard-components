@@ -685,7 +685,9 @@ export const isNonEmptyValue = (value: unknown): boolean => {
   return !(typeof value === 'number' && Number.isNaN(value));
 };
 
-export const timePeriodRank = (dimension?: SDMXDimension): Map<string, number> => {
+export type TimeDimensionLike = { values?: ReadonlyArray<{ name?: unknown }> };
+
+export const timePeriodRank = (dimension?: TimeDimensionLike): Map<string, number> => {
   const ranks = new Map<string, number>();
   if (!dimension || !Array.isArray(dimension.values)) return ranks;
   dimension.values.forEach((value, index) => {
@@ -712,7 +714,7 @@ const timePeriodKey = (period: unknown, ranks: Map<string, number>): TimePeriodK
 
 export const getLatestTimePeriodRow = (
   data: SDMXObservation[],
-  timeDimension?: SDMXDimension
+  timeDimension?: TimeDimensionLike
 ): SDMXObservation | undefined => {
   const ranks = timePeriodRank(timeDimension);
   let latest: SDMXObservation | undefined;

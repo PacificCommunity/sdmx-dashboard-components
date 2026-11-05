@@ -78,7 +78,7 @@ import { SDMXRenderError, SDMXRenderErrorCode } from 'sdmx-dashboard-components'
 | `ERR_FETCH` | data URL unreachable or non-2xx (other than a 404 reporting no records) |
 | `ERR_PARSE` | response is not parseable SDMX-JSON |
 | `ERR_EMPTY` | query returned zero observations, either as a 200 without observations or as a 404 whose body reports no records (`.Stat Suite NoRecordsFound`, parser code `NO_RECORDS`) |
-| `ERR_NO_SERIES_DIMENSION` | bar/column/lollipop chart with no varying dimension besides the x-axis |
+| `ERR_NO_SERIES_DIMENSION` | bar/column/lollipop chart with no varying dimension besides the x-axis and no `legend.concept` naming the series |
 | `ERR_AMBIGUOUS_SERIES` | two or more varying dimensions and no `legend.concept` to disambiguate |
 | `ERR_CONCEPT_NOT_FOUND` | `xAxisConcept` or `legend.concept` missing from the dataflow structure |
 | `ERR_ENGINE` | anything thrown by ECharts while drawing (original error kept as `cause`) |

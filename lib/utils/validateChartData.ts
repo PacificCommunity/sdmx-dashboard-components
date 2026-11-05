@@ -1,7 +1,7 @@
 import { SDMXRenderError } from '../errors';
 
 // chart types whose series are built by grouping observations on a second
-// varying dimension; without one the series lookup yields nothing to render
+// dimension: legend.concept names it, or else it must be one that varies
 const GROUPING_CHART_TYPES: Record<string, true> = { bar: true, column: true, lollipop: true };
 
 type VaryingDimension = {
@@ -54,10 +54,13 @@ export const validateSeriesDimensions = (
         }))
         .filter((dimension) => dimension.valueCount > 1);
 
-    if (GROUPING_CHART_TYPES[chartType] && varying.length === 0) {
+    // a configured legend.concept names the series even when its dimension
+    // holds a single value: that is one series, not a missing one
+    const legendNamesSeries = Boolean(legendConcept) && legendConcept !== 'MULTI';
+    if (GROUPING_CHART_TYPES[chartType] && varying.length === 0 && !legendNamesSeries) {
         throw new SDMXRenderError(
             'ERR_NO_SERIES_DIMENSION',
-            `Chart type=${chartType} with xAxis=${xAxisConcept} needs at least one other varying dimension to group bars/columns. Only ${xAxisConcept} varies in this query. Fix: switch chart type to line or pie, widen the data query so a second dimension varies (e.g. remove lastNObservations or broaden the filter), or set legend.concept to a dimension with multiple values.`,
+            `Chart type=${chartType} with xAxis=${xAxisConcept} needs at least one other varying dimension to group bars/columns. Only ${xAxisConcept} varies in this query. Fix: set legend.concept to the dimension that names the series (a single-valued one gives a single series), switch chart type to line or pie, or widen the data query so a second dimension varies (e.g. remove lastNObservations or broaden the filter).`,
             { detail: { chartType, xAxisConcept, varyingDimensions: [] } }
         );
     }

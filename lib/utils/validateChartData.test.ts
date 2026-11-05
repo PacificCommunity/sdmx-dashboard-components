@@ -67,9 +67,9 @@ describe('validateSeriesDimensions: ERR_NO_SERIES_DIMENSION', () => {
         // the message wording is a public contract: agents self-correct from it
         expect(error.message).toBe(
             `Chart type=${chartType} with xAxis=TIME_PERIOD needs at least one other varying dimension to group bars/columns. ` +
-            'Only TIME_PERIOD varies in this query. Fix: switch chart type to line or pie, ' +
-            'widen the data query so a second dimension varies (e.g. remove lastNObservations or broaden the filter), ' +
-            'or set legend.concept to a dimension with multiple values.'
+            'Only TIME_PERIOD varies in this query. Fix: set legend.concept to the dimension that names the series ' +
+            '(a single-valued one gives a single series), switch chart type to line or pie, ' +
+            'or widen the data query so a second dimension varies (e.g. remove lastNObservations or broaden the filter).'
         );
     });
 
@@ -80,6 +80,12 @@ describe('validateSeriesDimensions: ERR_NO_SERIES_DIMENSION', () => {
 
     it('does not fire when a second dimension varies', () => {
         expect(() => validateSeriesDimensions('bar', 'TIME_PERIOD', '', oneVaryingData, twoVaryingActive)).not.toThrow();
+    });
+
+    // a config that names its series with a single-valued dimension (one
+    // indicator across countries, say) draws one series and must render
+    it.each(grouping)('%s chart does not fire when legend.concept names a single-valued dimension', (chartType) => {
+        expect(() => validateSeriesDimensions(chartType, 'TIME_PERIOD', 'INDICATOR', singleSeriesData, twoVaryingActive)).not.toThrow();
     });
 });
 

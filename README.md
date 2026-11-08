@@ -423,3 +423,15 @@ When `VITE_DEMO_BASE_PATH` is empty (default), the demo is built for root (`/`).
 ```bash
 npm run build
 ```
+
+## License
+
+Released under the [Apache License, Version 2.0](LICENSE). You may use, modify and distribute this library, including commercially, provided the license and copyright notices are retained. The license also includes an express patent grant.
+
+[Apache ECharts](https://echarts.apache.org/) is a peer dependency, licensed under Apache-2.0. It is installed by the consumer and is not bundled in this package.
+
+## Contributors
+
+- Thomas Tilak ([@thhomas](https://github.com/thhomas))
+- Stan Ozier ([@stanozr](https://github.com/stanozr))
+- Giulio Valentino Dalla Riva ([@gvdr](https://github.com/gvdr))

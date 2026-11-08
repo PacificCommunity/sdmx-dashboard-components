@@ -6,7 +6,14 @@
   "homepage": "https://pacificcommunity.github.io/sdmx-dashboard-components",
   "types": "dist/index.d.ts",
   "author": "Thomas Tilak & Stan Ozier",
-  "license": "CC-BY-4.0",
+  "contributors": [
+    {
+      "name": "Giulio Valentino Dalla Riva",
+      "email": "me@gvdallariva.net",
+      "url": "https://github.com/gvdr"
+    }
+  ],
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
     "build": "tsdown",
@@ -64,7 +71,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "dependencies": {
     "@tsdown/css": "^0.21.10",

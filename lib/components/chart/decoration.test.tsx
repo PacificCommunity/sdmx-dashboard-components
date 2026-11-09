@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, waitFor, cleanup } from '@testing-library/react';
-import Chart from './index';
+import { render, cleanup } from '@testing-library/react';
 import Table from '../table';
 import Value from '../value';
 import type { SDMXChartConfig } from '../types';
@@ -53,25 +52,6 @@ const config = (extra: Partial<SDMXChartConfig> = {}): SDMXChartConfig => ({
 });
 
 describe('text decoration', () => {
-    it('underlines a chart title and subtitle on the SVG text', async () => {
-        stub();
-        const { container } = render(
-            <Chart
-                config={config({
-                    title: { text: 'Linked title', link: 'https://example.org/a', decoration: 'underline' },
-                    subtitle: { text: 'Source', link: 'https://example.org/b', decoration: 'underline' }
-                })}
-                language="en"
-            />
-        );
-        await waitFor(() => expect(container.querySelector('svg')).toBeTruthy());
-        const texts = Array.from(container.querySelectorAll('text'));
-        const title = texts.find((node) => node.textContent === 'Linked title');
-        const subtitle = texts.find((node) => node.textContent === 'Source');
-        expect(title?.style.textDecoration).toBe('underline');
-        expect(subtitle?.style.textDecoration).toBe('underline');
-    });
-
     it('applies the decoration to a table title', async () => {
         stub();
         const { findByRole } = render(

@@ -175,7 +175,7 @@ config={{ ..., xAxisTitle: 'Year', yAxisTitle: { en: 'Population', fr: 'Populati
 
 `download: false` hides the chart's save-as-image button; it is shown otherwise.
 
-`title`, `subtitle` and `note` accept `decoration`, a CSS `text-decoration` value such as `"underline"`. Tables, values and text visuals apply it directly; charts apply it to the SVG `<text>` nodes of their title and subtitle, so a linked "Source" line can be underlined. When `subtitle.link` (with an optional `target`) is set in a table or value, the subtitle renders as a link and is underlined by default; an explicit `decoration` overrides that default. Table and value also share the same subtitle styling, so the same config produces the same text.
+`title`, `subtitle` and `note` accept `decoration`, a CSS `text-decoration` value such as `"underline"`. Tables, values and text visuals apply it directly. Chart visuals ignore `decoration`: their title and subtitle are ECharts-rendered SVG text with no supported styling hook. When `subtitle.link` (with an optional `target`) is set in a table or value, the subtitle renders as a link and is underlined by default; an explicit `decoration` overrides that default. Table and value also share the same subtitle styling, so the same config produces the same text.
 
 Dashboard rows list their visuals under `columns` (type `SDMXDashboardRow`). The earlier misspelling `colums` is still accepted as a deprecated alias for this major version; migrate to `columns`.
 

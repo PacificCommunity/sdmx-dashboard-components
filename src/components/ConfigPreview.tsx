@@ -36,6 +36,27 @@ const parseConfig = (text: string): SDMXChartConfig => {
     return parsed as SDMXChartConfig;
 };
 
+// Configs are JSON, but some values are function literals that JSON cannot
+// represent (e.g. ECharts tooltip and axis formatters). Walk the config and
+// revive strings that start with "function", matching the dashboard
+// integration in pdh-blue_pacific_2050_dashboard.
+const reviveFunctions = <T,>(value: T): T => {
+    if (typeof value === 'string') {
+        return (value.startsWith('function') ? new Function(`return (${value})`)() : value) as T;
+    }
+    if (Array.isArray(value)) {
+        return value.map((entry) => reviveFunctions(entry)) as T;
+    }
+    if (value && typeof value === 'object') {
+        const revived: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(value)) {
+            revived[key] = reviveFunctions(entry);
+        }
+        return revived as T;
+    }
+    return value;
+};
+
 const ConfigPreview = () => {
     const [text, setText] = useState('');
     const [config, setConfig] = useState<SDMXChartConfig | null>(null);
@@ -49,7 +70,7 @@ const ConfigPreview = () => {
                 return;
             }
             try {
-                setConfig(parseConfig(text));
+                setConfig(reviveFunctions(parseConfig(text)));
                 setError(null);
             } catch (err) {
                 setError(err instanceof Error ? err.message : String(err));

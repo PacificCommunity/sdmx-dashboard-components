@@ -5,18 +5,39 @@ import { render, fireEvent, waitFor, cleanup, screen } from '@testing-library/re
 import ConfigPreview from './ConfigPreview';
 
 vi.mock('../../lib', () => ({
-    SDMXChart: (props: { config: { id?: string } }) =>
-        React.createElement('div', { 'data-testid': 'chart', 'data-id': props.config.id }),
+    SDMXChart: (props: {
+        config: {
+            id?: string;
+            extraOptions?: { tooltip?: { formatter?: unknown } };
+        };
+    }) => {
+        const formatter = props.config.extraOptions?.tooltip?.formatter;
+        return React.createElement('div', {
+            'data-testid': 'chart',
+            'data-id': props.config.id,
+            'data-formatter-type': typeof formatter,
+            'data-formatter-result': typeof formatter === 'function'
+                ? (formatter as (params: unknown) => string)({
+                    name: 'Fiji',
+                    value: 12,
+                    marker: '',
+                    data: { TIME_PERIOD: '2020' },
+                })
+                : '',
+        });
+    },
 }));
 
 afterEach(cleanup);
 
-const valid = JSON.stringify({
+const baseConfig = {
     id: 'demo',
     type: 'line',
     xAxisConcept: 'TIME_PERIOD',
     data: 'https://example.org/data',
-});
+};
+
+const valid = JSON.stringify(baseConfig);
 
 const paste = (value: string) => {
     fireEvent.change(screen.getByLabelText('Chart config JSON'), { target: { value } });
@@ -70,5 +91,35 @@ describe('ConfigPreview', () => {
         const textarea = screen.getByLabelText('Chart config JSON') as HTMLTextAreaElement;
         expect((JSON.parse(textarea.value) as { type?: string }).type).toBe('line');
         await waitFor(() => expect(screen.queryByTestId('chart')).toBeTruthy());
+    });
+
+    it('compiles a function-source tooltip formatter', async () => {
+        render(<ConfigPreview />);
+        paste(JSON.stringify({
+            ...baseConfig,
+            extraOptions: {
+                tooltip: {
+                    formatter: 'function (p) { return p.name + "!"; }',
+                },
+            },
+        }));
+        await waitFor(() => expect(screen.queryByTestId('chart')).toBeTruthy());
+        const chart = screen.getByTestId('chart');
+        expect(chart.getAttribute('data-formatter-type')).toBe('function');
+        expect(chart.getAttribute('data-formatter-result')).toBe('Fiji!');
+    });
+
+    it('leaves a tooltip template string as a string', async () => {
+        render(<ConfigPreview />);
+        paste(JSON.stringify({
+            ...baseConfig,
+            extraOptions: {
+                tooltip: {
+                    formatter: '{b}: {c}',
+                },
+            },
+        }));
+        await waitFor(() => expect(screen.queryByTestId('chart')).toBeTruthy());
+        expect(screen.getByTestId('chart').getAttribute('data-formatter-type')).toBe('string');
     });
 });

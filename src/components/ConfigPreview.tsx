@@ -23,7 +23,6 @@ const EXAMPLE_CONFIG: SDMXChartConfig = {
         text: 'Levels at dates of change',
     },
     xAxisConcept: 'TIME_PERIOD',
-    yAxisConcept: 'OBS_VALUE',
 };
 
 const parseConfig = (text: string): SDMXChartConfig => {

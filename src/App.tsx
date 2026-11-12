@@ -13,6 +13,7 @@ import Lollipop from './components/Lollipop';
 import Other from './components/Other';
 import Maps from './components/Maps';
 import Table from './components/Table';
+import ConfigPreview from './components/ConfigPreview';
 
 const App = () => {
   const { active_tab } = useParams();
@@ -59,6 +60,10 @@ const App = () => {
     other: {
       title: 'Other',
       component: <Other />,
+    },
+    preview: {
+      title: 'Try your own',
+      component: <ConfigPreview />,
     },
   }
   return (

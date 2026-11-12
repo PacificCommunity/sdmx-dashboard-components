@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 // files are node:test suites run with `node --test`, so keep vitest out of them.
 export default defineConfig({
   test: {
-    include: ['lib/**/*.test.{ts,tsx}'],
+    include: ['lib/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
     setupFiles: ['lib/test/setup.ts'],
   },
 })

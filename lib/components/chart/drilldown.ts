@@ -15,6 +15,7 @@ import {
   selectLatestRootRow,
   sortByDimension,
   sortByValue,
+  sortSeriesValues,
   sortTimePeriodValues,
   withValueAxisFormatter,
 } from '../../utils/chartHelpers';
@@ -87,8 +88,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
       }
     });
 
-    [...legendDimension.values]
-      .sort((a, b) => a.id.localeCompare(b.id))
+    sortSeriesValues(legendDimension.values)
       .forEach((legendDimensionValue) => {
         const legendSerie = data.filter((val: SDMXObservation) => val[legendConcept] === legendDimensionValue.name);
 

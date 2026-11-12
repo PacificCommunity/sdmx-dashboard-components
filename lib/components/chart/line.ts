@@ -10,6 +10,7 @@ import {
   finalizeCartesianAxes,
   paletteColor,
   sortByDimension,
+  sortSeriesValues,
 } from '../../utils/chartHelpers';
 import { SDMXRenderError } from '../../errors';
 
@@ -65,8 +66,7 @@ export const buildLine: ChartBuilder = ({ config, numberLocale, datasets }) => {
       xAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
     }
 
-    [...serieDimensions.values]
-      .sort((a, b) => a.name.localeCompare(b.name))
+    sortSeriesValues(serieDimensions.values, (a, b) => a.name.localeCompare(b.name))
       .forEach((serieDimension) => {
         const serieData = data.filter((val: SDMXObservation) => val[legendConcept] === serieDimension.name);
         if (serieData.length === 0) return;

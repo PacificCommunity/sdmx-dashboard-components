@@ -120,6 +120,21 @@ export const paletteColor = (config: SDMXChartConfig, concept: string, code: str
   return undefined;
 };
 
+// Series order as the SDMX structure declares it: `order` when the source
+// provides it, then the caller's fallback (the value id for column-like and
+// drilldown series, the label for line series). Values without `order` sort
+// after those with it.
+export const sortSeriesValues = <T extends { id: string; name: string; order?: number }>(
+  values: readonly T[],
+  fallback: (a: T, b: T) => number = (a, b) => a.id.localeCompare(b.id)
+): T[] =>
+  [...values].sort((a, b) => {
+    const left = a.order ?? Number.POSITIVE_INFINITY;
+    const right = b.order ?? Number.POSITIVE_INFINITY;
+    if (left !== right) return left - right;
+    return fallback(a, b);
+  });
+
 export const resolveSeriesNames = (entries: SeriesNaming[]): Map<SeriesNaming, string> => {
   if (entries.length === 0) return new Map();
 
@@ -961,8 +976,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
       && xAxisConcept !== 'TIME_PERIOD'
       && legendDimension?.id !== 'TIME_PERIOD';
 
-    [...legendDimension.values]
-      .sort((a, b) => a.id.localeCompare(b.id))
+    sortSeriesValues(legendDimension.values)
       .forEach((legendDimensionValue) => {
         const legendSerie = data.filter((val) => val[legendDimension.id] === legendDimensionValue.name);
         const sortedData = sortByDimension(legendSerie, xAxisConcept);

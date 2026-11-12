@@ -64,6 +64,14 @@ const ageConfig: SDMXChartConfig = {
     drilldown: { xAxisConcept: 'AGE' }
 };
 
+// The Youth NEET shape: one INDICATOR value, broken down by SEX in the child.
+const youthNeetConfig: SDMXChartConfig = {
+    ...timeConfig,
+    id: 'drilldown-youth-neet',
+    legend: { concept: 'INDICATOR' },
+    drilldown: { xAxisConcept: 'SEX' }
+};
+
 // Fiji and Samoa, two sexes, two periods; periods differ in coverage between
 // the sexes when `uneven` is set.
 const timeDataset = (uneven = false): ParsedDataset => {
@@ -112,6 +120,51 @@ const ageDataset = (): ParsedDataset => {
     return {
         datasetIndex: 0,
         dimensions: dimensions('AGE', ['Total', '0-14', '15+'], ['F', 'M']),
+        data
+    };
+};
+
+const youthNeetDataset = (): ParsedDataset => {
+    const data: ParsedDataset['data'] = [];
+    ['Fiji', 'Samoa'].forEach((country, countryIndex) => {
+        ['Female', 'Male', 'Total'].forEach((sex, sexIndex) => {
+            data.push({
+                GEO_PICT: country,
+                INDICATOR: 'Youth NEET',
+                SEX: sex,
+                TIME_PERIOD: '2022',
+                value: countryIndex * 100 + sexIndex * 10 + 10
+            });
+        });
+    });
+    return {
+        datasetIndex: 0,
+        dimensions: [
+            {
+                id: 'GEO_PICT',
+                name: 'Country',
+                keyPosition: 0,
+                values: [{ id: 'FJ', name: 'Fiji' }, { id: 'WS', name: 'Samoa' }]
+            },
+            {
+                id: 'INDICATOR',
+                name: 'Indicator',
+                keyPosition: 1,
+                values: [{ id: 'SL_TLF_NEET', name: 'Youth NEET' }]
+            },
+            {
+                id: 'SEX',
+                name: 'Sex',
+                keyPosition: 2,
+                values: [{ id: 'F', name: 'Female' }, { id: 'M', name: 'Male' }, { id: '_T', name: 'Total' }]
+            },
+            {
+                id: 'TIME_PERIOD',
+                name: 'Time',
+                keyPosition: 3,
+                values: [{ id: '2022', name: '2022', start: '2022' }]
+            }
+        ],
         data
     };
 };
@@ -179,5 +232,18 @@ describe('drilldown with several legend series', () => {
             [30, 70],
             [40, 80]
         ]);
+    });
+
+    it('keeps a single-valued legend as one series broken down by the drilldown dimension', () => {
+        const built = buildChartOptionFromDatasets(youthNeetConfig, 'en', [youthNeetDataset()]);
+        const rootSeries = built.option.series as unknown as RootSeries[];
+        expect(rootSeries.map((series) => series.name)).toEqual(['Youth NEET']);
+
+        const { ids, child } = childFor(built, 'Fiji');
+        expect(ids).toHaveLength(1);
+        expect(child?.xAxis.data).toEqual(['Female', 'Male']);
+        expect(child?.series.map((series) => series.name)).toEqual(['Youth NEET']);
+        expect(child?.series[0].type).toBe('bar');
+        expect(child?.series[0].data.map((point) => point.value)).toEqual([10, 20]);
     });
 });

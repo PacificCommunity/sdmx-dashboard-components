@@ -99,6 +99,70 @@ const Drilldown = () => {
             language='en'
         />`
     }, {
+        id: "SH_DYN_MORT_SDG03",
+        code: `<SDMXChart
+            config={{
+            data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/SPC,DF_SDG_03/A.G.SH_DYN_MORT.AS+CK+FJ+FM+GU+KI+MH+MP+NC+NR+NU+PF+PG+PN+PW+SB+TK+TO+TV+VU+WF+WS.M+F.Y0T4._T._T._T._T._T._T._T._T._T?dimensionAtObservation=AllDimensions"],
+            id: "SH_DYN_MORT",
+            type: "drilldown",
+            xAxisConcept: "REF_AREA",
+            legend: {
+                concept: "SEX",
+                location: "bottom"
+            },
+            drilldown: {
+                xAxisConcept: "TIME_PERIOD"
+            },
+            colorPalette: {
+                SEX: {
+                    M: "#fecba1",
+                    F: "#c5b3e6"
+                }
+            },
+            yAxisConcept: "OBS_VALUE",
+            extraOptions: {
+                yAxis: {
+                    name: "per 1,000",
+                    min: 0,
+                    max: 80
+                },
+                tooltip: {
+                    formatter: (p) => {
+                        const pts = Array.isArray(p) ? p : [p];
+                        const isChild = pts[0].data && pts[0].data.drilldownId === undefined;
+                        const lines = pts.map((x) => {
+                            const n = Number(x.value);
+                            const text = (x.value === null || x.value === undefined || x.value === "")
+                                ? "-"
+                                : (Number.isFinite(n) ? n.toLocaleString("en") : String(x.value));
+                            const period = isChild ? x.name : (x.data && x.data.TIME_PERIOD);
+                            const suffix = period ? " in " + period : "";
+                            return (x.marker || "") + (x.seriesName || "") + ": " + text + " per 1,000" + suffix;
+                        });
+                        return (isChild ? "" : pts[0].name + "<br/>") + lines.join("<br/>");
+                    }
+                },
+                series: {
+                    label: {
+                        show: false
+                    },
+                    emphasis: {
+                        label: {
+                            show: true
+                        }
+                    }
+                }
+            },
+            subtitle: {
+                text: "Source PDH.stat",
+                link: "https://stats.pacificdata.org/vis?fs[0]=Development%20indicators,0%7CSustainable%20Development%20Goals%23SDG%23&pg=0&fc=Development%20indicators&bp=true&snb=18&vw=tb&df[ds]=ds%3ASPC2&df[id]=DF_SDG_03&df[ag]=SPC&dq=A.G.SH_DYN_MORT..M%2BF.Y0T4._T._T._T._T._T._T._T._T._T&pd=,&to[TIME_PERIOD]=false&isAvailabilityDisabled=false&page=0",
+                target: "blank",
+                size: "1em"
+            }
+            }}
+            language='en'
+        />`
+    }, {
         id: "NY_GDP_PCAP",
         code: `<SDMXChart config={{
             data: ["https://stats-sdmx-disseminate.pacificdata.org/rest/data/DF_BP50/A.NY_GDP_PCAP.CK+FJ+FM+KI+MH+NC+NR+NU+PF+PG+PW+SB+TO+TV+VU+WS._T._T._T._T._T._T._Z._T?dimensionAtObservation=AllDimensions"],

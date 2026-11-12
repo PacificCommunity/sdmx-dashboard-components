@@ -321,7 +321,7 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 
 ### Series order
 
-Series follow the SDMX `order` of the legend dimension values when the source provides it; values without `order` come after those with it. Ties and sources without `order` fall back to the dimension value code, or to the value label for line charts. `sortByValue` orders the x-axis categories only, not the series.
+Series follow the `ORDER` annotation carried by the legend dimension values when the source provides one, then the value's SDMX `order`; values with neither come after those that have one. Ties and sources with neither fall back to the dimension value code, or to the value label for line charts. `sortByValue` orders the x-axis categories only, not the series.
 
 ### Choosing the observation
 

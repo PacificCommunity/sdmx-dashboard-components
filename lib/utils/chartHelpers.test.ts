@@ -44,7 +44,43 @@ describe('sortSeriesValues', () => {
   it('uses the given fallback for ties', () => {
     const values = [value('A', 'Zeta', 1), value('Z', 'Alpha', 1)];
     const byName = (a: ReturnType<typeof value>, b: ReturnType<typeof value>) => a.name.localeCompare(b.name);
-    expect(sortSeriesValues(values, byName).map((entry) => entry.id)).toEqual(['Z', 'A']);
+    expect(sortSeriesValues(values, [], byName).map((entry) => entry.id)).toEqual(['Z', 'A']);
+  });
+
+  it('prefers an ORDER annotation over the value order', () => {
+    const annotations = [
+      { type: 'ORDER', text: '10' },
+      { type: 'ORDER', text: '20' },
+    ];
+    const values = [
+      { id: 'A', name: 'Alpha', order: 1, annotations: [1] },
+      { id: 'Z', name: 'Zeta', order: 2, annotations: [0] },
+    ];
+    expect(sortSeriesValues(values, annotations).map((entry) => entry.id)).toEqual(['Z', 'A']);
+  });
+
+  it('reads the ORDER text from the localized texts when text is absent', () => {
+    const annotations = [
+      { type: 'ORDER', texts: { en: '5' } },
+      { type: 'ORDER', texts: { en: '1' } },
+    ];
+    const values = [
+      { id: 'A', name: 'Alpha', annotations: [0] },
+      { id: 'Z', name: 'Zeta', annotations: [1] },
+    ];
+    expect(sortSeriesValues(values, annotations).map((entry) => entry.id)).toEqual(['Z', 'A']);
+  });
+
+  it('ignores annotations that are not ORDER and falls back to the value order', () => {
+    const annotations = [
+      { type: 'NOTE', text: '10' },
+      { type: 'ORDER', text: 'not-a-number' },
+    ];
+    const values = [
+      { id: 'A', name: 'Alpha', order: 1, annotations: [0, 1] },
+      { id: 'Z', name: 'Zeta', order: 2 },
+    ];
+    expect(sortSeriesValues(values, annotations).map((entry) => entry.id)).toEqual(['A', 'Z']);
   });
 });
 

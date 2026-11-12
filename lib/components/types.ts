@@ -125,6 +125,18 @@ export type SDMXAttribute = {
 }
 
 /**
+ * One entry of an SDMX-JSON structure's `annotations` array. A dimension value
+ * references entries by index in its own `annotations` array; `type` "ORDER"
+ * carries the display rank in `text` (or the localised `texts`).
+ */
+export type SDMXAnnotation = {
+    type?: string, // e.g. "ORDER"
+    title?: string, // annotation heading, for the non-ORDER types
+    text?: string, // annotation value
+    texts?: { [language: string]: string }, // localised values, used when text is absent
+}
+
+/**
  * One row of `SDMXParser.getData()`: a flat record of the observation value
  * plus every dimension and attribute name for that observation, keyed by
  * concept id.

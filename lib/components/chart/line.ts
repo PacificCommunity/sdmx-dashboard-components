@@ -35,7 +35,7 @@ export const buildLine: ChartBuilder = ({ config, numberLocale, datasets }) => {
   let xAxis: AxisOption = { type: 'category', data: [] };
   let timeAxisFormat: string | undefined;
 
-  datasets.forEach(({ data, dimensions }) => {
+  datasets.forEach(({ data, dimensions, annotations }) => {
     const xAxisConcept = config.xAxisConcept || 'TIME_PERIOD';
     const legendConcept = config.legend?.concept
       || dimensions.find((d) => d.id !== xAxisConcept)?.id;
@@ -66,7 +66,7 @@ export const buildLine: ChartBuilder = ({ config, numberLocale, datasets }) => {
       xAxis = { type: 'category', data: categories, axisLabel: { interval: 0 } };
     }
 
-    sortSeriesValues(serieDimensions.values, (a, b) => a.name.localeCompare(b.name))
+    sortSeriesValues(serieDimensions.values, annotations, (a, b) => a.name.localeCompare(b.name))
       .forEach((serieDimension) => {
         const serieData = data.filter((val: SDMXObservation) => val[legendConcept] === serieDimension.name);
         if (serieData.length === 0) return;

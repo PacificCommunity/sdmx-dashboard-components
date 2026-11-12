@@ -69,7 +69,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
   let rootConcept: string | undefined;
 
   datasets.forEach((dataset) => {
-    const { data, dimensions, alternateLabel, datasetIndex } = dataset;
+    const { data, dimensions, annotations, alternateLabel, datasetIndex } = dataset;
     const xAxisConcept = config.xAxisConcept;
     const legendConcept = config.legend?.concept || '';
     if (!legendConcept) throw new SDMXRenderError('ERR_CONCEPT_NOT_FOUND', 'No legend concept found');
@@ -88,7 +88,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
       }
     });
 
-    sortSeriesValues(legendDimension.values)
+    sortSeriesValues(legendDimension.values, annotations)
       .forEach((legendDimensionValue) => {
         const legendSerie = data.filter((val: SDMXObservation) => val[legendConcept] === legendDimensionValue.name);
 

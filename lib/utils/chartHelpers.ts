@@ -7,7 +7,7 @@ import type {
   XAXisComponentOption,
   YAXisComponentOption,
 } from 'echarts';
-import { SDMXChartConfig, type SDMXDimension, type SDMXObservation } from '../components/types';
+import { SDMXChartConfig, type SDMXAnnotation, type SDMXDimension, type SDMXObservation } from '../components/types';
 import { SDMXRenderError } from '../errors';
 
 export type ChartType = 'line' | 'column' | 'bar' | 'lollipop' | 'treemap' | 'pie' | 'drilldown';
@@ -55,6 +55,9 @@ export type BuiltChart = {
 export type ParsedDataset = {
   data: SDMXObservation[];
   dimensions: SDMXDimension[];
+  // the structure's annotations, indexed by each dimension value's
+  // `annotations` array (ORDER annotations drive series order)
+  annotations?: SDMXAnnotation[];
   activeDimensions?: SDMXDimension[];
   operator?: 'hist' | 'expr' | 'count';
   alternateLabel?: string;
@@ -120,17 +123,36 @@ export const paletteColor = (config: SDMXChartConfig, concept: string, code: str
   return undefined;
 };
 
-// Series order as the SDMX structure declares it: `order` when the source
-// provides it, then the caller's fallback (the value id for column-like and
-// drilldown series, the label for line series). Values without `order` sort
-// after those with it.
-export const sortSeriesValues = <T extends { id: string; name: string; order?: number }>(
+// The rank an ORDER annotation carries for a dimension value, if any. The
+// structure's annotation list is shared, and each value points into it.
+const annotationOrder = (
+  value: { annotations?: number[] },
+  annotations: ReadonlyArray<SDMXAnnotation>
+): number | undefined => {
+  for (const index of value.annotations ?? []) {
+    const annotation = annotations[index];
+    if (annotation?.type !== 'ORDER') continue;
+    const text = annotation.text
+      ?? (annotation.texts ? Object.values(annotation.texts)[0] : undefined);
+    if (typeof text !== 'string' || text.trim() === '') continue;
+    const order = Number(text);
+    if (Number.isFinite(order)) return order;
+  }
+  return undefined;
+};
+
+// Series order as the SDMX structure declares it: an ORDER annotation first,
+// then the value's `order`, then the caller's fallback (the value id for
+// column-like and drilldown series, the label for line series). Values with
+// neither annotation nor order sort after those that have one.
+export const sortSeriesValues = <T extends { id: string; name: string; order?: number; annotations?: number[] }>(
   values: readonly T[],
+  annotations: ReadonlyArray<SDMXAnnotation> = [],
   fallback: (a: T, b: T) => number = (a, b) => a.id.localeCompare(b.id)
 ): T[] =>
   [...values].sort((a, b) => {
-    const left = a.order ?? Number.POSITIVE_INFINITY;
-    const right = b.order ?? Number.POSITIVE_INFINITY;
+    const left = annotationOrder(a, annotations) ?? a.order ?? Number.POSITIVE_INFINITY;
+    const right = annotationOrder(b, annotations) ?? b.order ?? Number.POSITIVE_INFINITY;
     if (left !== right) return left - right;
     return fallback(a, b);
   });
@@ -952,7 +974,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
   const byName = new Map<string, ColumnLikeEntry>();
 
   datasets.forEach((dataset) => {
-    const { data, dimensions, activeDimensions, alternateLabel, datasetIndex } = dataset;
+    const { data, dimensions, annotations, activeDimensions, alternateLabel, datasetIndex } = dataset;
     const legendConcept = config.legend?.concept || '';
     // hist datasets have no activeDimensions; fall back to the full dimension
     // list so a missing list cannot crash the builder
@@ -976,7 +998,7 @@ export const collectColumnLike = (context: ChartContext): ColumnLikeCollection =
       && xAxisConcept !== 'TIME_PERIOD'
       && legendDimension?.id !== 'TIME_PERIOD';
 
-    sortSeriesValues(legendDimension.values)
+    sortSeriesValues(legendDimension.values, annotations)
       .forEach((legendDimensionValue) => {
         const legendSerie = data.filter((val) => val[legendDimension.id] === legendDimensionValue.name);
         const sortedData = sortByDimension(legendSerie, xAxisConcept);

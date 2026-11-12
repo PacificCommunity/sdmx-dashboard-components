@@ -1,5 +1,5 @@
 import type { EChartsOption } from 'echarts';
-import type { SDMXAttribute, SDMXChartConfig, SDMXDimension, SDMXObservation, SDMXTheme, SDMXFetcher } from '../types';
+import type { SDMXAnnotation, SDMXAttribute, SDMXChartConfig, SDMXDimension, SDMXObservation, SDMXTheme, SDMXFetcher } from '../types';
 import { merge } from 'ts-deepmerge';
 import { resolveNumberLocale, themeChartOptions } from '../../utils/theme';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -66,6 +66,7 @@ export const loadDatasets = async (
         const data = parser.getData() as SDMXObservation[];
         if (data.length === 0) throw emptyDataError(id, dataObj.dataFlowUrl);
         const attributes = parser.getAttributes() as SDMXAttribute[];
+        const annotations = parser.getAnnotations() as SDMXAnnotation[] | undefined;
         if (dataObj.alternateLabel) {
           data.forEach((_item: SDMXObservation, index: number, data: SDMXObservation[]) => {
             data[index][xAxisConcept as string] = dataObj.alternateLabel;
@@ -88,6 +89,7 @@ export const loadDatasets = async (
           return {
             data: histData,
             dimensions: parser.getDimensions() as SDMXDimension[],
+            annotations,
             alternateLabel: dataObj.alternateLabel,
             datasetIndex,
             operator: dataObj.operator,
@@ -109,6 +111,7 @@ export const loadDatasets = async (
             return {
               data,
               dimensions: parser.getDimensions() as SDMXDimension[],
+              annotations,
               activeDimensions: parser.getActiveDimensions() as SDMXDimension[],
               alternateLabel: dataObj.alternateLabel,
               datasetIndex,
@@ -119,6 +122,7 @@ export const loadDatasets = async (
         return {
           data,
           dimensions: parser.getDimensions() as SDMXDimension[],
+          annotations,
           activeDimensions: parser.getActiveDimensions() as SDMXDimension[],
           alternateLabel: dataObj.alternateLabel,
           datasetIndex,

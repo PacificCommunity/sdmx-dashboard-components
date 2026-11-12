@@ -1,10 +1,12 @@
 import type { EChartsOption, SeriesOption } from 'echarts';
-import type { Category, ChartBuilder, SeriesNaming } from '../../utils/chartHelpers';
+import type { Category, ChartBuilder, SeriesNaming, TimeDimensionLike } from '../../utils/chartHelpers';
 import type { SDMXObservation } from '../types';
 import {
   buildCartesianChartParts,
+  buildCartesianGrid,
   buildCartesianTooltip,
   buildEchartsTitle,
+  buildLegend,
   CARTESIAN_GRID_INSETS,
   GRID_CONTAINS_AXIS_TEXT,
   labelFormatter,
@@ -30,6 +32,27 @@ type DrilldownSeriesEntry = SeriesNaming & {
   periodByName: Map<Category, Category>;
 };
 
+// One point of a child series: the breakdown value for one value of the
+// drilldown dimension.
+type DrilldownChildPoint = {
+  name: Category;
+  value: number | null;
+  itemStyle?: { color: string };
+};
+
+// The child chart for one root category. Every legend series with data for
+// that category contributes a series here, so drilling into a multi-series
+// column shows them all rather than only the clicked one.
+type DrilldownChild = {
+  isTime: boolean;
+  drilldownXAxisConcept: string;
+  timeDimension?: TimeDimensionLike;
+  pointColor?: string;
+  titleText?: string;
+  subtitleText?: string;
+  seriesByName: Map<string, { entry: DrilldownSeriesEntry; data: DrilldownChildPoint[] }>;
+};
+
 export const buildDrilldown: ChartBuilder = (context) => {
   const { config, numberLocale, datasets, titleText, subtitleText } = context;
   const drilldownXAxisConcept = config.drilldown?.xAxisConcept;
@@ -37,6 +60,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
 
   const drilldownOptions: Record<string, EChartsOption> = {};
   const drilldownSeriesByKey = new Map<string, DrilldownSeriesEntry>();
+  const drilldownChildren = new Map<string, DrilldownChild>();
   const categoryOrder: Category[] = [];
   const categorySeen = new Set<Category>();
   const categoriesWithData = new Set<Category>();
@@ -123,9 +147,11 @@ export const buildDrilldown: ChartBuilder = (context) => {
           if (tmpArr.length === 0) return;
 
           const category = xAxisDimensionValue.name;
-          const drilldownId = `${datasetIndex}:${category}:${legendDimensionValue.name}`;
+          // one child chart per root category, shared by every legend series:
+          // drilling in must keep all the series drawn for that category
+          const drilldownId = `${datasetIndex}:${category}`;
+          const pointColor = paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
           if (!seriesEntry.valueByName.has(category)) {
-            const pointColor = paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
             seriesEntry.valueByName.set(category, legendSerieDataValue['value']);
             seriesEntry.drilldownIdByName.set(category, drilldownId);
             seriesEntry.itemStyleByName.set(category, pointColor ? { color: pointColor } : undefined);
@@ -135,7 +161,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
             }
           }
 
-          const childData = tmpArr.map((value: SDMXObservation) => {
+          const childData: DrilldownChildPoint[] = tmpArr.map((value: SDMXObservation) => {
             const dimId = drilldownXAxisDimension.values.find((v) => v.name === value[drilldownXAxisConcept])?.id;
             const c = dimId ? paletteColor(config, drilldownXAxisConcept, dimId) : undefined;
             return {
@@ -144,42 +170,23 @@ export const buildDrilldown: ChartBuilder = (context) => {
               itemStyle: c ? { color: c } : undefined,
             };
           });
-          const isTime = drilldownXAxisConcept === 'TIME_PERIOD';
-          const seriesColor = paletteColor(config, legendConcept, legendDimensionValue.id)
-            ?? paletteColor(config, xAxisConcept, xAxisDimensionValue.id);
-          drilldownOptions[drilldownId] = {
-            title: buildEchartsTitle(
-              config,
-              dataset.titleText ?? titleText,
-              dataset.subtitleText ?? subtitleText
-            ),
-            tooltip: buildCartesianTooltip(config, numberLocale),
-            grid: { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
-            xAxis: {
-              type: 'category',
-              data: childData.map((d) => d.name),
-              ...(isTime ? {} : { axisLabel: { interval: 0 } }),
-            },
-            yAxis: withValueAxisFormatter({ type: 'value' }),
-            series: [{
-              type: isTime ? 'line' : 'bar',
-              name: legendDimensionValue.name,
-              data: childData,
-              itemStyle: {
-                ...(seriesColor ? { color: seriesColor } : {}),
-                ...(isTime ? {} : { borderRadius: [3, 3, 0, 0] }),
-              },
-              ...(config.labels
-                ? {
-                    label: {
-                      show: true,
-                      position: 'top',
-                      formatter: labelFormatter(config, numberLocale, isTime ? 'line' : 'column'),
-                    },
-                  }
-                : {}),
-            } as SeriesOption],
-          };
+          let child = drilldownChildren.get(drilldownId);
+          if (!child) {
+            child = {
+              isTime: drilldownXAxisConcept === 'TIME_PERIOD',
+              drilldownXAxisConcept,
+              timeDimension,
+              pointColor,
+              titleText: dataset.titleText ?? titleText,
+              subtitleText: dataset.subtitleText ?? subtitleText,
+              seriesByName: new Map(),
+            };
+            drilldownChildren.set(drilldownId, child);
+          }
+          // the first legend value seen for the category wins, as for the root
+          if (!child.seriesByName.has(legendDimensionValue.name)) {
+            child.seriesByName.set(legendDimensionValue.name, { entry: seriesEntry, data: childData });
+          }
         });
       });
   });
@@ -208,6 +215,86 @@ export const buildDrilldown: ChartBuilder = (context) => {
 
   const entries = Array.from(drilldownSeriesByKey.values());
   const resolvedNames = resolveSeriesNames(entries);
+
+  // The breakdown values of one child chart, in the order its series were
+  // sorted: chronological for a time drilldown, by the drilldown dimension
+  // otherwise. A series that does not cover a value gets an explicit null.
+  const childCategories = (child: DrilldownChild): Category[] => {
+    const seen = new Set<Category>();
+    child.seriesByName.forEach(({ data }) => {
+      data.forEach((point) => seen.add(point.name));
+    });
+    const names = Array.from(seen);
+    if (child.isTime) {
+      return sortTimePeriodValues(
+        names.map((name): SDMXObservation => ({ value: null, name, TIME_PERIOD: name })),
+        child.timeDimension
+      ).map((row) => row.name);
+    }
+    return sortByDimension(
+      names.map((name) => ({ name, [child.drilldownXAxisConcept]: name })),
+      child.drilldownXAxisConcept
+    ).map((row) => row.name);
+  };
+
+  drilldownChildren.forEach((child, drilldownId) => {
+    const names = childCategories(child);
+    const childSeries = Array.from(child.seriesByName.values());
+    const seriesNames = childSeries.map(
+      ({ entry }) => resolvedNames.get(entry) ?? entry.name
+    );
+    const series = childSeries.map(({ entry, data }, index) => {
+      const byName = new Map(data.map((point) => [point.name, point]));
+      const seriesColor = paletteColor(config, entry.legendConcept, entry.id) ?? child.pointColor;
+      // with several series the colour identifies the series, so the
+      // drilldown-dimension point colours of the single-series child would
+      // paint every series alike and are dropped
+      const keepPointColor = childSeries.length === 1;
+      return {
+        type: child.isTime ? 'line' : 'bar',
+        name: seriesNames[index],
+        data: names.map((name) => {
+          const point = byName.get(name) ?? { name, value: null };
+          return keepPointColor ? point : { name: point.name, value: point.value };
+        }),
+        itemStyle: {
+          ...(seriesColor ? { color: seriesColor } : {}),
+          ...(child.isTime ? {} : { borderRadius: [3, 3, 0, 0] }),
+        },
+        ...(config.labels
+          ? {
+              label: {
+                show: true,
+                position: 'top',
+                formatter: labelFormatter(config, numberLocale, child.isTime ? 'line' : 'column'),
+              },
+            }
+          : {}),
+      } as SeriesOption;
+    });
+    drilldownOptions[drilldownId] = {
+      title: buildEchartsTitle(
+        config,
+        child.titleText ?? titleText,
+        child.subtitleText ?? subtitleText
+      ),
+      tooltip: buildCartesianTooltip(config, numberLocale),
+      grid: series.length > 1
+        ? buildCartesianGrid(config, series)
+        : { ...GRID_CONTAINS_AXIS_TEXT, ...CARTESIAN_GRID_INSETS },
+      // a single-series child keeps its old chrome-free look; several series
+      // need a legend to be told apart
+      ...(series.length > 1 ? { legend: buildLegend(config, seriesNames) } : {}),
+      xAxis: {
+        type: 'category',
+        data: names,
+        ...(child.isTime ? {} : { axisLabel: { interval: 0 } }),
+      },
+      yAxis: withValueAxisFormatter({ type: 'value' }),
+      series,
+    };
+  });
+
   const rootSeries: SeriesOption[] = [];
   entries.forEach((seriesEntry) => {
     const seriesValues = categories.map((category) => {

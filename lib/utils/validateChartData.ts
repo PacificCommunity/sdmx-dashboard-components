@@ -90,7 +90,33 @@ export const validateSeriesDimensions = (
     data: ReadonlyArray<ObservationRow>,
     activeDimensions: ReadonlyArray<ActiveDimension>
 ): void => {
-    if (!xAxisConcept || xAxisConcept === 'MULTI' || data.length === 0 || activeDimensions.length === 0) {
+    if (!xAxisConcept || xAxisConcept === 'MULTI' || data.length === 0) {
+        return;
+    }
+
+    // a configured legend.concept names the series even when its dimension
+    // holds a single value: that is one series, not a missing one
+    const legendNamesSeries = Boolean(legendConcept) && legendConcept !== 'MULTI';
+
+    // A drilldown child chart draws one series per value of the root legend
+    // concept, so that concept must be configured and carried by the data. A
+    // single value is legitimate: it is one series, not a broken chart.
+    if (chartType === 'drilldown') {
+        const legendHasValue = data.some(
+            (row) => isNonEmptyValue(row.value) && isNonEmptyValue(row[legendConcept])
+        );
+        if (!legendNamesSeries || !legendHasValue) {
+            throw new SDMXRenderError(
+                'ERR_NO_SERIES_DIMENSION',
+                `Chart type=drilldown with xAxis=${xAxisConcept} needs legend.concept to name the series drawn in each drilled-down chart, ` +
+                'and at least one observation must carry that dimension. Fix: set legend.concept to a dimension present in the data ' +
+                '(a single-valued one gives a single series).',
+                { detail: { chartType, xAxisConcept, varyingDimensions: [] } }
+            );
+        }
+    }
+
+    if (activeDimensions.length === 0) {
         return;
     }
 
@@ -105,9 +131,6 @@ export const validateSeriesDimensions = (
         }))
         .filter((dimension) => dimension.valueCount > 1);
 
-    // a configured legend.concept names the series even when its dimension
-    // holds a single value: that is one series, not a missing one
-    const legendNamesSeries = Boolean(legendConcept) && legendConcept !== 'MULTI';
     if (GROUPING_CHART_TYPES[chartType] && varying.length === 0 && !legendNamesSeries) {
         throw new SDMXRenderError(
             'ERR_NO_SERIES_DIMENSION',

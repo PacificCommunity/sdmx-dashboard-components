@@ -89,6 +89,34 @@ describe('validateSeriesDimensions: ERR_NO_SERIES_DIMENSION', () => {
     });
 });
 
+describe('validateSeriesDimensions: drilldown', () => {
+    // A drilled-down chart draws one series per value of the root legend
+    // concept. A single value is one legitimate series, not a broken chart.
+    it('accepts a single-valued legend concept', () => {
+        expect(() => validateSeriesDimensions('drilldown', 'GEO_PICT', 'INDICATOR', singleSeriesData, twoVaryingActive)).not.toThrow();
+    });
+
+    it('accepts a multi-valued legend concept', () => {
+        expect(() => validateSeriesDimensions('drilldown', 'GEO_PICT', 'INDICATOR', twoVaryingData, twoVaryingActive)).not.toThrow();
+    });
+
+    it('fails when legend.concept is missing', () => {
+        expect(() => validateSeriesDimensions('drilldown', 'GEO_PICT', '', twoVaryingData, twoVaryingActive))
+            .toThrow('Chart type=drilldown with xAxis=GEO_PICT needs legend.concept');
+    });
+
+    it('fails when no observation carries the legend concept', () => {
+        expect(() => validateSeriesDimensions('drilldown', 'GEO_PICT', 'SEX', singleSeriesData, twoVaryingActive))
+            .toThrow('at least one observation must carry that dimension');
+    });
+
+    it('ignores legend values on observations without a value', () => {
+        const data = singleSeriesData.map((obs) => ({ ...obs, value: null as number | null }));
+        expect(() => validateSeriesDimensions('drilldown', 'GEO_PICT', 'INDICATOR', data, twoVaryingActive))
+            .toThrow('at least one observation must carry that dimension');
+    });
+});
+
 describe('validateSeriesDimensions: ERR_AMBIGUOUS_SERIES', () => {
     it('line chart with two varying non-time dimensions and no legend.concept fails', () => {
         let caught: unknown;

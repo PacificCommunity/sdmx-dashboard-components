@@ -905,6 +905,23 @@ export const applySeriesLabels = (
   }) as SeriesOption[];
 };
 
+/**
+ * ECharts hover states for a series array: the hovered series is emphasised
+ * and every other series in the grid fades. ECharts 6 defines no blur style
+ * for line series, so the opacities are set here. A chart can still opt out
+ * through extraOptions, which is merged after these options.
+ */
+export const applyHoverFocus = (series: SeriesOption[]): SeriesOption[] =>
+  series.map((s) => ({
+    ...s,
+    emphasis: { focus: 'series', scale: false, lineStyle: { width: 'bolder' } },
+    blur: {
+      lineStyle: { opacity: 0.2 },
+      itemStyle: { opacity: 0.2 },
+      label: { opacity: 0.2 },
+    },
+  } as SeriesOption));
+
 export const applyBarLabelLayout = (option: EChartsOption): boolean => {
   if (!option) return false;
   const series = Array.isArray(option.series) ? option.series : [option.series];

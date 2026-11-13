@@ -37,7 +37,12 @@ const multiSeriesResponse = () => ({
 });
 
 type AxisOption = { type?: string, name?: string, nameLocation?: string };
-type RenderedOption = { xAxis: AxisOption[], yAxis: AxisOption[], toolbox: Array<{ show?: boolean }> };
+type RenderedOption = {
+    xAxis: AxisOption[],
+    yAxis: AxisOption[],
+    toolbox: Array<{ show?: boolean }>,
+    series?: Array<{ emphasis?: { focus?: string, disabled?: boolean } }>,
+};
 
 const renderOption = async (config: Partial<SDMXChartConfig>, language = 'en'): Promise<RenderedOption> => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -117,5 +122,13 @@ describe('download flag', () => {
     it('hides the toolbox for download: false', async () => {
         const option = await renderOption({ download: false });
         expect(option.toolbox[0].show).toBe(false);
+    });
+});
+
+describe('line hover focus override', () => {
+    it('lets extraOptions switch the fade off', async () => {
+        const option = await renderOption({ extraOptions: { series: { emphasis: { disabled: true } } } });
+        expect(option.series?.[0]?.emphasis?.disabled).toBe(true);
+        expect(option.series?.[0]?.emphasis?.focus).toBe('series');
     });
 });

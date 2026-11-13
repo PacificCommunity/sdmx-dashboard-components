@@ -3,6 +3,7 @@ import type { ChartBuilder, AxisOption } from '../../utils/chartHelpers';
 import type { SeriesOption } from 'echarts';
 import type { SDMXObservation } from '../types';
 import {
+  applyHoverFocus,
   applySeriesLabels,
   buildCartesianGrid,
   buildCartesianTooltip,
@@ -96,7 +97,7 @@ export const buildLine: ChartBuilder = ({ config, numberLocale, datasets }) => {
       });
   });
 
-  const labeledSeries = applySeriesLabels(series, config, numberLocale, 'line');
+  const labeledSeries = applyHoverFocus(applySeriesLabels(series, config, numberLocale, 'line'));
   const axes = finalizeCartesianAxes(xAxis, { type: 'value' });
 
   return {

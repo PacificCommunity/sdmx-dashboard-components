@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { EChartsOption } from 'echarts';
 import { buildChartOptionFromDatasets } from './options';
 import type { ParsedDataset } from '../../utils/chartHelpers';
 import type { SDMXChartConfig } from '../types';
@@ -137,5 +138,77 @@ describe('line series order', () => {
 
     it('falls back to the series name when order is absent', () => {
         expect(seriesNames(false)).toEqual(['Alpha', 'Zeta']);
+    });
+});
+
+type HoverSeries = {
+    name?: string;
+    emphasis?: { focus?: string, lineStyle?: { width?: number | string }, disabled?: boolean };
+    blur?: {
+        lineStyle?: { opacity?: number },
+        itemStyle?: { opacity?: number },
+        label?: { opacity?: number },
+    };
+};
+
+const hoverStates = (option: EChartsOption) =>
+    option.series as unknown as HoverSeries[];
+
+const twoSeriesDataset = (): ParsedDataset => ({
+    datasetIndex: 0,
+    dimensions: [
+        {
+            id: 'SERIES',
+            name: 'Series',
+            keyPosition: 1,
+            values: [{ id: 'A', name: 'Alpha' }, { id: 'Z', name: 'Zeta' }],
+        },
+        {
+            id: 'TIME_PERIOD',
+            name: 'Time',
+            keyPosition: 2,
+            values: [{ id: '2020', name: '2020' }],
+        },
+    ],
+    data: [
+        { SERIES: 'Alpha', TIME_PERIOD: '2020', value: 1 },
+        { SERIES: 'Zeta', TIME_PERIOD: '2020', value: 2 },
+    ],
+});
+
+const expectHoverStates = (series: HoverSeries) => {
+    expect(series.emphasis?.focus).toBe('series');
+    expect(series.emphasis?.lineStyle?.width).toBe('bolder');
+    expect(series.blur?.lineStyle?.opacity).toBe(0.2);
+    expect(series.blur?.itemStyle?.opacity).toBe(0.2);
+    expect(series.blur?.label?.opacity).toBe(0.2);
+};
+
+describe('line hover focus', () => {
+    it('fades the other series when a line is hovered', () => {
+        const option = buildChartOptionFromDatasets(config, 'en', [dataset(['2022', '2023'], 'A')]).option;
+        expectHoverStates(hoverStates(option)[0]);
+    });
+
+    it('applies the same states to every series', () => {
+        const option = buildChartOptionFromDatasets(config, 'en', [twoSeriesDataset()]).option;
+        const series = hoverStates(option);
+        expect(series).toHaveLength(2);
+        series.forEach(expectHoverStates);
+    });
+
+    it('fades data labels with their line', () => {
+        const option = buildChartOptionFromDatasets({ ...config, labels: true }, 'en', [twoSeriesDataset()]).option;
+        hoverStates(option).forEach((series) => {
+            expect(series.blur?.label?.opacity).toBe(0.2);
+        });
+    });
+
+    it('leaves a column chart alone', () => {
+        const option = buildChartOptionFromDatasets({ ...config, type: 'column' }, 'en', [twoSeriesDataset()]).option;
+        hoverStates(option).forEach((series) => {
+            expect(series.emphasis?.focus).toBeUndefined();
+            expect(series.blur).toBeUndefined();
+        });
     });
 });

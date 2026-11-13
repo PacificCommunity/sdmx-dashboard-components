@@ -230,6 +230,12 @@ callback. An object-valued `extraOptions.series` is merged into every built
 series — including drilldown child series — with matching keys overridden; an
 array-valued `series` is concatenated and deduplicated onto the built series.
 
+Line charts fade the other series to 20% while the pointer is on a line, one of
+its points or its legend entry, and thicken the hovered line by a pixel. It is
+on by default; turn it off per chart with
+`extraOptions: { series: { emphasis: { disabled: true } } }`, or change the fade
+with your own `series.blur` opacity.
+
 Value axes abbreviate large numbers by default: `1,500` → `1.5k`,
 `1,500,000` → `1.5M`, `1,500,000,000` → `1.5B` (one decimal, trailing `.0`
 dropped; values under 1,000 are unchanged). This applies to the value axis of

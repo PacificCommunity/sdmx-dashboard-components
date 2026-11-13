@@ -143,7 +143,7 @@ describe('line series order', () => {
 
 type HoverSeries = {
     name?: string;
-    emphasis?: { focus?: string, lineStyle?: { width?: number | string }, disabled?: boolean };
+    emphasis?: { focus?: string, scale?: boolean, lineStyle?: { width?: number | string }, disabled?: boolean };
     blur?: {
         lineStyle?: { opacity?: number },
         itemStyle?: { opacity?: number },
@@ -178,6 +178,7 @@ const twoSeriesDataset = (): ParsedDataset => ({
 
 const expectHoverStates = (series: HoverSeries) => {
     expect(series.emphasis?.focus).toBe('series');
+    expect(series.emphasis?.scale).toBe(false);
     expect(series.emphasis?.lineStyle?.width).toBe('bolder');
     expect(series.blur?.lineStyle?.opacity).toBe(0.2);
     expect(series.blur?.itemStyle?.opacity).toBe(0.2);

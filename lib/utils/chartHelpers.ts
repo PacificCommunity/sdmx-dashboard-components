@@ -914,7 +914,7 @@ export const applySeriesLabels = (
 export const applyHoverFocus = (series: SeriesOption[]): SeriesOption[] =>
   series.map((s) => ({
     ...s,
-    emphasis: { focus: 'series', lineStyle: { width: 'bolder' } },
+    emphasis: { focus: 'series', scale: false, lineStyle: { width: 'bolder' } },
     blur: {
       lineStyle: { opacity: 0.2 },
       itemStyle: { opacity: 0.2 },

@@ -2,6 +2,7 @@ import type { EChartsOption, SeriesOption } from 'echarts';
 import type { Category, ChartBuilder, SeriesNaming, TimeDimensionLike } from '../../utils/chartHelpers';
 import type { SDMXObservation } from '../types';
 import {
+  applyHoverFocus,
   buildCartesianChartParts,
   buildCartesianGrid,
   buildCartesianTooltip,
@@ -243,7 +244,7 @@ export const buildDrilldown: ChartBuilder = (context) => {
     const seriesNames = childSeries.map(
       ({ entry }) => resolvedNames.get(entry) ?? entry.name
     );
-    const series = childSeries.map(({ entry, data }, index) => {
+    const builtSeries = childSeries.map(({ entry, data }, index) => {
       const byName = new Map(data.map((point) => [point.name, point]));
       const seriesColor = paletteColor(config, entry.legendConcept, entry.id) ?? child.pointColor;
       // with several series the colour identifies the series, so the
@@ -272,6 +273,8 @@ export const buildDrilldown: ChartBuilder = (context) => {
           : {}),
       } as SeriesOption;
     });
+    // a time child is a line chart: hovering one series fades the others
+    const series = child.isTime ? applyHoverFocus(builtSeries) : builtSeries;
     drilldownOptions[drilldownId] = {
       title: buildEchartsTitle(
         config,

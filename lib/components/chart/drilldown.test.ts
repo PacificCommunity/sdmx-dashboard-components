@@ -18,6 +18,12 @@ type ChildOption = {
     }>;
 };
 
+type HoverChildSeries = {
+    type: string;
+    emphasis?: { focus?: string },
+    blur?: { lineStyle?: { opacity?: number } },
+};
+
 const dimensions = (
     drilldownConcept: string,
     drilldownValues: string[],
@@ -299,5 +305,31 @@ describe('drilldown with several legend series', () => {
         expect(child?.series.map((series) => series.name)).toEqual(['Youth NEET']);
         expect(child?.series[0].type).toBe('bar');
         expect(child?.series[0].data.map((point) => point.value)).toEqual([10, 20]);
+    });
+});
+
+describe('drilldown hover focus', () => {
+    it('fades the other series in a time drilldown child', () => {
+        const built = buildChartOptionFromDatasets(timeConfig, 'en', [timeDataset()]);
+        const { child } = childFor(built, 'Fiji');
+        const series = child?.series as unknown as HoverChildSeries[];
+        expect(series.length).toBeGreaterThan(0);
+        expect(series.every((s) => s.type === 'line')).toBe(true);
+        series.forEach((s) => {
+            expect(s.emphasis?.focus).toBe('series');
+            expect(s.blur?.lineStyle?.opacity).toBe(0.2);
+        });
+    });
+
+    it('leaves a category drilldown child (bars) alone', () => {
+        const built = buildChartOptionFromDatasets(ageConfig, 'en', [ageDataset()]);
+        const { child } = childFor(built, 'Fiji');
+        const series = child?.series as unknown as HoverChildSeries[];
+        expect(series.length).toBeGreaterThan(0);
+        expect(series.every((s) => s.type === 'bar')).toBe(true);
+        series.forEach((s) => {
+            expect(s.emphasis).toBeUndefined();
+            expect(s.blur).toBeUndefined();
+        });
     });
 });

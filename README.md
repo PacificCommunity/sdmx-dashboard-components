@@ -319,6 +319,10 @@ For `column`-like representation (`column`, `bar`, `drilldown`, `lollipop`), the
 />
 ```
 
+### Series order
+
+Series follow the `ORDER` annotation carried by the legend dimension values when the source provides one, then the value's SDMX `order`; values with neither come after those that have one. Ties and sources with neither fall back to the dimension value code, or to the value label for line charts. `sortByValue` orders the x-axis categories only, not the series.
+
 ### Choosing the observation
 
 When the data contains more than one observation per x-axis category, `column`, `bar`, `lollipop` and `treemap` charts show the observation for the latest `TIME_PERIOD` with a non-empty value. Empty means `null`, `undefined`, `""`, or `NaN`; `0` is a valid value. If the latest period is empty, the most recent earlier period with a value is used. `drilldown` applies the same rule to its root values. Time drilldowns keep the full period series in the child chart; a drilldown over another dimension uses the latest period with a non-empty `Total` value for the root (falling back to a non-`Total` row only when no `Total` exists), and shows that period's breakdown. A child chart keeps every `legend` series that has data for the clicked category, so drilling into a multi-series column shows a multi-series chart.

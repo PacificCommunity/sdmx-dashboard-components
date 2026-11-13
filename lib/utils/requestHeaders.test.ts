@@ -20,6 +20,9 @@ vi.mock('sdmx-json-parser', () => {
     getAttributes(): unknown[] {
       return [];
     }
+    getAnnotations(): unknown[] {
+      return [];
+    }
   }
   return { SDMXParser };
 });

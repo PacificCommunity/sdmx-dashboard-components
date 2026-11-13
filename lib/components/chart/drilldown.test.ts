@@ -169,6 +169,51 @@ const youthNeetDataset = (): ParsedDataset => {
     };
 };
 
+// Two sexes with an SDMX order that opposes their codes (M before F).
+const orderedTimeDataset = (): ParsedDataset => {
+    const data: ParsedDataset['data'] = [];
+    ['F', 'M'].forEach((sex) => {
+        ['2020', '2021'].forEach((period, periodIndex) => {
+            data.push({
+                GEO_PICT: 'Fiji',
+                SEX: sex,
+                TIME_PERIOD: period,
+                value: (sex === 'M' ? 10 : 0) + periodIndex
+            });
+        });
+    });
+    return {
+        datasetIndex: 0,
+        dimensions: [
+            {
+                id: 'GEO_PICT',
+                name: 'Country',
+                keyPosition: 0,
+                values: [{ id: 'FJ', name: 'Fiji' }]
+            },
+            {
+                id: 'SEX',
+                name: 'Sex',
+                keyPosition: 1,
+                values: [
+                    { id: 'F', name: 'F', order: 2 },
+                    { id: 'M', name: 'M', order: 1 }
+                ]
+            },
+            {
+                id: 'TIME_PERIOD',
+                name: 'Time',
+                keyPosition: 2,
+                values: [
+                    { id: '2020', name: '2020', start: '2020' },
+                    { id: '2021', name: '2021', start: '2021' }
+                ]
+            }
+        ],
+        data
+    };
+};
+
 const childFor = (built: BuiltChart, category: string) => {
     const rootSeries = built.option.series as unknown as RootSeries[];
     const ids = new Set<string>();
@@ -232,6 +277,15 @@ describe('drilldown with several legend series', () => {
             [30, 70],
             [40, 80]
         ]);
+    });
+
+    it('orders the root and child series by the SDMX order', () => {
+        const built = buildChartOptionFromDatasets(timeConfig, 'en', [orderedTimeDataset()]);
+        const rootSeries = built.option.series as unknown as RootSeries[];
+        expect(rootSeries.map((series) => series.name)).toEqual(['M', 'F']);
+
+        const { child } = childFor(built, 'Fiji');
+        expect(child?.series.map((series) => series.name)).toEqual(['M', 'F']);
     });
 
     it('keeps a single-valued legend as one series broken down by the drilldown dimension', () => {

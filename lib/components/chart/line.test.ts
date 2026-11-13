@@ -99,3 +99,43 @@ describe('line chart time axis', () => {
         expect(build(periods, freq).xAxis.axisLabel?.hideOverlap).toBe(true);
     });
 });
+
+describe('line series order', () => {
+    const seriesDataset = (withOrder: boolean): ParsedDataset => ({
+        datasetIndex: 0,
+        dimensions: [
+            {
+                id: 'SERIES',
+                name: 'Series',
+                keyPosition: 1,
+                values: [
+                    { id: 'A', name: 'Alpha', ...(withOrder ? { order: 2 } : {}) },
+                    { id: 'Z', name: 'Zeta', ...(withOrder ? { order: 1 } : {}) }
+                ]
+            },
+            {
+                id: 'TIME_PERIOD',
+                name: 'Time',
+                keyPosition: 2,
+                values: [{ id: '2020', name: '2020' }]
+            }
+        ],
+        data: [
+            { SERIES: 'Alpha', TIME_PERIOD: '2020', value: 1 },
+            { SERIES: 'Zeta', TIME_PERIOD: '2020', value: 2 }
+        ]
+    });
+
+    const seriesNames = (withOrder: boolean) => {
+        const option = buildChartOptionFromDatasets(config, 'en', [seriesDataset(withOrder)]).option;
+        return (option.series as unknown as Array<{ name: string }>).map((series) => series.name);
+    };
+
+    it('sorts series by the SDMX order when present', () => {
+        expect(seriesNames(true)).toEqual(['Zeta', 'Alpha']);
+    });
+
+    it('falls back to the series name when order is absent', () => {
+        expect(seriesNames(false)).toEqual(['Alpha', 'Zeta']);
+    });
+});

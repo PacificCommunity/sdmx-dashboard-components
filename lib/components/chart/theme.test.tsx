@@ -122,7 +122,7 @@ describe('SDMXTheme on the chart', () => {
 describe('number locale', () => {
     it('formats the chart\'s data table and the table visual with the theme locale', async () => {
         await renderChart(<Chart config={config()} language="en" theme={{ numberFormat: { locale: 'de-DE' } }} />);
-        const table = screen.getByRole('table');
+        const table = await screen.findByRole('table');
         expect(within(table).getByText('1.000,5')).toBeTruthy();
         cleanup();
 
@@ -155,7 +155,7 @@ describe('theme fonts on the table and the value', () => {
 describe('hidden data table', () => {
     it('renders every observation under the chart, visually hidden', async () => {
         await renderChart(<Chart config={config()} language="en" />);
-        const table = screen.getByRole('table');
+        const table = await screen.findByRole('table');
         expect(within(table).getByText('Population by country')).toBeTruthy();
         const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent);
         expect(headers).toEqual(['TIME_PERIOD', 'Fiji', 'Samoa']);
